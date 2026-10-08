@@ -30,6 +30,8 @@ data class DownloadOutcome(val totalBytes: Long, val validators: ResumeValidator
 sealed class DownloadException(message: String, cause: Throwable? = null) : IOException(message, cause) {
     /** Worth retrying later: connection lost, timeout, 5xx. */
     class Transient(message: String, cause: Throwable? = null) : DownloadException(message, cause)
+    /** 429/503: the server is overloaded or limits simultaneous downloads; worth retrying later. */
+    class Busy(val code: Int) : DownloadException("Server busy (HTTP $code)")
     class AccessDenied(val code: Int) : DownloadException("Access denied (HTTP $code)")
     class NotFound : DownloadException("File not found (HTTP 404)")
     class Http(val code: Int) : DownloadException("HTTP $code")
@@ -123,7 +125,8 @@ class HttpFileDownloader(
                 }
                 401, 403 -> throw DownloadException.AccessDenied(response.code)
                 404, 410 -> throw DownloadException.NotFound()
-                408, 429, in 500..599 -> throw DownloadException.Transient("HTTP ${response.code}")
+                429, 503 -> throw DownloadException.Busy(response.code)
+                408, in 500..599 -> throw DownloadException.Transient("HTTP ${response.code}")
                 else -> throw DownloadException.Http(response.code)
             }
 

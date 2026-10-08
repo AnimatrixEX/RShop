@@ -189,6 +189,29 @@ interface GameDao {
         setDownloadArtwork(id, coverUrl)
     }
 
+    /** Games whose download counter was never looked up and whose page was never read, newest first. */
+    @Query(
+        """
+        SELECT id FROM games
+        WHERE download_count IS NULL AND stats_checked_at IS NULL AND details_synced_at IS NULL
+        ORDER BY added_at DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun pendingStats(limit: Int): List<String>
+
+    /** [count] null: the page shows no counter; the game is not asked about again. */
+    @Query(
+        """
+        UPDATE games SET
+          download_count = COALESCE(:count, download_count),
+          popularity = CASE WHEN :count IS NULL THEN popularity ELSE MIN(:count, 2147483647) END,
+          stats_checked_at = :checkedAt
+        WHERE id = :id
+        """,
+    )
+    suspend fun setStats(id: String, count: Long?, checkedAt: Long)
+
     @Query("UPDATE games SET artwork_checked_at = NULL")
     suspend fun resetArtwork()
 

@@ -320,7 +320,7 @@ class DownloadWorker @AssistedInject constructor(
 
     companion object {
         const val KEY_GAME_ID = "game_id"
-        private const val MAX_TRANSIENT_RETRIES = 5
+        private const val MAX_TRANSIENT_RETRIES = 8
         private const val DB_WRITE_INTERVAL_MS = 1_000L
         private const val NOTIFICATION_INTERVAL_MS = 1_000L
     }

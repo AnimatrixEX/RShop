@@ -14,6 +14,7 @@ import com.rshop.scraper.http.Challenge
 import com.rshop.scraper.http.FetchResult
 import com.rshop.scraper.http.HtmlFetcher
 import com.rshop.scraper.http.RemoteFile
+import com.rshop.scraper.http.ServerBusy
 import com.rshop.scraper.model.CatalogPage
 import com.rshop.scraper.model.CatalogSection
 import com.rshop.scraper.model.DownloadInfo
@@ -262,6 +263,12 @@ class WebsiteSource(
             is FetchResult.File -> fileDetails(id, result.file)
         }
 
+    override suspend fun getDownloadCount(id: String): Long? {
+        if (config.details.downloadCount.isEmpty()) return null
+        val document = (fetcher.open(detailsUrl(id), interval) as? FetchResult.Page)?.document ?: return null
+        return CountParser.parse(document.firstOf(config.details.downloadCount))
+    }
+
     /**
      * When the game page has a single "Download" button leading to a page that lists several
      * files (a table with one row per format or version), those files become the options.
@@ -437,6 +444,10 @@ class WebsiteSource(
                 delay(waitSeconds.seconds)
             }
             val next = nextDownloadLink(document, visited) ?: throw whyNoLink(document, current)
+            // An overloaded site shows a notice (and still its menu links): that is a wait, not a hop.
+            if (next.pathSegments.last().none { it == '.' } && ServerBusy.isBusy(document)) {
+                throw ScraperException.Busy(current.toString())
+            }
             log.debug("Download hop ${hop + 1}: $current -> $next")
             sourcePage = current.toString()
             from = current
@@ -448,6 +459,7 @@ class WebsiteSource(
     /** The most precise reason why [document] offers no link RShop can follow. */
     private fun whyNoLink(document: Document, page: HttpUrl): ScraperException {
         if (Challenge.hasCaptcha(document)) return ScraperException.Captcha(page.toString())
+        if (ServerBusy.isBusy(document)) return ScraperException.Busy(page.toString())
         val buttons = document.select("a, button, input[type=submit], input[type=button]").filter { element ->
             DOWNLOAD_TEXT.containsMatchIn(element.text().ifBlank { element.attr("value") })
         }

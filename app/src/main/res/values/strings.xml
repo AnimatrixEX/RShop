@@ -165,6 +165,7 @@
     <string name="action_info">Voir la fiche</string>
     <string name="action_close">Fermer</string>
     <string name="action_choose_folder">Choisir le dossier</string>
+    <string name="dl_error_busy">serveur du site occupé (nouvel essai automatique)</string>
     <string name="dl_error_network">connexion perdue (nouvel essai automatique)</string>
     <string name="dl_error_access_denied">le serveur refuse le téléchargement</string>
     <string name="dl_error_not_found">fichier introuvable sur le serveur</string>
@@ -182,6 +183,13 @@
     <string name="dl_error_no_link">aucun lien de téléchargement utilisable pour ce jeu</string>
     <string name="dl_error_stream_lost">transfert depuis le navigateur interrompu, relance-le depuis la page du jeu</string>
     <string name="dl_error_unknown">erreur inattendue</string>
+    <string name="sync_active_title">Synchronisation automatique active</string>
+    <string name="sync_active_body">Le catalogue est mis à jour au lancement, puis les compteurs de téléchargements sont lus en arrière-plan.</string>
+    <string name="sync_paused_title">Synchronisation en pause</string>
+    <string name="sync_paused_body">Rien n’est mis à jour tant que vous ne la reprenez pas. Les boutons « Synchroniser » des sources restent utilisables.</string>
+    <string name="sync_pause">Mettre en pause</string>
+    <string name="sync_resume">Reprendre</string>
+    <string name="card_installed">Installé</string>
     <string name="details_installed">Installé · v%1$s</string>
     <string name="details_installed_noversion">Installé</string>
     <string name="details_update_available">Mise à jour disponible : v%1$s</string>

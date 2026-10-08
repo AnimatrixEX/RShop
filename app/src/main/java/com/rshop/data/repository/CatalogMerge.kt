@@ -37,6 +37,7 @@ internal object CatalogMerge {
             // A new version means the files and hash on the game page changed too.
             detailsSyncedAt = if (versionChanged) null else old.detailsSyncedAt,
             artworkCheckedAt = old.artworkCheckedAt,
+            statsCheckedAt = old.statsCheckedAt,
         )
     }
 
@@ -63,6 +64,8 @@ internal object CatalogMerge {
             lastSyncedAt = old?.lastSyncedAt ?: now,
             detailsSyncedAt = now,
             artworkCheckedAt = old?.artworkCheckedAt,
+            // The page was read: its counter, if any, is in downloadCount.
+            statsCheckedAt = now,
         )
     }
 

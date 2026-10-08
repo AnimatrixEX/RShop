@@ -9,10 +9,12 @@ import com.rshop.R
 import com.rshop.data.artwork.ArtworkScheduler
 import com.rshop.data.source.SourceRepository
 import com.rshop.data.work.AppNotifications
+import com.rshop.domain.repository.SettingsRepository
 import com.rshop.scraper.ScraperException
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import timber.log.Timber
 
 /**
@@ -27,6 +29,8 @@ class CatalogSyncWorker @AssistedInject constructor(
     private val status: SyncStatusStore,
     private val notifications: AppNotifications,
     private val artworkScheduler: ArtworkScheduler,
+    private val downloadCountScheduler: DownloadCountScheduler,
+    private val settings: SettingsRepository,
     private val sources: SourceRepository,
 ) : CoroutineWorker(context, params) {
 
@@ -53,6 +57,8 @@ class CatalogSyncWorker @AssistedInject constructor(
             status.recordSuccess(sourceId, outcome.games, fullScan = outcome.fullScan)
             // New games have no cover yet: SteamGridDB is asked for them.
             artworkScheduler.schedule()
+            // Download counters that listings do not show are read from the game pages.
+            if (!settings.settings.first().syncPaused) downloadCountScheduler.schedule()
             Result.success()
         } catch (e: CancellationException) {
             throw e

@@ -9,5 +9,6 @@ interface SettingsRepository {
     suspend fun setGamesDirectoryUri(uri: String?)
     suspend fun setWifiOnly(enabled: Boolean)
     suspend fun setDeleteArchivesAfterInstall(enabled: Boolean)
+    suspend fun setSyncPaused(paused: Boolean)
     suspend fun setTheme(theme: ThemeSettings)
 }

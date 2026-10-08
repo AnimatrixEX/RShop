@@ -11,6 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.stringResource
+import com.rshop.R
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,6 +61,18 @@ fun GameCard(
                 .aspectRatio(Dimens.CoverAspectRatio),
         ) {
             GameCover(game = game, showTitle = game.coverUrl == null, modifier = Modifier.fillMaxSize())
+            if (game.id in LocalInstalledIds.current) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = stringResource(R.string.card_installed),
+                    tint = RShopColors.Success,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(22.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                )
+            }
             game.platform?.let { platform ->
                 Text(
                     text = platform,

@@ -6,7 +6,7 @@ enum class DownloadStatus { Queued, Downloading, Paused, Verifying, Installing, 
 }
 
 enum class DownloadErrorKind {
-    Network, AccessDenied, NotFound, Http, Html, Storage, TooLarge, Checksum, Rejected,
+    Network, Busy, AccessDenied, NotFound, Http, Html, Storage, TooLarge, Checksum, Rejected,
     NoDirectory, DirectoryLost, UnsafeArchive, Corrupt, Unsupported, NoLink, StreamLost, Unknown,
 }
 

@@ -5,5 +5,7 @@ data class AppSettings(
     val gamesDirectoryUri: String? = null,
     val wifiOnly: Boolean = true,
     val deleteArchivesAfterInstall: Boolean = true,
+    /** Catalogue syncs (automatic ones, download counters) are off until the user turns them back on. */
+    val syncPaused: Boolean = false,
     val theme: ThemeSettings = ThemeSettings(),
 )

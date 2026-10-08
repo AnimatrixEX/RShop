@@ -32,6 +32,7 @@ fun Throwable.toSourceError(): SourceError = when (this) {
     is ScraperException.BlockedByRobots -> SourceError(SourceErrorKind.Robots, url)
     is ScraperException.StructureChanged -> SourceError(SourceErrorKind.Structure, message)
     is ScraperException.Http -> SourceError(SourceErrorKind.Http, "HTTP $code")
+    is ScraperException.Busy -> SourceError(SourceErrorKind.Http, "HTTP 503")
     is ScraperException.InvalidContent -> SourceError(SourceErrorKind.InvalidContent, message)
     is NoSourceConfiguredException -> SourceError(SourceErrorKind.NoSource, null)
     is IOException -> SourceError(SourceErrorKind.Network, message)

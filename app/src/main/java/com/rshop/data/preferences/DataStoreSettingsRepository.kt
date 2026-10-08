@@ -47,6 +47,7 @@ class DataStoreSettingsRepository @Inject constructor(
                 gamesDirectoryUri = prefs[Keys.GamesDirectoryUri],
                 wifiOnly = prefs[Keys.WifiOnly] ?: true,
                 deleteArchivesAfterInstall = prefs[Keys.DeleteArchives] ?: true,
+                syncPaused = prefs[Keys.SyncPaused] ?: false,
                 theme = ThemeSettings(
                     base = prefs[Keys.ThemeBase].toEnum(ThemeBase.Night),
                     accent = prefs[Keys.ThemeAccent].toEnum(ThemeAccent.Blue),
@@ -71,6 +72,10 @@ class DataStoreSettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.DeleteArchives] = enabled }
     }
 
+    override suspend fun setSyncPaused(paused: Boolean) {
+        dataStore.edit { it[Keys.SyncPaused] = paused }
+    }
+
     override suspend fun setTheme(theme: ThemeSettings) {
         dataStore.edit { prefs ->
             prefs[Keys.ThemeBase] = theme.base.name
@@ -89,6 +94,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val GamesDirectoryUri = stringPreferencesKey("games_directory_uri")
         val WifiOnly = booleanPreferencesKey("wifi_only")
         val DeleteArchives = booleanPreferencesKey("delete_archives_after_install")
+        val SyncPaused = booleanPreferencesKey("sync_paused")
         val ThemeBase = stringPreferencesKey("theme_base")
         val ThemeAccent = stringPreferencesKey("theme_accent")
         val FocusStyle = stringPreferencesKey("theme_focus")

@@ -100,7 +100,7 @@ class HtmlFetcher(
                             val wait = retryAfter(response) ?: backoff
                             log.warn("HTTP ${response.code} for $url, backing off $wait")
                             rateLimiter.backOff(url.host, wait)
-                            lastError = ScraperException.Http(url.toString(), response.code)
+                            lastError = ScraperException.Busy(url.toString())
                         }
                         response.code >= 500 -> {
                             log.warn("HTTP ${response.code} for $url (attempt ${attempt + 1})")

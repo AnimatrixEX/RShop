@@ -53,6 +53,11 @@ data class GameEntity(
      * possibly none); null while never asked. Site covers are not used.
      */
     @ColumnInfo(name = "artwork_checked_at") val artworkCheckedAt: Long? = null,
+    /**
+     * When the game page was last read for its download counter, which many listings do not
+     * show; null while never looked up (or while the listing gives the counter itself).
+     */
+    @ColumnInfo(name = "stats_checked_at") val statsCheckedAt: Long? = null,
 )
 
 /** Full-text index kept in sync with [GameEntity] by triggers Room generates. */

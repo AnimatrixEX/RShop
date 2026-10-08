@@ -6,6 +6,8 @@ import androidx.paging.testing.asSnapshot
 import androidx.test.core.app.ApplicationProvider
 import com.rshop.data.source.SourceManager
 import com.rshop.data.source.SourceRepository
+import com.rshop.data.preferences.DataStoreSettingsRepository
+import com.rshop.data.sync.DownloadCountScheduler
 import com.rshop.data.sync.SyncScheduler
 import com.rshop.data.sync.SyncStatusStore
 import com.rshop.testing.fixedClock
@@ -67,7 +69,7 @@ class StoreViewModelTest {
         val sourceManager = SourceManager(
             sources = sources,
             games = db.repository(),
-            scheduler = SyncScheduler(context, status, sources, clock),
+            scheduler = SyncScheduler(context, status, sources, clock, DataStoreSettingsRepository(context), DownloadCountScheduler(context)),
             status = status,
             clock = clock,
         )

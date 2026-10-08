@@ -8,6 +8,7 @@ import java.io.IOException
 
 fun Throwable.toDownloadError(): DownloadError = when (this) {
     is DownloadException.Transient -> DownloadError(DownloadErrorKind.Network, message)
+    is DownloadException.Busy, is ScraperException.Busy -> DownloadError(DownloadErrorKind.Busy)
     is DownloadException.AccessDenied -> DownloadError(DownloadErrorKind.AccessDenied, "HTTP $code")
     is DownloadException.NotFound -> DownloadError(DownloadErrorKind.NotFound)
     is DownloadException.Http -> DownloadError(DownloadErrorKind.Http, "HTTP $code")
@@ -32,4 +33,4 @@ fun Throwable.toDownloadError(): DownloadError = when (this) {
 }
 
 /** Errors a later automatic retry can fix. */
-val DownloadError.isTransient: Boolean get() = kind == DownloadErrorKind.Network
+val DownloadError.isTransient: Boolean get() = kind == DownloadErrorKind.Network || kind == DownloadErrorKind.Busy

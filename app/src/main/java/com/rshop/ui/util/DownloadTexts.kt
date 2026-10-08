@@ -15,6 +15,7 @@ fun downloadErrorText(error: DownloadError): String = LocalContext.current.downl
 
 fun Context.downloadErrorMessage(error: DownloadError): String = when (error.kind) {
     DownloadErrorKind.Network -> getString(R.string.dl_error_network)
+    DownloadErrorKind.Busy -> getString(R.string.dl_error_busy)
     DownloadErrorKind.AccessDenied -> getString(R.string.dl_error_access_denied)
     DownloadErrorKind.NotFound -> getString(R.string.dl_error_not_found)
     DownloadErrorKind.Http -> getString(R.string.dl_error_http, error.detail.orEmpty())

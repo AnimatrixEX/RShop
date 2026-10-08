@@ -9,11 +9,13 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.rshop.data.source.SourceRepository
+import com.rshop.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.first
 import androidx.work.workDataOf
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import java.time.Clock
 import java.time.Duration
@@ -42,6 +44,8 @@ class SyncScheduler @Inject constructor(
     private val status: SyncStatusStore,
     private val sources: SourceRepository,
     private val clock: Clock,
+    private val settings: SettingsRepository,
+    private val downloadCounts: DownloadCountScheduler,
 ) {
     private val workManager by lazy { WorkManager.getInstance(context) }
 
@@ -94,13 +98,38 @@ class SyncScheduler @Inject constructor(
         if (sourceId == null) workManager.cancelAllWorkByTag(TAG) else workManager.cancelUniqueWork(workName(sourceId))
     }
 
-    /** Startup sync: the UI shows the local catalogue at once and is refreshed when this ends. */
-    suspend fun syncIfStale(maxAge: Duration = DEFAULT_MAX_AGE) {
+    /** True while the user has switched synchronisation off "until further notice". */
+    val paused: Flow<Boolean> = settings.settings.map { it.syncPaused }.distinctUntilChanged()
+
+    suspend fun isPaused(): Boolean = paused.first()
+
+    /**
+     * Switches automatic synchronisation off or on. Pausing also stops what is running; the
+     * "Sync" buttons of the sources still work, as they are explicit requests.
+     */
+    suspend fun setPaused(paused: Boolean) {
+        settings.setSyncPaused(paused)
+        if (paused) {
+            cancel()
+            downloadCounts.cancel()
+        }
+    }
+
+    /**
+     * Startup sync: the UI shows the local catalogue at once and is refreshed when this ends.
+     * Returns whether a sync was queued.
+     */
+    suspend fun syncIfStale(maxAge: Duration = DEFAULT_MAX_AGE): Boolean {
         val records = status.records.first()
+        var enqueued = false
         sources.all().forEach { config ->
             val last = records[config.id]?.lastSuccessAt
-            if (last == null || Duration.between(last, clock.instant()) > maxAge) enqueue(config.id, restart = false, full = false)
+            if (last == null || Duration.between(last, clock.instant()) > maxAge) {
+                enqueue(config.id, restart = false, full = false)
+                enqueued = true
+            }
         }
+        return enqueued
     }
 
     private fun enqueue(sourceId: String, restart: Boolean, full: Boolean) {

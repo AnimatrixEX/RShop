@@ -83,6 +83,9 @@ interface InstalledGameDao {
     )
     fun observeWithCatalog(gameId: String): Flow<InstalledWithCatalog?>
 
+    @Query("SELECT game_id FROM installed_games")
+    fun observeIds(): Flow<List<String>>
+
     @Query("SELECT * FROM installed_games ORDER BY title COLLATE NOCASE")
     fun observeAll(): Flow<List<InstalledGameEntity>>
 

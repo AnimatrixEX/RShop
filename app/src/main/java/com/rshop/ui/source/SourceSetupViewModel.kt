@@ -82,9 +82,15 @@ data class SourceSetupUiState(
 class SourceSetupViewModel @Inject constructor(
     private val sourceManager: SourceManager,
     private val documents: TextDocuments,
-    scheduler: SyncScheduler,
+    private val scheduler: SyncScheduler,
     games: GameRepository,
 ) : ViewModel() {
+
+    val syncPaused: StateFlow<Boolean> = scheduler.paused.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setSyncPaused(paused: Boolean) {
+        viewModelScope.launch { scheduler.setPaused(paused) }
+    }
 
     private val _state = MutableStateFlow(SourceSetupUiState())
     val state: StateFlow<SourceSetupUiState> = _state.asStateFlow()

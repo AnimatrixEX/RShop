@@ -56,6 +56,12 @@ interface GameRepository {
     /** Ids of every game already stored for [sourceId] (incremental syncs skip them). */
     suspend fun knownGameIds(sourceId: String): Set<String>
 
+    /** Ids of up to [limit] games whose download counter was never looked up (see [saveDownloadCount]). */
+    suspend fun gamesWithoutStats(limit: Int): List<String>
+
+    /** Stores the counter read from a game page; [count] null: the page shows none. */
+    suspend fun saveDownloadCount(id: String, count: Long?)
+
     /** Number of games per source id. */
     fun observeCountsBySource(): Flow<Map<String, Int>>
 }

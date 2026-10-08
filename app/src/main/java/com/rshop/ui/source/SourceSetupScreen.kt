@@ -76,6 +76,7 @@ fun SourceSetupScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sources by viewModel.sources.collectAsStateWithLifecycle()
+    val syncPaused by viewModel.syncPaused.collectAsStateWithLifecycle()
     var confirmRemove by remember { mutableStateOf<SourceItem?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -134,6 +135,7 @@ fun SourceSetupScreen(
                     modifier = Modifier.padding(horizontal = Dimens.ScreenPadding),
                 )
             }
+            item { SyncPauseCard(paused = syncPaused, onToggle = { viewModel.setSyncPaused(!syncPaused) }) }
             if (sources.isEmpty()) {
                 item {
                     Text(
@@ -185,6 +187,38 @@ fun SourceSetupScreen(
                 }) { Text(stringResource(R.string.source_remove)) }
             },
             dismissButton = { TextButton(onClick = { confirmRemove = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+}
+
+/** Switches every automatic synchronisation off "until further notice", and back on. */
+@Composable
+private fun SyncPauseCard(paused: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier
+            .padding(horizontal = Dimens.ScreenPadding)
+            .fillMaxWidth()
+            .background(RShopColors.Surface, RoundedCornerShape(16.dp))
+            .padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(if (paused) R.string.sync_paused_title else R.string.sync_active_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = if (paused) RShopColors.Warning else RShopColors.TextPrimary,
+            )
+            Text(
+                stringResource(if (paused) R.string.sync_paused_body else R.string.sync_active_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = RShopColors.TextSecondary,
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        ConsoleButton(
+            stringResource(if (paused) R.string.sync_resume else R.string.sync_pause),
+            onClick = onToggle,
+            style = if (paused) ConsoleButtonStyle.Primary else ConsoleButtonStyle.Secondary,
         )
     }
 }

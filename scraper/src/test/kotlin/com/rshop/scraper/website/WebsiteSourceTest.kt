@@ -90,6 +90,11 @@ class WebsiteSourceTest {
     }
 
     @Test
+    fun `the download counter alone is read from the game page`() = runTest {
+        assertEquals(12_345L, source().getDownloadCount("/game/neon-drift"))
+    }
+
+    @Test
     fun `game page details and download validation`() = runTest {
         val details = source().getGameDetails("/game/neon-drift")
 

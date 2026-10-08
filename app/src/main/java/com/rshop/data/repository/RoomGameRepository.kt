@@ -120,6 +120,10 @@ class RoomGameRepository @Inject constructor(
 
     override suspend fun knownGameIds(sourceId: String): Set<String> = gameDao.idsOfSource(sourceId).toHashSet()
 
+    override suspend fun gamesWithoutStats(limit: Int): List<String> = gameDao.pendingStats(limit)
+
+    override suspend fun saveDownloadCount(id: String, count: Long?) = gameDao.setStats(id, count, clock.millis())
+
     override fun observeCountsBySource(): Flow<Map<String, Int>> =
         gameDao.observeCountsBySource().map { counts -> counts.associate { it.sourceId to it.games } }
 

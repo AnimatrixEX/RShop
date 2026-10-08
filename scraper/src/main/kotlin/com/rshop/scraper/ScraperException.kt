@@ -9,6 +9,9 @@ sealed class ScraperException(message: String, cause: Throwable? = null) : Excep
     /** Unexpected HTTP status after retries (5xx, 404…). */
     class Http(val url: String, val code: Int) : ScraperException("HTTP $code for $url")
 
+    /** The site is overloaded (429/503 after retries, or a "server is busy" page): worth trying again later. */
+    class Busy(val url: String) : ScraperException("Server busy at $url, try again later")
+
     /** 401/403: the site requires authentication or refuses automated access. Never bypassed. */
     class AccessDenied(val url: String, val code: Int) : ScraperException("Access denied (HTTP $code) for $url")
 

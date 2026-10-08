@@ -50,6 +50,13 @@ interface GameSource {
     suspend fun getGameDetails(id: String): ScrapedGameDetails
 
     /**
+     * The download counter of a game, read from its page; null when the page shows none. Listings
+     * that do not show the counter leave it to this call, one request per game. Sources without
+     * a counter keep the default.
+     */
+    suspend fun getDownloadCount(id: String): Long? = null
+
+    /**
      * Turns a download link (direct, redirecting, or a chain of download pages) into a URL that
      * serves the file, honoring any wait the site imposes. Never bypasses a CAPTCHA or login:
      * those end in a [ScraperException]. [referer] is the game page the link was found on.

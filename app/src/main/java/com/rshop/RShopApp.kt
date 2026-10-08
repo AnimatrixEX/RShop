@@ -12,6 +12,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.rshop.data.artwork.ArtworkResolver
 import com.rshop.data.artwork.ArtworkScheduler
+import com.rshop.data.sync.DownloadCountScheduler
 import com.rshop.data.demo.DemoCatalogSeeder
 import com.rshop.data.source.SourceRepository
 import com.rshop.data.sync.SyncScheduler
@@ -58,6 +59,9 @@ class RShopApp : Application(), SingletonImageLoader.Factory, Configuration.Prov
     lateinit var artworkResolver: ArtworkResolver
 
     @Inject
+    lateinit var downloadCountScheduler: DownloadCountScheduler
+
+    @Inject
     @ApplicationScope
     lateinit var applicationScope: CoroutineScope
 
@@ -75,7 +79,9 @@ class RShopApp : Application(), SingletonImageLoader.Factory, Configuration.Prov
             if (sourceRepository.all().isEmpty()) {
                 demoCatalogSeeder.seedIfEmpty()
             } else {
-                syncScheduler.syncIfStale()
+                // A sync starts the counter lookup itself when it ends; otherwise do it now.
+                // Nothing starts while the user has paused synchronisation.
+                if (!syncScheduler.isPaused() && !syncScheduler.syncIfStale()) downloadCountScheduler.schedule()
             }
         }
     }
