@@ -323,4 +323,13 @@
     <string name="list_picker_title">Ajouter à une liste</string>
     <string name="list_picker_none">Aucune liste pour le moment : crées-en une.</string>
     <string name="source_rescan">Tout rescanner</string>
+    <string name="library_storage_title">Stockage</string>
+    <string name="library_storage_games">%1$s utilisés par les jeux</string>
+    <string name="library_storage_free">%1$s libres sur %2$s</string>
+    <string name="library_storage_others">Autres</string>
+    <string name="library_format">Format : %1$s</string>
+    <string name="source_speed">Vitesse : %1$s</string>
+    <string name="source_speed_careful">prudente</string>
+    <string name="source_speed_normal">normale</string>
+    <string name="source_speed_fast">rapide</string>
 </resources>

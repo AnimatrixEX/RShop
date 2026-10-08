@@ -23,6 +23,8 @@ data class ExtractionResult(
     val files: Int,
     /** Distinct first path segments, used to decide the final layout. */
     val topLevelNames: Set<String>,
+    /** Distinct file formats written, most common first ("GBA", "BIN + CUE"); see [FileFormats]. */
+    val formats: List<String> = emptyList(),
 )
 
 sealed class InstallException(message: String, cause: Throwable? = null) : IOException(message, cause) {

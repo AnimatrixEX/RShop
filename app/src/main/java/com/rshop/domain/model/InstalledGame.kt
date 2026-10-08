@@ -13,6 +13,8 @@ data class InstalledGame(
     val inCatalog: Boolean,
     val sizeOnDisk: Long?,
     val installedAt: Instant,
+    /** Format of the installed files ("GBA", "BIN + CUE"); null when not known yet. */
+    val fileFormat: String? = null,
 ) {
     /** Phase 9 replaces this plain comparison with real version ordering. */
     val updateAvailable: Boolean

@@ -52,7 +52,7 @@ class ArtworkWorker @AssistedInject constructor(
     }
 
     private companion object {
-        const val BATCH = 25
+        const val BATCH = 60
         /** Well under WorkManager's 10-minute limit for plain workers. */
         const val ROUND_MS = 7 * 60_000L
         const val MAX_RETRIES = 3

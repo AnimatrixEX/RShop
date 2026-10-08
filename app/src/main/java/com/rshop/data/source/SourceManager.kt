@@ -52,6 +52,12 @@ class SourceManager @Inject constructor(
 
     suspend fun syncNow(sourceId: String, full: Boolean = false) = scheduler.syncNow(sourceId, restart = full, full = full)
 
+    /** Switches the source to the next [SyncSpeed]; it applies from the next sync. */
+    suspend fun cycleSpeed(sourceId: String) {
+        val config = sources.get(sourceId) ?: return
+        sources.save(config.copy(minRequestIntervalMs = SyncSpeed.of(config.minRequestIntervalMs).next().intervalMs))
+    }
+
     /** Stops that source's sync; games already read are kept. */
     fun stopSync(sourceId: String) = scheduler.cancel(sourceId)
 

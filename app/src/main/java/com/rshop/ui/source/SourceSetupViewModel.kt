@@ -174,6 +174,10 @@ class SourceSetupViewModel @Inject constructor(
         viewModelScope.launch { sourceManager.syncNow(sourceId, full) }
     }
 
+    fun cycleSpeed(sourceId: String) {
+        viewModelScope.launch { sourceManager.cycleSpeed(sourceId) }
+    }
+
     fun stopSync(sourceId: String) = sourceManager.stopSync(sourceId)
 
     fun onMessageShown() = _state.update { it.copy(message = null) }

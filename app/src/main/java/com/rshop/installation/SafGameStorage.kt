@@ -87,6 +87,29 @@ class SafGameStorage @Inject constructor(
         null
     }
 
+    /** Name and whether it is a folder, null if the document does not exist. */
+    fun info(uri: Uri): Pair<String, Boolean>? = try {
+        resolver.query(uri, arrayOf(Document.COLUMN_DISPLAY_NAME, Document.COLUMN_MIME_TYPE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) to (cursor.getString(1) == Document.MIME_TYPE_DIR) else null
+        }
+    } catch (e: IllegalArgumentException) {
+        null
+    } catch (e: SecurityException) {
+        null
+    }
+
+    /** Free and total bytes of the volume holding the games folder, when they can be determined. */
+    fun volumeSpace(location: DirectoryLocation?): DeviceSpace? {
+        if (location == null) return null
+        val directory = if (location.isPrimary) {
+            Environment.getExternalStorageDirectory()
+        } else {
+            context.getSystemService(StorageManager::class.java).storageVolumes
+                .firstOrNull { it.uuid.equals(location.volume, ignoreCase = true) }?.directory
+        } ?: return null
+        return DeviceSpace(freeBytes = directory.usableSpace, totalBytes = directory.totalSpace)
+    }
+
     /** Free bytes on the volume holding the games folder, when it can be determined. */
     fun availableBytes(location: DirectoryLocation?): Long? {
         if (location == null) return null
@@ -123,3 +146,6 @@ class SafSink(
         storage.findOrCreateDirectory(tree, resolveDirectory(path.dropLast(1)), path.last())
     }
 }
+
+/** Free and total space of a storage volume. */
+data class DeviceSpace(val freeBytes: Long, val totalBytes: Long)

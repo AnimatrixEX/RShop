@@ -57,7 +57,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import com.rshop.R
+import com.rshop.data.source.SyncSpeed
 import com.rshop.ui.components.ConsoleButton
 import com.rshop.ui.components.ConsoleButtonStyle
 import com.rshop.ui.components.FocusableSurface
@@ -147,6 +149,7 @@ fun SourceSetupScreen(
                     source = source,
                     onSync = { viewModel.syncSource(source.config.id) },
                     onRescan = { viewModel.syncSource(source.config.id, full = true) },
+                    onSpeed = { viewModel.cycleSpeed(source.config.id) },
                     onStop = { viewModel.stopSync(source.config.id) },
                     onExport = {
                         viewModel.onExportRequested(source.config.id)
@@ -187,6 +190,7 @@ fun SourceSetupScreen(
 }
 
 /** A configured source: what it holds, how its last sync went, and its actions. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SourceCard(
     source: SourceItem,
@@ -194,6 +198,7 @@ private fun SourceCard(
     onStop: () -> Unit,
     onExport: () -> Unit,
     onRescan: () -> Unit,
+    onSpeed: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val sync = source.sync
@@ -221,13 +226,28 @@ private fun SourceCard(
             Text(line, style = MaterialTheme.typography.bodyMedium, color = color)
         }
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (sync.running) {
                 ConsoleButton(stringResource(R.string.source_stop), onClick = onStop, style = ConsoleButtonStyle.Secondary)
             } else {
                 ConsoleButton(stringResource(R.string.source_sync), onClick = onSync)
                 ConsoleButton(stringResource(R.string.source_rescan), onClick = onRescan, style = ConsoleButtonStyle.Secondary)
             }
+            val speed = SyncSpeed.of(source.config.minRequestIntervalMs)
+            ConsoleButton(
+                stringResource(
+                    R.string.source_speed,
+                    stringResource(
+                        when (speed) {
+                            SyncSpeed.Careful -> R.string.source_speed_careful
+                            SyncSpeed.Normal -> R.string.source_speed_normal
+                            SyncSpeed.Fast -> R.string.source_speed_fast
+                        },
+                    ),
+                ),
+                onClick = onSpeed,
+                style = ConsoleButtonStyle.Secondary,
+            )
             ConsoleButton(stringResource(R.string.source_export_short), onClick = onExport, style = ConsoleButtonStyle.Secondary)
             ConsoleButton(stringResource(R.string.source_remove_short), onClick = onRemove, style = ConsoleButtonStyle.Secondary)
         }

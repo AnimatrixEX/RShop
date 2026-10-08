@@ -47,6 +47,8 @@ class CatalogSyncWorker @AssistedInject constructor(
             val outcome = syncer.sync(sourceId, full = inputData.getBoolean(KEY_FULL, false)) { progress ->
                 setProgress(workDataOf(KEY_PAGES to progress.pages, KEY_GAMES to progress.games, KEY_SECTION to progress.section))
                 runCatching { setForeground(foreground(progress)) }
+                // Covers are looked up while the sync goes on, not only once it is over (no-op while a round runs).
+                if (progress.pages % ARTWORK_EVERY_PAGES == 1) artworkScheduler.schedule()
             }
             status.recordSuccess(sourceId, outcome.games, fullScan = outcome.fullScan)
             // New games have no cover yet: SteamGridDB is asked for them.
@@ -80,5 +82,6 @@ class CatalogSyncWorker @AssistedInject constructor(
         const val KEY_SOURCE_ID = "source_id"
         const val KEY_FULL = "full"
         private const val MAX_RETRIES = 2
+        private const val ARTWORK_EVERY_PAGES = 15
     }
 }

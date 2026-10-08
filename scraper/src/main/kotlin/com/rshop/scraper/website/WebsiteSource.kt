@@ -34,7 +34,12 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.jsoup.nodes.Document
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -120,27 +125,48 @@ class WebsiteSource(
                 // The first request of the budget is this console index.
                 sections().map { ListingCursor(it.url.toHttpUrl(), it, rules.pageSuffix, budget, isKnown) }
             }
-            val active = ArrayDeque(cursors)
-            while (active.isNotEmpty()) {
-                val cursor = active.removeFirst()
-                val page = cursor.next()
-                if (budget.exhausted) {
-                    log.warn("Crawl stopped after ${config.maxRequestsPerCrawl} requests (maxRequestsPerCrawl)")
-                    truncated = true
-                    return@flow
+            // The next page of another console is already being fetched while the current one is
+            // saved and handed on: the rate limiter still spaces the requests, but the wait for a
+            // slow answer no longer adds to the interval. Pages keep their round-robin order.
+            coroutineScope {
+                val active = ArrayDeque(cursors)
+                val inFlight = ArrayDeque<Pair<ListingCursor, Deferred<CatalogPage?>>>()
+                fun fillWindow() {
+                    while (inFlight.size < LOOKAHEAD && active.isNotEmpty()) {
+                        val cursor = active.removeFirst()
+                        inFlight.addLast(cursor to async { cursor.next() })
+                    }
                 }
-                if (page == null) {
+                fillWindow()
+                while (inFlight.isNotEmpty()) {
+                    val (cursor, pending) = inFlight.removeFirst()
+                    val page = pending.await()
+                    if (page != null) {
+                        active.addLast(cursor)
+                        fillWindow()
+                        emit(page)
+                        continue
+                    }
+                    // A listing that returns nothing ends; a request refused by the budget ends the crawl.
+                    if (budget.exhausted) {
+                        log.warn("Crawl stopped after ${config.maxRequestsPerCrawl} requests (maxRequestsPerCrawl)")
+                        truncated = true
+                        coroutineContext.cancelChildren()
+                        return@coroutineScope
+                    }
                     if (cursor.emitted == 0) log.warn("No game found for '${cursor.section?.name ?: "catalogue"}' at ${cursor.start}")
-                    continue
+                    fillWindow()
                 }
-                emit(page)
-                active.addLast(cursor)
             }
         }
     }
 
-    private class RequestBudget(val max: Int, var used: Int) {
-        val exhausted: Boolean get() = used > max
+    private class RequestBudget(val max: Int, used: Int) {
+        private val count = AtomicInteger(used)
+        val exhausted: Boolean get() = count.get() > max
+
+        /** Counts one request; false when it is over the budget. */
+        fun take(): Boolean = count.incrementAndGet() <= max
     }
 
     /**
@@ -169,7 +195,7 @@ class WebsiteSource(
         suspend fun next(): CatalogPage? {
             while (queue.isNotEmpty() && page < config.maxPages) {
                 val url = queue.removeFirst()
-                if (++budget.used > budget.max) return null
+                if (!budget.take()) return null
                 val document = try {
                     fetcher.fetch(url, interval)
                 } catch (e: ScraperException.Http) {
@@ -488,6 +514,8 @@ class WebsiteSource(
         const val MAX_SEARCH_PAGES = 5
         const val MAX_DOWNLOADS = 12
         const val MAX_PAGES_WITHOUT_NEW_GAMES = 2
+        /** Pages of different listings fetched at once (requests stay spaced by the rate limiter). */
+        const val LOOKAHEAD = 2
 
         /** A size with an explicit unit ("700 MB", "1,2 Go"), so "v1.1" is never read as a size. */
         val SIZE_IN_TEXT = Regex("(?i)\\d+(?:[.,]\\d+)?\\s*(?:[kmgt]i?[bo]|bytes|octets)\\b")

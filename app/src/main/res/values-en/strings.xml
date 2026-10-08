@@ -313,4 +313,13 @@
     <string name="list_picker_title">Add to a list</string>
     <string name="list_picker_none">No list yet: create one.</string>
     <string name="source_rescan">Rescan everything</string>
+    <string name="library_storage_title">Storage</string>
+    <string name="library_storage_games">%1$s used by games</string>
+    <string name="library_storage_free">%1$s free of %2$s</string>
+    <string name="library_storage_others">Others</string>
+    <string name="library_format">Format: %1$s</string>
+    <string name="source_speed">Speed: %1$s</string>
+    <string name="source_speed_careful">careful</string>
+    <string name="source_speed_normal">normal</string>
+    <string name="source_speed_fast">fast</string>
 </resources>

@@ -4,6 +4,7 @@ import com.rshop.data.source.SourceRepository
 import com.rshop.domain.model.Game
 import com.rshop.domain.repository.GameRepository
 import com.rshop.scraper.ScraperException
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.takeWhile
 import timber.log.Timber
@@ -51,7 +52,8 @@ class CatalogSyncer @Inject constructor(
         var pages = 0
         var pagesWithoutNewGames = 0
         val crawl = if (incremental) source.crawl { scrapedId -> (prefix + scrapedId) in known } else source.crawl()
-        crawl.takeWhile { page ->
+        // Saving a page overlaps with fetching the next ones.
+        crawl.buffer(2).takeWhile { page ->
             pages++
             val fresh = page.games.filter { seen.add(it.id) }
             if (fresh.isNotEmpty()) games.saveListing(fresh.map { it.toDomain(config.id) }, start)

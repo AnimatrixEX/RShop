@@ -3,6 +3,7 @@ package com.rshop.data.repository
 import com.rshop.data.database.dao.InstalledGameDao
 import com.rshop.data.database.dao.InstalledWithCatalog
 import com.rshop.domain.model.InstalledGame
+import com.rshop.installation.DeviceSpace
 import com.rshop.installation.GameInstaller
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +34,21 @@ class LibraryRepository @Inject constructor(
         return withContext(Dispatchers.IO) { installer.filesPresent(entity) }
     }
 
+    /** Free and total space of the volume holding the games folder; null when unknown. */
+    suspend fun deviceSpace(): DeviceSpace? = withContext(Dispatchers.IO) { installer.deviceSpace() }
+
+    /**
+     * The format of an installed game: stored at install time, read from the files (and stored)
+     * for games installed before that. Null when the files are gone or tell nothing.
+     */
+    suspend fun fileFormat(gameId: String): String? {
+        val entity = dao.get(gameId) ?: return null
+        entity.fileFormat?.let { return it }
+        val detected = withContext(Dispatchers.IO) { installer.detectFormat(entity) } ?: return null
+        dao.upsert(entity.copy(fileFormat = detected))
+        return detected
+    }
+
     private fun InstalledWithCatalog.toDomain() = InstalledGame(
         gameId = installed.gameId,
         title = installed.title,
@@ -43,5 +59,6 @@ class LibraryRepository @Inject constructor(
         inCatalog = inCatalog,
         sizeOnDisk = installed.sizeOnDisk,
         installedAt = Instant.ofEpochMilli(installed.installedAt),
+        fileFormat = installed.fileFormat,
     )
 }

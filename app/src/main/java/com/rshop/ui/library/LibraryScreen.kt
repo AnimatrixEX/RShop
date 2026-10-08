@@ -159,6 +159,9 @@ private fun LibraryGrid(state: LibraryUiState, returnFocus: ReturnFocus, onPlatf
     ) {
         item(key = "header", span = { GridItemSpan(maxLineSpan) }) {
             Column {
+                if (state.storage.gamesBytes > 0) {
+                    StorageCard(state.storage, Modifier.padding(bottom = 14.dp))
+                }
                 Text(
                     pluralStringResource(R.plurals.library_count, state.totalCount, state.totalCount),
                     style = MaterialTheme.typography.labelMedium,
@@ -268,6 +271,7 @@ private fun GameActionsSheet(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 game.platform?.let { Text(it.uppercase(), style = MaterialTheme.typography.labelMedium, color = RShopColors.AccentBright) }
                 Text(game.title, style = MaterialTheme.typography.titleLarge)
+                selection.format?.let { Text(stringResource(R.string.library_format, it), style = MaterialTheme.typography.bodyMedium, color = RShopColors.TextPrimary) }
                 game.installedVersion?.let { Text(stringResource(R.string.library_version, it), style = MaterialTheme.typography.bodyMedium) }
                 if (game.updateAvailable) {
                     Text(stringResource(R.string.library_catalog_version, game.catalogVersion.orEmpty()), color = RShopColors.AccentBright)

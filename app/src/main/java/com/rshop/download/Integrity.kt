@@ -75,6 +75,10 @@ object DownloadPolicy {
         "application/gzip" to "gz",
         "application/x-gzip" to "gz",
         "application/x-xz" to "xz",
+        "application/x-bzip2" to "bz2",
+        "application/zstd" to "zst",
+        "application/vnd.rar" to "rar",
+        "application/x-rar-compressed" to "rar",
     )
 
     /** Types that are never a game file, whatever the link or the file name says. */

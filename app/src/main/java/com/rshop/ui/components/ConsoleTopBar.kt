@@ -68,29 +68,35 @@ fun ConsoleTopBar(
     ) {
         Logo()
         Spacer(Modifier.width(28.dp))
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                // No focusRestorer here: it would redirect the selected-tab request above to the
-                // previously focused tab.
-                .horizontalScroll(rememberScrollState())
-                .padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
+        // The shoulder hints stay put on both sides: only the tabs between them scroll, so R1 is
+        // never pushed off screen when there are many tabs.
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
             ShoulderHint("L1")
-            TopLevelDestination.entries
-                .filter { it != TopLevelDestination.Settings }
-                .forEach { tab ->
-                    TextTab(
-                        label = stringResource(tab.labelRes),
-                        selected = tab == selected,
-                        onClick = { onSelect(tab) },
-                        modifier = Modifier
-                            .focusRequester(requesters.getValue(tab))
-                            .testTag("tab_${tab.name}"),
-                    )
-                }
+            Spacer(Modifier.width(6.dp))
+            Row(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    // No focusRestorer here: it would redirect the selected-tab request above to the
+                    // previously focused tab.
+                    .horizontalScroll(rememberScrollState())
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                TopLevelDestination.entries
+                    .filter { it != TopLevelDestination.Settings }
+                    .forEach { tab ->
+                        TextTab(
+                            label = stringResource(tab.labelRes),
+                            selected = tab == selected,
+                            onClick = { onSelect(tab) },
+                            modifier = Modifier
+                                .focusRequester(requesters.getValue(tab))
+                                .testTag("tab_${tab.name}"),
+                        )
+                    }
+            }
+            Spacer(Modifier.width(6.dp))
             ShoulderHint("R1")
         }
         Spacer(Modifier.width(12.dp))
@@ -133,7 +139,7 @@ private fun TextTab(label: String, selected: Boolean, onClick: () -> Unit, modif
         )
         val indicatorWidth by animateDpAsState(if (selected) 22.dp else 0.dp, label = "tabIndicator")
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(text = label, style = MaterialTheme.typography.titleMedium, color = textColor, maxLines = 1)

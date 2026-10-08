@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.rshop.data.repository.LibraryRepository
 import com.rshop.domain.model.DownloadError
 import com.rshop.domain.model.InstalledGame
+import com.rshop.installation.DeviceSpace
 import com.rshop.download.DownloadManager
 import com.rshop.download.StartResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,13 +25,25 @@ data class LibraryUiState(
     val platforms: List<String> = emptyList(),
     val platform: String? = null,
     val totalCount: Int = 0,
+    val storage: StorageUsage = StorageUsage(),
 )
+
+/** What the installed games take: in total, per console (biggest first), and the volume around them. */
+data class StorageUsage(
+    val gamesBytes: Long = 0,
+    val byPlatform: List<PlatformUsage> = emptyList(),
+    val device: DeviceSpace? = null,
+)
+
+data class PlatformUsage(val platform: String, val bytes: Long, val games: Int)
 
 /** The game whose action sheet is open, with a lazily checked "files still on disk" flag. */
 data class LibrarySelection(
     val game: InstalledGame,
     val filesPresent: Boolean? = null,
     val confirmDelete: Boolean = false,
+    /** Format of the installed files, read from them when it was never stored. */
+    val format: String? = null,
 )
 
 sealed interface LibraryEvent {
@@ -53,7 +66,14 @@ class LibraryViewModel @Inject constructor(
     private val _events = MutableStateFlow<LibraryEvent?>(null)
     val events: StateFlow<LibraryEvent?> = _events.asStateFlow()
 
-    val uiState: StateFlow<LibraryUiState> = combine(library.observeInstalled(), platformFilter) { games, platform ->
+    private val device = MutableStateFlow<DeviceSpace?>(null)
+
+    init {
+        // The volume's free space changes whenever a game is installed or removed.
+        viewModelScope.launch { library.observeInstalled().collect { device.value = library.deviceSpace() } }
+    }
+
+    val uiState: StateFlow<LibraryUiState> = combine(library.observeInstalled(), platformFilter, device) { games, platform, deviceSpace ->
         val platforms = games.mapNotNull { it.platform }.distinct().sortedBy { it.lowercase() }
         val active = platform?.takeIf { it in platforms }
         LibraryUiState(
@@ -62,6 +82,7 @@ class LibraryViewModel @Inject constructor(
             platforms = platforms,
             platform = active,
             totalCount = games.size,
+            storage = storageUsage(games, deviceSpace),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryUiState())
 
@@ -74,6 +95,8 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             val present = library.filesPresent(game.gameId)
             _selection.update { current -> if (current?.game?.gameId == game.gameId) current.copy(filesPresent = present) else current }
+            val format = if (present) library.fileFormat(game.gameId) else null
+            _selection.update { current -> if (current?.game?.gameId == game.gameId) current.copy(format = format) else current }
         }
     }
 
@@ -126,4 +149,12 @@ class LibraryViewModel @Inject constructor(
     fun onEventHandled() {
         _events.value = null
     }
+}
+
+internal fun storageUsage(games: List<InstalledGame>, device: DeviceSpace?): StorageUsage {
+    val sized = games.filter { (it.sizeOnDisk ?: 0) > 0 }
+    val byPlatform = sized.groupBy { it.platform ?: "?" }
+        .map { (platform, list) -> PlatformUsage(platform, list.sumOf { it.sizeOnDisk ?: 0 }, list.size) }
+        .sortedByDescending { it.bytes }
+    return StorageUsage(gamesBytes = byPlatform.sumOf { it.bytes }, byPlatform = byPlatform, device = device)
 }

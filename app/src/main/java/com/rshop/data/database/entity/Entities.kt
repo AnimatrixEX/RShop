@@ -141,6 +141,8 @@ data class InstalledGameEntity(
     @ColumnInfo(name = "document_uri") val documentUri: String,
     @ColumnInfo(name = "size_on_disk") val sizeOnDisk: Long?,
     @ColumnInfo(name = "installed_at") val installedAt: Long,
+    /** Format of the installed files ("GBA", "BIN + CUE"); null until known (older installs are read lazily). */
+    @ColumnInfo(name = "file_format") val fileFormat: String? = null,
 )
 
 /** One download per game: the file being fetched, verified and installed. */

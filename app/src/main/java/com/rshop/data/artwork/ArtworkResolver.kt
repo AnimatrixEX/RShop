@@ -2,7 +2,12 @@ package com.rshop.data.artwork
 
 import com.rshop.data.database.dao.ArtworkCandidate
 import com.rshop.data.database.dao.GameDao
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -38,7 +43,12 @@ class ArtworkResolver @Inject constructor(
     suspend fun resolvePending(maxGames: Int): Int = mutex.withLock {
         val client = client() ?: return 0
         val games = gameDao.pendingArtwork(maxGames)
-        for (game in games) resolve(client, game)
+        // Several games at once: the answers of the API arrive while the next requests go out.
+        // Requests are still spaced by [throttled], so the rate stays bounded.
+        val slots = Semaphore(PARALLEL_GAMES)
+        coroutineScope {
+            games.map { game -> async { slots.withPermit { resolve(client, game) } } }.awaitAll()
+        }
         games.size
     }
 
@@ -83,16 +93,33 @@ class ArtworkResolver @Inject constructor(
         }
     }
 
+    private val throttleLock = Mutex()
     private var lastRequestAt = 0L
 
+    /** Spaces request starts by [REQUEST_INTERVAL_MS] across all games; a 429 answer waits and retries. */
     private suspend fun <T> throttled(block: suspend () -> T): T {
-        val wait = lastRequestAt + REQUEST_INTERVAL_MS - clock.millis()
-        if (wait > 0) delay(wait.milliseconds)
-        lastRequestAt = clock.millis()
-        return block()
+        var attempt = 0
+        while (true) {
+            throttleLock.withLock {
+                val wait = lastRequestAt + REQUEST_INTERVAL_MS - clock.millis()
+                if (wait > 0) delay(wait.milliseconds)
+                lastRequestAt = clock.millis()
+            }
+            try {
+                return block()
+            } catch (e: ArtworkException.Http) {
+                if (e.code != 429 || ++attempt > MAX_RATE_RETRIES) throw e
+                Timber.w("SteamGridDB asked to slow down (attempt %d)", attempt)
+                delay((RATE_BACKOFF_MS * attempt).milliseconds)
+            }
+        }
     }
 
     private companion object {
-        const val REQUEST_INTERVAL_MS = 250L
+        /** Gap between two request starts, shared by every game being resolved. */
+        const val REQUEST_INTERVAL_MS = 110L
+        const val PARALLEL_GAMES = 4
+        const val MAX_RATE_RETRIES = 3
+        const val RATE_BACKOFF_MS = 2_000L
     }
 }

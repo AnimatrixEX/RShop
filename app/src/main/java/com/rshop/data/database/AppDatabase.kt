@@ -35,7 +35,7 @@ import com.rshop.data.database.entity.ScreenshotEntity
         GameListEntity::class,
         GameListEntryEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     autoMigrations = [
         // v2: games.details_synced_at + downloads table.
@@ -52,6 +52,8 @@ import com.rshop.data.database.entity.ScreenshotEntity
         AutoMigration(from = 6, to = 7),
         // v8: games.tags (genre detection) + custom game lists.
         AutoMigration(from = 7, to = 8, spec = AppDatabase.AddGenreTags::class),
+        // v9: installed_games.file_format.
+        AutoMigration(from = 8, to = 9),
     ],
 )
 abstract class AppDatabase : RoomDatabase() {

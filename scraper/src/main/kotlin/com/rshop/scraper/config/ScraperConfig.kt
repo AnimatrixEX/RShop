@@ -42,7 +42,7 @@ data class ScraperConfig(
     /** Hosts allowed for download links (`*.example.com` accepted). Empty: same host as [baseUrl]. */
     val allowedDownloadHosts: List<String> = emptyList(),
     /** Minimum delay between two requests to the site. Never below [MIN_INTERVAL_MS]. */
-    val minRequestIntervalMs: Long = 1_500,
+    val minRequestIntervalMs: Long = 800,
     /**
      * Wait imposed by the site on its download page before the file link may be used
      * (countdown pages). Honored, never skipped.
@@ -159,7 +159,7 @@ data class ScraperConfig(
     companion object {
         const val PAGE_PLACEHOLDER = "{page}"
         const val QUERY_PLACEHOLDER = "{query}"
-        const val MIN_INTERVAL_MS = 1_000L
+        const val MIN_INTERVAL_MS = 400L
         const val MAX_PAGES = 2_000
         private val ID_PATTERN = Regex("[a-z0-9][a-z0-9-]{0,47}")
 
@@ -286,11 +286,17 @@ data class DetailRules(
 
         /** Links whose path ends with a typical archive or ROM extension. */
         val DOWNLOAD_EXTENSIONS = listOf(
-            "zip", "7z", "tar", "gz", "tgz", "xz",
-            "nes", "fds", "sfc", "smc", "gb", "gbc", "gba", "nds", "n64", "z64", "v64",
-            "md", "gen", "sms", "gg", "pce", "a26", "a78", "lnx", "ws", "wsc", "ngp", "ngc",
-            "iso", "chd", "cue", "pbp", "cso", "rvz", "wbfs", "gcz", "wia",
-            "3ds", "cia", "cci", "pkg", "rap", "nsp", "xci", "wua", "wux", "rar",
+            // Archives
+            "zip", "7z", "tar", "gz", "tgz", "xz", "bz2", "zst", "lzma", "rar",
+            // Cartridge and computer ROMs
+            "nes", "fds", "sfc", "smc", "gb", "gbc", "gba", "nds", "dsi", "n64", "z64", "v64",
+            "md", "gen", "smd", "32x", "sms", "gg", "sg", "sc", "pce", "sgx", "a26", "a52", "a78", "lnx", "jag", "j64",
+            "ws", "wsc", "ngp", "ngc", "vb", "vboy", "col", "vec", "int", "mx1", "mx2", "min", "rom", "bin",
+            "dsk", "adf", "d64", "t64", "tap", "tzx", "st", "msa", "atr", "xex", "cas",
+            // Disc images and console packages
+            "iso", "chd", "cue", "gdi", "cdi", "mdf", "mds", "nrg", "ccd", "ecm", "pbp", "cso", "zso", "ciso",
+            "rvz", "wbfs", "gcz", "wia", "gcm", "wad", "xiso",
+            "3ds", "cia", "cci", "cxi", "pkg", "rap", "psv", "vpk", "nsp", "xci", "nca", "nro", "wua", "wux",
         )
         /**
          * Download buttons that lead to a download page or redirect to the file. Always tried

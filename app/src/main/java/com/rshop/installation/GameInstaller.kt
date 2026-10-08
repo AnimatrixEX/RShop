@@ -102,6 +102,7 @@ class GameInstaller @Inject constructor(
                     documentUri = finalUri.toString(),
                     sizeOnDisk = result.bytesWritten,
                     installedAt = clock.millis(),
+                    fileFormat = result.formats.takeIf { it.isNotEmpty() }?.joinToString(" + "),
                 ).also { installedDao.upsert(it) }
             } finally {
                 if (!stagingKept) storage.delete(staging)
@@ -120,6 +121,30 @@ class GameInstaller @Inject constructor(
     /** Whether an installed game's files are still there (the user may delete them by hand). */
     fun filesPresent(installed: InstalledGameEntity): Boolean = storage.exists(Uri.parse(installed.documentUri))
 
+    /** Reads the format from the files of an install that predates the stored format. */
+    suspend fun detectFormat(installed: InstalledGameEntity): String? {
+        val tree = (directoryManager.state.first() as? GamesDirectoryState.Available)?.uri ?: return null
+        val uri = Uri.parse(installed.documentUri)
+        val (name, isDirectory) = storage.info(uri) ?: return null
+        if (!isDirectory) return FileFormats.summary(listOf(name))
+        val names = ArrayList<String>()
+        fun walk(folder: Uri, depth: Int) {
+            for ((childName, child) in storage.children(tree, folder)) {
+                if (names.size >= MAX_SCANNED) return
+                val childInfo = if (depth < MAX_DEPTH) storage.info(child) else null
+                if (childInfo?.second == true) walk(child, depth + 1) else names += childName
+            }
+        }
+        runCatching { walk(uri, 0) }
+        return FileFormats.summary(names)
+    }
+
+    /** Free and total bytes of the volume holding the games folder. */
+    suspend fun deviceSpace(): DeviceSpace? {
+        val tree = (directoryManager.state.first() as? GamesDirectoryState.Available)?.uri ?: return null
+        return storage.volumeSpace(directoryAccess.describe(tree))
+    }
+
     private fun renameStaging(tree: Uri, platformDir: Uri, staging: Uri, title: String): Uri {
         val folder = SafeEntryPath.sanitizeName(title)
         storage.findChild(tree, platformDir, folder)?.let { storage.delete(it) }
@@ -127,6 +152,8 @@ class GameInstaller @Inject constructor(
     }
 
     private companion object {
+        const val MAX_DEPTH = 3
+        const val MAX_SCANNED = 400
         const val SPACE_MARGIN = 100L * 1024 * 1024
         const val MAX_EXPANSION = 40L
         const val MIN_LIMIT = 4L * 1024 * 1024 * 1024

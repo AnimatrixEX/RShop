@@ -73,7 +73,7 @@ object ArchiveExtractor {
             throw InstallException.Corrupt(e)
         }
         if (writer.files == 0) throw InstallException.Empty()
-        return ExtractionResult(writer.bytes, writer.files, writer.topLevel)
+        return ExtractionResult(writer.bytes, writer.files, writer.topLevel, FileFormats.of(writer.fileNames))
     }
 
     private suspend fun extractZip(file: File, writer: LimitedWriter) {
@@ -141,6 +141,7 @@ object ArchiveExtractor {
         var files = 0
         var entries = 0
         val topLevel = linkedSetOf<String>()
+        val fileNames = ArrayList<String>()
 
         fun directory(name: String) {
             val path = SafeEntryPath.normalize(name) ?: return
@@ -155,6 +156,7 @@ object ArchiveExtractor {
             topLevel += path.first()
             sink.file(path).use { output -> copy(input, output) }
             files++
+            if (fileNames.size < MAX_NAMES) fileNames += path.last()
         }
 
         private fun countEntry() {
@@ -182,4 +184,5 @@ object ArchiveExtractor {
 
     private const val BUFFER_SIZE = 64 * 1024
     private const val REPORT_EVERY = 1L shl 20
+    private const val MAX_NAMES = 2_000
 }
