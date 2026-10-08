@@ -12,6 +12,9 @@ object FileFormats {
     )
     private const val MAX_FORMATS = 3
 
+    /** A file that comes with a game without being part of it (readme, picture, checksum). */
+    fun isExtra(fileName: String): Boolean = fileName.lowercase().substringAfterLast('.', "") in ignored
+
     /** Upper-case format of one file name, null when it has none (or is not a game file). */
     fun of(fileName: String): String? {
         val name = fileName.lowercase()

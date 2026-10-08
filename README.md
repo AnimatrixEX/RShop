@@ -92,4 +92,4 @@ MVVM, pattern Repository, coroutines / Flow. Le parsing HTML ne touche jamais l'
 
 ## État du projet
 
-Version 0.1.3, usage personnel. Le projet suit les phases décrites dans [`CLAUDE.md`](CLAUDE.md) (le lanceur de jeux en est volontairement exclu). Testé sur Retroid Pocket 6.
+Version 0.1.4, usage personnel. Le projet suit les phases décrites dans [`CLAUDE.md`](CLAUDE.md) (le lanceur de jeux en est volontairement exclu). Testé sur Retroid Pocket 6.

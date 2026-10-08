@@ -28,4 +28,13 @@ class FileFormatsTest {
         assertNull(FileFormats.summary(listOf("README", "notes.txt", "Game v1.2")))
         assertNull(FileFormats.of("file.123"))
     }
+
+    @Test
+    fun `readmes and pictures are extras, game files are not`() {
+        assertEquals(true, FileFormats.isExtra("README.TXT"))
+        assertEquals(true, FileFormats.isExtra("cover.jpg"))
+        assertEquals(false, FileFormats.isExtra("Game.cue"))
+        assertEquals(false, FileFormats.isExtra("Game.bin"))
+        assertEquals(false, FileFormats.isExtra("Game Folder"))
+    }
 }
