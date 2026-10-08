@@ -181,6 +181,13 @@
     <string name="sync_paused_body">Nothing is updated until you resume. Each source’s Sync button still work.</string>
     <string name="sync_pause">Pause</string>
     <string name="sync_resume">Resume</string>
+    <string name="library_scan">Detect games already installed</string>
+    <string name="library_scanning">Scanning…</string>
+    <string name="library_scan_none">No new game detected</string>
+    <plurals name="library_scan_result">
+        <item quantity="one">%d game detected and added</item>
+        <item quantity="other">%d games detected and added</item>
+    </plurals>
     <string name="card_installed">Installed</string>
     <string name="details_installed">Installed · v%1$s</string>
     <string name="details_installed_noversion">Installed</string>

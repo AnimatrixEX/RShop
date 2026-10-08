@@ -142,7 +142,6 @@ data class InstalledGameEntity(
     val platform: String?,
     @ColumnInfo(name = "cover_url") val coverUrl: String?,
     @ColumnInfo(name = "installed_version") val installedVersion: String?,
-    /** SAF document URI of the game's folder or file inside the games directory. */
     /** The game file or folder in the games folder; several files (bin + cue...) are listed one per line. */
     @ColumnInfo(name = "document_uri") val documentUri: String,
     @ColumnInfo(name = "size_on_disk") val sizeOnDisk: Long?,

@@ -5,6 +5,7 @@ import com.rshop.data.database.dao.InstalledWithCatalog
 import com.rshop.domain.model.InstalledGame
 import com.rshop.installation.DeviceSpace
 import com.rshop.installation.GameInstaller
+import com.rshop.installation.InstalledRomScanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -18,7 +19,14 @@ import javax.inject.Singleton
 class LibraryRepository @Inject constructor(
     private val dao: InstalledGameDao,
     private val installer: GameInstaller,
+    private val scanner: InstalledRomScanner,
 ) {
+    /** Adds the games found in the games folder that RShop did not install; returns how many. */
+    suspend fun scanInstalled(): Int = scanner.scan()
+
+    /** Same, unless a scan already ran recently. */
+    suspend fun scanInstalledIfDue(): Int = scanner.scanIfDue()
+
     fun observeInstalled(): Flow<List<InstalledGame>> = dao.observeWithCatalog().map { list -> list.map { it.toDomain() } }
 
     /** Ids of the installed games, to mark them wherever the catalogue shows them. */

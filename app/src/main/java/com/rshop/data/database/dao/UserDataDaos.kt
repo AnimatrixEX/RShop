@@ -95,6 +95,9 @@ interface InstalledGameDao {
     @Query("SELECT * FROM installed_games WHERE game_id = :gameId")
     suspend fun get(gameId: String): InstalledGameEntity?
 
+    @Query("SELECT * FROM installed_games")
+    suspend fun getAll(): List<InstalledGameEntity>
+
     @Upsert
     suspend fun upsert(game: InstalledGameEntity)
 

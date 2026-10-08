@@ -51,6 +51,7 @@ sealed interface LibraryEvent {
     data class DeleteFailed(val title: String) : LibraryEvent
     data class UpdateFailed(val error: DownloadError?) : LibraryEvent
     data object UpdateStarted : LibraryEvent
+    data class Scanned(val found: Int) : LibraryEvent
     data class OpenBrowser(val gameId: String, val url: String) : LibraryEvent
 }
 
@@ -67,6 +68,23 @@ class LibraryViewModel @Inject constructor(
     val events: StateFlow<LibraryEvent?> = _events.asStateFlow()
 
     private val device = MutableStateFlow<DeviceSpace?>(null)
+
+    private val _scanning = MutableStateFlow(false)
+    val scanning: StateFlow<Boolean> = _scanning.asStateFlow()
+
+    /** Looks in the games folder for games RShop did not install. */
+    fun onScan() {
+        if (_scanning.value) return
+        _scanning.value = true
+        viewModelScope.launch {
+            val found = try {
+                library.scanInstalled()
+            } finally {
+                _scanning.value = false
+            }
+            _events.value = LibraryEvent.Scanned(found)
+        }
+    }
 
     init {
         // The volume's free space changes whenever a game is installed or removed.

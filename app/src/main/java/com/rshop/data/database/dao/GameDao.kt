@@ -98,6 +98,10 @@ interface GameDao {
     @Query("SELECT * FROM games WHERE id = :id")
     suspend fun get(id: String): GameEntity?
 
+    /** What is needed to recognise a game from a file name in the games folder. */
+    @Query("SELECT id, title, platform, cover_url AS coverUrl, version FROM games")
+    suspend fun catalogueForMatching(): List<MatchCandidate>
+
     @Query("SELECT * FROM games WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<String>): List<GameEntity>
 
@@ -234,6 +238,8 @@ object CatalogSort {
 }
 
 data class TagGroup(val tags: String, val games: Int)
+
+data class MatchCandidate(val id: String, val title: String, val platform: String?, val coverUrl: String?, val version: String?)
 
 data class ArtworkCandidate(val id: String, val title: String)
 

@@ -77,6 +77,7 @@ fun LibraryScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val event by viewModel.events.collectAsStateWithLifecycle()
+    val scanning by viewModel.scanning.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     // Back from a game page or the browser, the card that opened it gets focus again.
@@ -92,6 +93,7 @@ fun LibraryScreen(
         }
         snackbar.showSnackbar(
             when (current) {
+                is LibraryEvent.Scanned -> if (current.found == 0) context.getString(R.string.library_scan_none) else context.resources.getQuantityString(R.plurals.library_scan_result, current.found, current.found)
                 is LibraryEvent.Deleted -> context.getString(R.string.library_deleted, current.title)
                 is LibraryEvent.DeleteFailed -> context.getString(R.string.library_delete_failed, current.title)
                 LibraryEvent.UpdateStarted, is LibraryEvent.OpenBrowser -> context.getString(R.string.download_status_queued)
@@ -107,8 +109,8 @@ fun LibraryScreen(
     Box(Modifier.fillMaxSize()) {
         when {
             state.loading -> Unit
-            state.totalCount == 0 -> EmptyLibrary(onBrowseStore)
-            else -> LibraryGrid(state, returnFocus, viewModel::onPlatformSelected, viewModel::onSelect)
+            state.totalCount == 0 -> EmptyLibrary(onBrowseStore, scanning, viewModel::onScan)
+            else -> LibraryGrid(state, returnFocus, scanning, viewModel::onScan, viewModel::onPlatformSelected, viewModel::onSelect)
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(24.dp))
     }
@@ -131,24 +133,38 @@ fun LibraryScreen(
 }
 
 @Composable
-private fun EmptyLibrary(onBrowseStore: () -> Unit) {
+private fun EmptyLibrary(onBrowseStore: () -> Unit, scanning: Boolean, onScan: () -> Unit) {
     val browseFocus = rememberInitialFocusRequester()
     EmptyState(
         icon = painterResource(R.drawable.ic_library),
         title = stringResource(R.string.library_empty_title),
         body = stringResource(R.string.library_empty_body),
         action = {
-            ConsoleButton(
-                text = stringResource(R.string.action_browse_store),
-                onClick = onBrowseStore,
-                modifier = Modifier.focusRequester(browseFocus),
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ConsoleButton(
+                    text = stringResource(R.string.action_browse_store),
+                    onClick = onBrowseStore,
+                    modifier = Modifier.focusRequester(browseFocus),
+                )
+                ConsoleButton(
+                    text = stringResource(if (scanning) R.string.library_scanning else R.string.library_scan),
+                    onClick = onScan,
+                    style = ConsoleButtonStyle.Secondary,
+                )
+            }
         },
     )
 }
 
 @Composable
-private fun LibraryGrid(state: LibraryUiState, returnFocus: ReturnFocus, onPlatform: (String?) -> Unit, onSelect: (InstalledGame) -> Unit) {
+private fun LibraryGrid(
+    state: LibraryUiState,
+    returnFocus: ReturnFocus,
+    scanning: Boolean,
+    onScan: () -> Unit,
+    onPlatform: (String?) -> Unit,
+    onSelect: (InstalledGame) -> Unit,
+) {
     val firstFocus = rememberInitialFocusRequester(ready = state.games.isNotEmpty() && returnFocus.openedKey == null)
     LazyVerticalGrid(
         columns = GridCells.Adaptive(Dimens.CardWidth),
@@ -162,11 +178,19 @@ private fun LibraryGrid(state: LibraryUiState, returnFocus: ReturnFocus, onPlatf
                 if (state.storage.gamesBytes > 0) {
                     StorageCard(state.storage, Modifier.padding(bottom = 14.dp))
                 }
-                Text(
-                    pluralStringResource(R.plurals.library_count, state.totalCount, state.totalCount),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = RShopColors.TextSecondary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        pluralStringResource(R.plurals.library_count, state.totalCount, state.totalCount),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = RShopColors.TextSecondary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ConsoleChip(
+                        stringResource(if (scanning) R.string.library_scanning else R.string.library_scan),
+                        selected = false,
+                        onClick = onScan,
+                    )
+                }
                 if (state.platforms.size > 1) {
                     LazyRow(
                         modifier = Modifier.focusRestorer(),

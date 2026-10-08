@@ -16,6 +16,9 @@ import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** A file or folder of the games folder. [size] and [modifiedAt] are null when the provider does not say. */
+data class StoredEntry(val name: String, val uri: Uri, val isDirectory: Boolean, val size: Long?, val modifiedAt: Long?)
+
 /**
  * File operations inside the user's games folder through the Storage Access Framework
  * (DocumentsContract directly: much faster than DocumentFile for many small files).
@@ -36,6 +39,30 @@ class SafGameStorage @Inject constructor(
             buildList {
                 while (cursor.moveToNext()) {
                     add(cursor.getString(1) to DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0)))
+                }
+            }
+        } ?: throw InstallException.DirectoryLost()
+    }
+
+    /** The children of [parent] with what a scan needs to know about each. */
+    fun entries(tree: Uri, parent: Uri): List<StoredEntry> {
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(parent))
+        val projection = arrayOf(
+            Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_MIME_TYPE,
+            Document.COLUMN_SIZE, Document.COLUMN_LAST_MODIFIED,
+        )
+        return resolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        StoredEntry(
+                            name = cursor.getString(1),
+                            uri = DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0)),
+                            isDirectory = cursor.getString(2) == Document.MIME_TYPE_DIR,
+                            size = if (cursor.isNull(3)) null else cursor.getLong(3),
+                            modifiedAt = if (cursor.isNull(4)) null else cursor.getLong(4),
+                        ),
+                    )
                 }
             }
         } ?: throw InstallException.DirectoryLost()

@@ -12,6 +12,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.rshop.data.artwork.ArtworkResolver
 import com.rshop.data.artwork.ArtworkScheduler
+import com.rshop.data.repository.LibraryRepository
 import com.rshop.data.sync.DownloadCountScheduler
 import com.rshop.data.demo.DemoCatalogSeeder
 import com.rshop.data.source.SourceRepository
@@ -59,6 +60,9 @@ class RShopApp : Application(), SingletonImageLoader.Factory, Configuration.Prov
     lateinit var artworkResolver: ArtworkResolver
 
     @Inject
+    lateinit var libraryRepository: LibraryRepository
+
+    @Inject
     lateinit var downloadCountScheduler: DownloadCountScheduler
 
     @Inject
@@ -76,6 +80,8 @@ class RShopApp : Application(), SingletonImageLoader.Factory, Configuration.Prov
             downloadManager.reconcile()
             artworkResolver.redoIfMatcherChanged()
             artworkScheduler.schedule()
+            // Games already in the games folder are found once the catalogue is there to name them.
+            libraryRepository.scanInstalledIfDue()
             if (sourceRepository.all().isEmpty()) {
                 demoCatalogSeeder.seedIfEmpty()
             } else {

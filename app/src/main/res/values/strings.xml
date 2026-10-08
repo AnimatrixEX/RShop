@@ -189,6 +189,13 @@
     <string name="sync_paused_body">Rien n’est mis à jour tant que vous ne la reprenez pas. Les boutons « Synchroniser » des sources restent utilisables.</string>
     <string name="sync_pause">Mettre en pause</string>
     <string name="sync_resume">Reprendre</string>
+    <string name="library_scan">Détecter les jeux déjà installés</string>
+    <string name="library_scanning">Recherche en cours…</string>
+    <string name="library_scan_none">Aucun nouveau jeu détecté</string>
+    <plurals name="library_scan_result">
+        <item quantity="one">%d jeu détecté et ajouté</item>
+        <item quantity="other">%d jeux détectés et ajoutés</item>
+    </plurals>
     <string name="card_installed">Installé</string>
     <string name="details_installed">Installé · v%1$s</string>
     <string name="details_installed_noversion">Installé</string>
