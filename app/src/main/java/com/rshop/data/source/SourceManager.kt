@@ -33,7 +33,8 @@ class SourceManager @Inject constructor(
         if (previous == null) status.remove(config.id)
         // The demo catalogue goes away with the first real source.
         games.deleteGamesNotFrom(sources.all().map { it.id })
-        scheduler.syncNow(config.id, restart = true)
+        // New or changed rules: read everything again.
+        scheduler.syncNow(config.id, restart = true, full = true)
     }
 
     /** Validates and adds a hand-written configuration. */
@@ -49,7 +50,7 @@ class SourceManager @Inject constructor(
         games.deleteGamesFrom(sourceId)
     }
 
-    suspend fun syncNow(sourceId: String) = scheduler.syncNow(sourceId)
+    suspend fun syncNow(sourceId: String, full: Boolean = false) = scheduler.syncNow(sourceId, restart = full, full = full)
 
     /** Stops that source's sync; games already read are kept. */
     fun stopSync(sourceId: String) = scheduler.cancel(sourceId)

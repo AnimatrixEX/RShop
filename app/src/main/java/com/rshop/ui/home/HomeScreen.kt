@@ -38,6 +38,7 @@ import com.rshop.ui.components.SectionHeader
 import com.rshop.ui.components.rememberInitialFocusRequester
 import com.rshop.ui.components.rememberReturnFocus
 import com.rshop.ui.theme.Dimens
+import com.rshop.ui.util.genreLabel
 
 const val HOME_LIST_TAG = "home_list"
 
@@ -140,7 +141,7 @@ private fun HomeContent(
             }
             if (state.genres.isNotEmpty()) {
                 item(key = "genres") {
-                    TileRow(stringResource(R.string.home_categories), state.genres, onOpenGenre)
+                    TileRow(stringResource(R.string.home_categories), state.genres, onOpenGenre) { genreLabel(it) }
                 }
             }
             if (state.platforms.isNotEmpty()) {
@@ -158,7 +159,7 @@ private const val HERO_KEY = "hero"
 private val SHELF_KEYS = listOf("viewed", "favorites", "recent", "popular", "updated")
 
 @Composable
-private fun TileRow(title: String, labels: List<String>, onClick: (String) -> Unit) {
+private fun TileRow(title: String, labels: List<String>, onClick: (String) -> Unit, labelOf: @Composable (String) -> String = { it }) {
     Column {
         SectionHeader(title)
         LazyRow(
@@ -167,7 +168,7 @@ private fun TileRow(title: String, labels: List<String>, onClick: (String) -> Un
             horizontalArrangement = Arrangement.spacedBy(Dimens.ItemSpacing),
         ) {
             items(labels, key = { it }) { label ->
-                CategoryTile(label = label, onClick = { onClick(label) }, modifier = Modifier.size(width = 180.dp, height = 80.dp))
+                CategoryTile(label = labelOf(label), onClick = { onClick(label) }, modifier = Modifier.size(width = 180.dp, height = 80.dp))
             }
         }
     }

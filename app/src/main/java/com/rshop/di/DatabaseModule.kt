@@ -6,6 +6,7 @@ import com.rshop.data.database.AppDatabase
 import com.rshop.data.database.dao.DownloadDao
 import com.rshop.data.database.dao.FavoriteDao
 import com.rshop.data.database.dao.GameDao
+import com.rshop.data.database.dao.GameListDao
 import com.rshop.data.database.dao.HistoryDao
 import com.rshop.data.database.dao.InstalledGameDao
 import dagger.Module
@@ -38,4 +39,7 @@ object DatabaseModule {
 
     @Provides
     fun provideDownloadDao(db: AppDatabase): DownloadDao = db.downloadDao()
+
+    @Provides
+    fun provideGameListDao(db: AppDatabase): GameListDao = db.gameListDao()
 }

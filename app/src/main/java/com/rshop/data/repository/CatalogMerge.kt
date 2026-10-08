@@ -1,6 +1,7 @@
 package com.rshop.data.repository
 
 import com.rshop.data.database.entity.GameEntity
+import com.rshop.domain.genre.TagCodec
 
 /**
  * How fresh data from the source is combined with what the database already knows.
@@ -26,6 +27,7 @@ internal object CatalogMerge {
             sizeBytes = new.sizeBytes ?: old.sizeBytes,
             platform = new.platform ?: old.platform,
             genre = new.genre ?: old.genre,
+            tags = mergeTags(old.tags, new.tags),
             sourceUrl = new.sourceUrl ?: old.sourceUrl,
             addedAt = old.addedAt ?: new.addedAt ?: now,
             updatedAt = if (versionChanged) now else new.updatedAt ?: old.updatedAt,
@@ -52,6 +54,7 @@ internal object CatalogMerge {
             sizeBytes = new.sizeBytes ?: old?.sizeBytes,
             platform = new.platform ?: old?.platform,
             genre = new.genre ?: old?.genre,
+            tags = mergeTags(old?.tags, new.tags),
             sourceUrl = new.sourceUrl ?: old?.sourceUrl,
             addedAt = old?.addedAt ?: new.addedAt ?: now,
             updatedAt = new.updatedAt ?: (if (versionChanged) now else old?.updatedAt) ?: now,
@@ -62,6 +65,9 @@ internal object CatalogMerge {
             artworkCheckedAt = old?.artworkCheckedAt,
         )
     }
+
+    /** Tags found by the listing and by the game page add up (the page also has the description). */
+    private fun mergeTags(old: String?, new: String?): String? = TagCodec.encode(TagCodec.decode(new) + TagCodec.decode(old))
 
     private fun versionChanged(old: String?, new: String?) = old != null && new != null && old != new
 }

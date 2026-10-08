@@ -10,6 +10,7 @@ import com.rshop.data.database.entity.GameEntity
 import com.rshop.data.database.entity.HistoryEntity
 import com.rshop.data.database.toDomain
 import com.rshop.data.database.toEntity
+import com.rshop.domain.genre.TagCodec
 import com.rshop.domain.model.CatalogFilter
 import com.rshop.domain.model.Game
 import com.rshop.domain.model.SortOrder
@@ -43,13 +44,18 @@ class RoomGameRepository @Inject constructor(
 
     override fun observePopular(limit: Int): Flow<List<Game>> = gameDao.observePopular(limit).mapGames()
 
-    override fun observeGenres(): Flow<List<String>> = gameDao.observeGenres()
+    override fun observeGenres(): Flow<List<String>> = gameDao.observeTagGroups().map { groups ->
+        val counts = HashMap<String, Int>()
+        groups.forEach { group -> TagCodec.decode(group.tags).forEach { counts.merge(it, group.games, Int::plus) } }
+        // Most common first, so the chips that matter come first.
+        counts.entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key.lowercase() }).map { it.key }.take(MAX_GENRE_CHIPS)
+    }
 
     override fun observePlatforms(): Flow<List<String>> = gameDao.observePlatforms()
 
     override fun observeCatalog(filter: CatalogFilter): Flow<List<Game>> = gameDao.observeCatalog(
         ftsQuery = FtsQuery.from(filter.query),
-        genre = filter.genre,
+        tag = filter.genre?.let(TagCodec::pattern),
         platform = filter.platform,
         sourceId = filter.sourceId,
         sort = filter.sort.toSql(),
@@ -57,11 +63,11 @@ class RoomGameRepository @Inject constructor(
 
     override fun pagedCatalog(filter: CatalogFilter): Flow<PagingData<Game>> =
         Pager(PagingConfig(pageSize = PAGE_SIZE, prefetchDistance = PAGE_SIZE / 2, enablePlaceholders = false)) {
-            gameDao.pagingCatalog(FtsQuery.from(filter.query), filter.genre, filter.platform, filter.sourceId, filter.sort.toSql())
+            gameDao.pagingCatalog(FtsQuery.from(filter.query), filter.genre?.let(TagCodec::pattern), filter.platform, filter.sourceId, filter.sort.toSql())
         }.flow.map { data -> data.map { it.toDomain() } }
 
     override fun observeCatalogCount(filter: CatalogFilter): Flow<Int> =
-        gameDao.observeCatalogCount(FtsQuery.from(filter.query), filter.genre, filter.platform, filter.sourceId)
+        gameDao.observeCatalogCount(FtsQuery.from(filter.query), filter.genre?.let(TagCodec::pattern), filter.platform, filter.sourceId)
 
     override fun observeGame(id: String): Flow<Game?> = gameDao.observeGame(id).map { it?.toDomain() }
 
@@ -112,6 +118,8 @@ class RoomGameRepository @Inject constructor(
 
     override suspend fun deleteGamesNotFrom(sourceIds: List<String>): Int = gameDao.deleteOtherSources(sourceIds)
 
+    override suspend fun knownGameIds(sourceId: String): Set<String> = gameDao.idsOfSource(sourceId).toHashSet()
+
     override fun observeCountsBySource(): Flow<Map<String, Int>> =
         gameDao.observeCountsBySource().map { counts -> counts.associate { it.sourceId to it.games } }
 
@@ -128,6 +136,7 @@ class RoomGameRepository @Inject constructor(
     private companion object {
         const val HISTORY_VIEWED = "viewed"
         const val PAGE_SIZE = 48
+        const val MAX_GENRE_CHIPS = 40
         val HISTORY_RETENTION: Duration = Duration.ofDays(180)
     }
 }

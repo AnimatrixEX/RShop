@@ -52,6 +52,7 @@ import com.rshop.ui.components.rememberReturnFocus
 import com.rshop.ui.components.returnFocusTarget
 import com.rshop.ui.theme.Dimens
 import com.rshop.ui.theme.RShopColors
+import com.rshop.ui.util.genreLabel
 import com.rshop.ui.util.sourceErrorText
 
 @Composable
@@ -162,7 +163,7 @@ fun StoreScreen(
                     }
                     items(state.genres, key = { "genre:$it" }) { genre ->
                         ConsoleChip(
-                            text = genre,
+                            text = genreLabel(genre),
                             selected = state.genre == genre,
                             onClick = { viewModel.onGenreSelected(genre) },
                             modifier = if (state.genre == genre) Modifier.focusRequester(filterFocus) else Modifier,

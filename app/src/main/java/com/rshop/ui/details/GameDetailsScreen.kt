@@ -67,7 +67,11 @@ import com.rshop.ui.components.SectionHeader
 import com.rshop.ui.components.rememberInitialFocusRequester
 import com.rshop.ui.theme.Dimens
 import com.rshop.ui.theme.RShopColors
+import com.rshop.ui.lists.AddToListDialog
+import com.rshop.ui.lists.ListNameDialog
+import com.rshop.ui.lists.ListPickerViewModel
 import com.rshop.ui.util.formatCount
+import com.rshop.ui.util.gameGenreText
 import com.rshop.ui.util.formatDate
 import com.rshop.ui.util.formatSize
 
@@ -107,6 +111,8 @@ fun GameDetailsScreen(
     }
     // Set while the player picks one of several files (formats, discs…).
     var chooser by remember { mutableStateOf<Game?>(null) }
+    var showLists by remember { mutableStateOf(false) }
+    var newListName by remember { mutableStateOf(false) }
 
     LaunchedEffect(event) {
         when (val current = event) {
@@ -156,9 +162,36 @@ fun GameDetailsScreen(
                 onCancel = { viewModel.onCancel() },
                 onUninstall = viewModel::onUninstall,
                 onToggleFavorite = viewModel::onToggleFavorite,
+                onAddToList = { showLists = true },
             )
         }
         SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).padding(24.dp))
+    }
+    if (showLists) {
+        val picker: ListPickerViewModel = hiltViewModel()
+        val lists by picker.lists.collectAsStateWithLifecycle()
+        val memberOf by picker.memberOf.collectAsStateWithLifecycle()
+        val title = (state as? GameDetailsUiState.Loaded)?.game?.title.orEmpty()
+        AddToListDialog(
+            gameTitle = title,
+            lists = lists,
+            memberOf = memberOf,
+            onToggle = picker::onToggle,
+            onCreate = { newListName = true },
+            onDismiss = { showLists = false },
+        )
+        if (newListName) {
+            ListNameDialog(
+                title = stringResource(R.string.list_new_title),
+                confirmLabel = stringResource(R.string.list_create),
+                initialName = "",
+                onConfirm = {
+                    picker.onCreate(it)
+                    newListName = false
+                },
+                onDismiss = { newListName = false },
+            )
+        }
     }
     chooser?.let { game ->
         FormatChooserDialog(
@@ -185,6 +218,7 @@ private fun GameDetailsContent(
     onCancel: () -> Unit,
     onUninstall: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onAddToList: () -> Unit,
 ) {
     val game = state.game
     val primaryFocus = rememberInitialFocusRequester()
@@ -258,6 +292,7 @@ private fun GameDetailsContent(
                         onCancel = onCancel,
                         onUninstall = onUninstall,
                         onToggleFavorite = onToggleFavorite,
+                        onAddToList = onAddToList,
                     )
                 }
             }
@@ -294,7 +329,7 @@ private fun MetadataRow(game: Game, sourceName: String?) {
         horizontalArrangement = Arrangement.spacedBy(28.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        MetadataItem(stringResource(R.string.details_genre), game.genre ?: unknown)
+        MetadataItem(stringResource(R.string.details_genre), gameGenreText(game) ?: unknown)
         MetadataItem(stringResource(R.string.details_version), game.version ?: unknown)
         MetadataItem(stringResource(R.string.details_size), game.sizeBytes?.let { formatSize(it) } ?: unknown)
         MetadataItem(stringResource(R.string.details_updated), game.updatedAt?.let { formatDate(it) } ?: unknown)

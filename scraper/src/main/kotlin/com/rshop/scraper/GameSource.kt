@@ -25,15 +25,24 @@ interface GameSource {
      * Every catalogue page in order, across sections when the source has some. Collection stops
      * at the first error, which propagates to the collector.
      */
-    fun crawl(): Flow<CatalogPage> = flow {
+    fun crawl(isKnown: (String) -> Boolean = NOTHING_KNOWN): Flow<CatalogPage> = flow {
         var page = 0
         while (true) {
             val result = getPage(page)
+            // Incremental run: the first page is always read (it shows updates), then a page of
+            // games that are all known means the rest was already seen.
+            if (page > 0 && isKnown !== NOTHING_KNOWN && result.games.isNotEmpty() && result.games.all { isKnown(it.id) }) break
             emit(result)
             if (!result.hasNext) break
             page++
         }
     }
+
+    /**
+     * True when the last [crawl] stopped before the end of the catalogue (request budget spent):
+     * the games it did not reach are still unknown, so it cannot count as a complete scan.
+     */
+    val crawlTruncated: Boolean get() = false
 
     /** Returns the games of the given catalogue page (0-based), or an empty list past the last page. */
     suspend fun getGames(page: Int): List<ScrapedGame> = getPage(page).games
@@ -50,4 +59,9 @@ interface GameSource {
 
     /** Remote search; sources that cannot search return an empty list (the app also searches locally). */
     suspend fun search(query: String): List<ScrapedGame>
+
+    companion object {
+        /** Default for `crawl(isKnown)`: a full scan. Compared by identity. */
+        val NOTHING_KNOWN: (String) -> Boolean = { false }
+    }
 }

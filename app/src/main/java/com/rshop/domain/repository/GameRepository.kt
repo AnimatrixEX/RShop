@@ -53,6 +53,9 @@ interface GameRepository {
     /** Deletes games of any source not in [sourceIds] (demo catalogue, removed sites). */
     suspend fun deleteGamesNotFrom(sourceIds: List<String>): Int
 
+    /** Ids of every game already stored for [sourceId] (incremental syncs skip them). */
+    suspend fun knownGameIds(sourceId: String): Set<String>
+
     /** Number of games per source id. */
     fun observeCountsBySource(): Flow<Map<String, Int>>
 }

@@ -146,6 +146,7 @@ fun SourceSetupScreen(
                 SourceCard(
                     source = source,
                     onSync = { viewModel.syncSource(source.config.id) },
+                    onRescan = { viewModel.syncSource(source.config.id, full = true) },
                     onStop = { viewModel.stopSync(source.config.id) },
                     onExport = {
                         viewModel.onExportRequested(source.config.id)
@@ -192,6 +193,7 @@ private fun SourceCard(
     onSync: () -> Unit,
     onStop: () -> Unit,
     onExport: () -> Unit,
+    onRescan: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val sync = source.sync
@@ -224,6 +226,7 @@ private fun SourceCard(
                 ConsoleButton(stringResource(R.string.source_stop), onClick = onStop, style = ConsoleButtonStyle.Secondary)
             } else {
                 ConsoleButton(stringResource(R.string.source_sync), onClick = onSync)
+                ConsoleButton(stringResource(R.string.source_rescan), onClick = onRescan, style = ConsoleButtonStyle.Secondary)
             }
             ConsoleButton(stringResource(R.string.source_export_short), onClick = onExport, style = ConsoleButtonStyle.Secondary)
             ConsoleButton(stringResource(R.string.source_remove_short), onClick = onRemove, style = ConsoleButtonStyle.Secondary)

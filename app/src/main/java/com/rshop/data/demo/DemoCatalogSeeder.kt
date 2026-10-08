@@ -1,6 +1,7 @@
 package com.rshop.data.demo
 
 import android.content.Context
+import com.rshop.domain.genre.GenreClassifier
 import com.rshop.domain.model.Game
 import com.rshop.domain.repository.GameRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -66,6 +67,7 @@ class DemoCatalogSeeder @Inject constructor(
                 sizeBytes = demo.sizeMb * 1024 * 1024,
                 platform = demo.platform,
                 genre = demo.genre,
+                tags = GenreClassifier.classify(demo.genre, demo.title, demo.description, demo.platform),
                 sourceUrl = null,
                 addedAt = now - Duration.ofDays(demo.addedDaysAgo),
                 updatedAt = now - Duration.ofDays(demo.updatedDaysAgo),

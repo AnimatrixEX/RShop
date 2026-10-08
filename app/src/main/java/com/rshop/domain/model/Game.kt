@@ -25,6 +25,8 @@ data class Game(
     val downloadCount: Long? = null,
     /** When the game page (description, files, hash) was last read from the source; null if never. */
     val detailsSyncedAt: Instant? = null,
+    /** Genre tags (see GenreClassifier): known genre keys first, then the site's own categories. */
+    val tags: List<String> = emptyList(),
     /** Every file the game page offers (formats, discs…); [downloadUrl] is the first one. */
     val downloadOptions: List<DownloadOption> = emptyList(),
 )

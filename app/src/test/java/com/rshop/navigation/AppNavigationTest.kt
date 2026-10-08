@@ -1,6 +1,7 @@
 package com.rshop.navigation
 
 import android.view.KeyEvent
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performScrollToKey
@@ -105,8 +106,12 @@ class AppNavigationTest {
         composeRule.onNodeWithText(text(R.string.store_search_hint)).assertIsDisplayed()
 
         pressKey(KeyEvent.KEYCODE_BUTTON_R1)
+        composeRule.onNodeWithText(text(R.string.favorites_empty_title)).assertIsDisplayed()
+
+        pressKey(KeyEvent.KEYCODE_BUTTON_R1)
         composeRule.onNodeWithText(text(R.string.library_empty_title)).assertIsDisplayed()
 
+        pressKey(KeyEvent.KEYCODE_BUTTON_L1)
         pressKey(KeyEvent.KEYCODE_BUTTON_L1)
         pressKey(KeyEvent.KEYCODE_BUTTON_L1)
         composeRule.onNodeWithText(text(R.string.home_featured).uppercase()).assertIsDisplayed()
@@ -128,7 +133,8 @@ class AppNavigationTest {
 
     @Test
     fun favoriteFromGamePageAppearsOnHome() {
-        composeRule.onNodeWithText(text(R.string.home_favorites)).assertDoesNotExist()
+        // The label is also the Favorites tab: only the tab shows it until a favorite exists.
+        composeRule.onAllNodesWithText(text(R.string.home_favorites)).assertCountEquals(1)
 
         composeRule.onNodeWithText(text(R.string.action_view_game)).performClick()
         waitForNode { onAllNodesWithContentDescription(text(R.string.action_favorite)) }
@@ -143,6 +149,6 @@ class AppNavigationTest {
         composeRule.onNodeWithTag(HOME_LIST_TAG).performScrollToKey("viewed")
         waitForNode { onAllNodesWithText(text(R.string.home_recently_viewed)) }
         composeRule.onNodeWithTag(HOME_LIST_TAG).performScrollToKey("favorites")
-        waitForNode { onAllNodesWithText(text(R.string.home_favorites)) }
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText(text(R.string.home_favorites)).fetchSemanticsNodes().size == 2 }
     }
 }

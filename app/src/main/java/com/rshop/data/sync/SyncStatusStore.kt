@@ -40,6 +40,8 @@ fun Throwable.toSourceError(): SourceError = when (this) {
 
 data class SyncRecord(
     val lastSuccessAt: Instant?,
+    /** End of the last scan that reached the whole catalogue; later syncs only look for new games. */
+    val lastFullScanAt: Instant? = null,
     val lastGameCount: Int,
     val lastError: SourceError?,
     val lastErrorAt: Instant?,
@@ -63,6 +65,8 @@ class SyncStatusStore @Inject constructor(
                 val keys = Keys(id)
                 SyncRecord(
                     lastSuccessAt = prefs[keys.lastSuccess]?.let(Instant::ofEpochMilli),
+                    // Syncs before 0.1.1 were all full scans.
+                    lastFullScanAt = (prefs[keys.lastFull] ?: prefs[keys.lastSuccess])?.let(Instant::ofEpochMilli),
                     lastGameCount = prefs[keys.lastCount] ?: 0,
                     lastError = prefs[keys.errorKind]?.let { kind ->
                         SourceError(runCatching { SourceErrorKind.valueOf(kind) }.getOrDefault(SourceErrorKind.Unknown), prefs[keys.errorDetail])
@@ -74,10 +78,12 @@ class SyncStatusStore @Inject constructor(
 
     suspend fun current(sourceId: String): SyncRecord? = records.first()[sourceId]
 
-    suspend fun recordSuccess(sourceId: String, count: Int) {
+    /** [fullScan]: the run went through the whole catalogue (not an incremental run, not cut short). */
+    suspend fun recordSuccess(sourceId: String, count: Int, fullScan: Boolean = true) {
         val keys = Keys(sourceId)
         store.edit {
             it[keys.lastSuccess] = clock.millis()
+            if (fullScan) it[keys.lastFull] = clock.millis()
             it[keys.lastCount] = count
             it.remove(keys.errorKind)
             it.remove(keys.errorDetail)
@@ -102,11 +108,12 @@ class SyncStatusStore @Inject constructor(
 
     private class Keys(id: String) {
         val lastSuccess = longPreferencesKey("$PREFIX$id.last_success_at")
+        val lastFull = longPreferencesKey("$PREFIX$id.last_full_scan_at")
         val lastCount = intPreferencesKey("$PREFIX$id.last_game_count")
         val errorKind = stringPreferencesKey("$PREFIX$id.error_kind")
         val errorDetail = stringPreferencesKey("$PREFIX$id.error_detail")
         val errorAt = longPreferencesKey("$PREFIX$id.error_at")
-        val all = listOf(lastSuccess, lastCount, errorKind, errorDetail, errorAt)
+        val all = listOf(lastSuccess, lastFull, lastCount, errorKind, errorDetail, errorAt)
     }
 
     private companion object {

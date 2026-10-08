@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.rshop.domain.model.Game
 import com.rshop.ui.theme.Dimens
 import com.rshop.ui.theme.RShopColors
+import com.rshop.ui.util.gameGenreText
 
 @Composable
 fun GameCard(
@@ -75,7 +76,7 @@ fun GameCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        game.genre?.let { genre ->
+        gameGenreText(game, max = 2)?.let { genre ->
             Text(
                 text = genre,
                 style = MaterialTheme.typography.bodySmall,

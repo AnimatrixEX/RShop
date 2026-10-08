@@ -10,6 +10,9 @@ data object HomeRoute
 data class StoreRoute(val genre: String? = null, val platform: String? = null)
 
 @Serializable
+data object FavoritesRoute
+
+@Serializable
 data object LibraryRoute
 
 @Serializable

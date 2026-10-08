@@ -34,6 +34,8 @@ data class GameEntity(
     @ColumnInfo(name = "size_bytes") val sizeBytes: Long?,
     val platform: String?,
     val genre: String?,
+    /** Genres and categories as "|rpg|Strategy|" (see TagCodec); derived from [genre], title and description. */
+    val tags: String? = null,
     @ColumnInfo(name = "source_url") val sourceUrl: String?,
     val sha256: String?,
     @ColumnInfo(name = "added_at") val addedAt: Long?,
@@ -83,6 +85,29 @@ data class ScreenshotEntity(
 )
 data class FavoriteEntity(
     @PrimaryKey @ColumnInfo(name = "game_id") val gameId: String,
+    @ColumnInfo(name = "added_at") val addedAt: Long,
+)
+
+/** A list the user made ("À finir", "Co-op"…). Favorites stay their own built-in list. */
+@Entity(tableName = "game_lists")
+data class GameListEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+)
+
+@Entity(
+    tableName = "game_list_entries",
+    primaryKeys = ["list_id", "game_id"],
+    indices = [Index("game_id")],
+    foreignKeys = [
+        ForeignKey(entity = GameListEntity::class, parentColumns = ["id"], childColumns = ["list_id"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = GameEntity::class, parentColumns = ["id"], childColumns = ["game_id"], onDelete = ForeignKey.CASCADE),
+    ],
+)
+data class GameListEntryEntity(
+    @ColumnInfo(name = "list_id") val listId: Long,
+    @ColumnInfo(name = "game_id") val gameId: String,
     @ColumnInfo(name = "added_at") val addedAt: Long,
 )
 

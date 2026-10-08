@@ -44,11 +44,11 @@ class CatalogSyncWorker @AssistedInject constructor(
             Timber.w(e, "Sync runs without foreground service")
         }
         return try {
-            val count = syncer.sync(sourceId) { progress ->
+            val outcome = syncer.sync(sourceId, full = inputData.getBoolean(KEY_FULL, false)) { progress ->
                 setProgress(workDataOf(KEY_PAGES to progress.pages, KEY_GAMES to progress.games, KEY_SECTION to progress.section))
                 runCatching { setForeground(foreground(progress)) }
             }
-            status.recordSuccess(sourceId, count)
+            status.recordSuccess(sourceId, outcome.games, fullScan = outcome.fullScan)
             // New games have no cover yet: SteamGridDB is asked for them.
             artworkScheduler.schedule()
             Result.success()
@@ -78,6 +78,7 @@ class CatalogSyncWorker @AssistedInject constructor(
         const val KEY_GAMES = "games"
         const val KEY_SECTION = "section"
         const val KEY_SOURCE_ID = "source_id"
+        const val KEY_FULL = "full"
         private const val MAX_RETRIES = 2
     }
 }

@@ -148,7 +148,8 @@ class RoomGameRepositoryTest {
             ),
         )
 
-        assertEquals(listOf("Action", "rpg"), repository.observeGenres().first())
+        // Most common first.
+        assertEquals(listOf("rpg", "Action"), repository.observeGenres().first())
         assertEquals(listOf("GBA", "NES", "SNES"), repository.observePlatforms().first())
     }
 

@@ -27,8 +27,9 @@ interface GameDao {
     @Query("SELECT * FROM games ORDER BY popularity DESC, title COLLATE NOCASE LIMIT :limit")
     fun observePopular(limit: Int): Flow<List<GameEntity>>
 
-    @Query("SELECT DISTINCT genre FROM games WHERE genre IS NOT NULL AND genre != '' ORDER BY genre COLLATE NOCASE")
-    fun observeGenres(): Flow<List<String>>
+    /** Every distinct encoded tag list with its number of games (see TagCodec); split by the repository. */
+    @Query("SELECT tags, COUNT(*) AS games FROM games WHERE tags IS NOT NULL GROUP BY tags")
+    fun observeTagGroups(): Flow<List<TagGroup>>
 
     @Query("SELECT DISTINCT platform FROM games WHERE platform IS NOT NULL AND platform != '' ORDER BY platform COLLATE NOCASE")
     fun observePlatforms(): Flow<List<String>>
@@ -45,7 +46,7 @@ interface GameDao {
         """
         SELECT * FROM games
         WHERE (:ftsQuery IS NULL OR rowid IN (SELECT rowid FROM games_fts WHERE games_fts MATCH :ftsQuery))
-          AND (:genre IS NULL OR genre = :genre)
+          AND (:tag IS NULL OR tags LIKE :tag)
           AND (:platform IS NULL OR platform = :platform)
           AND (:sourceId IS NULL OR source_id = :sourceId)
         ORDER BY
@@ -57,13 +58,13 @@ interface GameDao {
           title COLLATE NOCASE ASC
         """,
     )
-    fun observeCatalog(ftsQuery: String?, genre: String?, platform: String?, sourceId: String?, sort: String): Flow<List<GameEntity>>
+    fun observeCatalog(ftsQuery: String?, tag: String?, platform: String?, sourceId: String?, sort: String): Flow<List<GameEntity>>
 
     @Query(
         """
         SELECT * FROM games
         WHERE (:ftsQuery IS NULL OR rowid IN (SELECT rowid FROM games_fts WHERE games_fts MATCH :ftsQuery))
-          AND (:genre IS NULL OR genre = :genre)
+          AND (:tag IS NULL OR tags LIKE :tag)
           AND (:platform IS NULL OR platform = :platform)
           AND (:sourceId IS NULL OR source_id = :sourceId)
         ORDER BY
@@ -75,21 +76,24 @@ interface GameDao {
           title COLLATE NOCASE ASC
         """,
     )
-    fun pagingCatalog(ftsQuery: String?, genre: String?, platform: String?, sourceId: String?, sort: String): PagingSource<Int, GameEntity>
+    fun pagingCatalog(ftsQuery: String?, tag: String?, platform: String?, sourceId: String?, sort: String): PagingSource<Int, GameEntity>
 
     @Query(
         """
         SELECT COUNT(*) FROM games
         WHERE (:ftsQuery IS NULL OR rowid IN (SELECT rowid FROM games_fts WHERE games_fts MATCH :ftsQuery))
-          AND (:genre IS NULL OR genre = :genre)
+          AND (:tag IS NULL OR tags LIKE :tag)
           AND (:platform IS NULL OR platform = :platform)
           AND (:sourceId IS NULL OR source_id = :sourceId)
         """,
     )
-    fun observeCatalogCount(ftsQuery: String?, genre: String?, platform: String?, sourceId: String?): Flow<Int>
+    fun observeCatalogCount(ftsQuery: String?, tag: String?, platform: String?, sourceId: String?): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM games")
     suspend fun count(): Int
+
+    @Query("SELECT id FROM games WHERE source_id = :sourceId")
+    suspend fun idsOfSource(sourceId: String): List<String>
 
     @Query("SELECT * FROM games WHERE id = :id")
     suspend fun get(id: String): GameEntity?
@@ -205,6 +209,8 @@ object CatalogSort {
     const val UPDATED = "updated"
     const val SIZE = "size"
 }
+
+data class TagGroup(val tags: String, val games: Int)
 
 data class ArtworkCandidate(val id: String, val title: String)
 

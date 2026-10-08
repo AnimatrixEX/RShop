@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.rshop.ui.details.GameDetailsScreen
 import com.rshop.ui.downloads.DownloadsScreen
+import com.rshop.ui.favorites.FavoritesScreen
 import com.rshop.ui.home.HomeScreen
 import com.rshop.ui.library.LibraryScreen
 import com.rshop.ui.settings.SettingsScreen
@@ -41,6 +42,12 @@ fun RShopNavHost(navController: NavHostController, modifier: Modifier = Modifier
             )
         }
         composable<StoreRoute> { StoreScreen(onOpenGame = openGame) }
+        composable<FavoritesRoute> {
+            FavoritesScreen(
+                onOpenGame = openGame,
+                onBrowseStore = { navController.navigateToTab(TopLevelDestination.Store) },
+            )
+        }
         composable<LibraryRoute> {
             LibraryScreen(
                 onBrowseStore = { navController.navigateToTab(TopLevelDestination.Store) },

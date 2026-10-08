@@ -1,5 +1,6 @@
 package com.rshop.data.sync
 
+import com.rshop.domain.genre.GenreClassifier
 import com.rshop.domain.model.DownloadOption
 import com.rshop.domain.model.Game
 import com.rshop.scraper.model.ScrapedGame
@@ -22,6 +23,7 @@ fun ScrapedGame.toDomain(sourceId: String) = Game(
     sizeBytes = sizeBytes,
     platform = platform,
     genre = genre,
+    tags = GenreClassifier.classify(genre, title, description = null, platform = platform),
     sourceUrl = detailsUrl,
     downloadCount = downloadCount,
     // The site's own download counter is the best popularity signal there is.
@@ -36,6 +38,7 @@ fun ScrapedGameDetails.toDomain(sourceId: String): Game {
             DownloadOption(url = it.url, label = it.label, fileName = it.fileName, sizeBytes = it.sizeBytes, sha256 = it.sha256, viaPage = it.viaPage)
         },
         description = description,
+        tags = GenreClassifier.classify(game.genre, game.title, description, game.platform),
         screenshots = screenshots,
         downloadUrl = download?.url,
         downloadViaPage = download?.viaPage ?: false,

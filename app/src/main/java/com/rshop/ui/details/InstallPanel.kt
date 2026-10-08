@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -36,6 +37,7 @@ import com.rshop.domain.model.DownloadTask
 import com.rshop.domain.model.InstalledGame
 import com.rshop.ui.components.ConsoleButton
 import com.rshop.ui.components.ConsoleButtonStyle
+import com.rshop.ui.components.ConsoleIconButton
 import com.rshop.ui.components.FavoriteButton
 import com.rshop.ui.theme.RShopColors
 import com.rshop.ui.util.downloadErrorText
@@ -55,12 +57,20 @@ fun InstallPanel(
     onCancel: () -> Unit,
     onUninstall: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onAddToList: () -> Unit,
 ) {
     val download = state.download?.takeIf { it.status != DownloadStatus.Completed }
     var confirmDelete by remember { mutableStateOf(false) }
 
     // The favorite toggle ends the main action row, like on the Home hero.
-    val favorite: @Composable () -> Unit = { FavoriteButton(isFavorite = state.isFavorite, onToggle = onToggleFavorite) }
+    val favorite: @Composable () -> Unit = {
+        FavoriteButton(isFavorite = state.isFavorite, onToggle = onToggleFavorite)
+        ConsoleIconButton(
+            icon = Icons.AutoMirrored.Filled.List,
+            contentDescription = stringResource(R.string.list_picker_title),
+            onClick = onAddToList,
+        )
+    }
     Column(Modifier.widthIn(max = 560.dp)) {
         when {
             download != null -> DownloadProgress(download, primaryFocus, onPause, onResume, onCancel, favorite)

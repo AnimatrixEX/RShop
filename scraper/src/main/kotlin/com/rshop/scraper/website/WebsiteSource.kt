@@ -102,17 +102,23 @@ class WebsiteSource(
      * every console, and so on. The catalogue fills evenly instead of one console at a time,
      * and an interrupted sync already has games for every console.
      */
-    override fun crawl(): Flow<CatalogPage> {
+    @Volatile
+    private var truncated = false
+    override val crawlTruncated: Boolean get() = truncated
+
+    override fun crawl(isKnown: (String) -> Boolean): Flow<CatalogPage> {
         val rules = config.sections
         val useIndex = config.list.indexPages.isNotEmpty()
-        if (rules == null && !useIndex) return super.crawl()
+        truncated = false
+        if (rules == null && !useIndex) return super.crawl(isKnown)
         return flow {
+            truncated = false
             val budget = RequestBudget(config.maxRequestsPerCrawl, used = 1)
             val cursors = if (rules == null) {
-                listOfNotNull(pageUrl(0)?.let { ListingCursor(it, section = null, suffix = null, budget) })
+                listOfNotNull(pageUrl(0)?.let { ListingCursor(it, section = null, suffix = null, budget, isKnown) })
             } else {
                 // The first request of the budget is this console index.
-                sections().map { ListingCursor(it.url.toHttpUrl(), it, rules.pageSuffix, budget) }
+                sections().map { ListingCursor(it.url.toHttpUrl(), it, rules.pageSuffix, budget, isKnown) }
             }
             val active = ArrayDeque(cursors)
             while (active.isNotEmpty()) {
@@ -120,6 +126,7 @@ class WebsiteSource(
                 val page = cursor.next()
                 if (budget.exhausted) {
                     log.warn("Crawl stopped after ${config.maxRequestsPerCrawl} requests (maxRequestsPerCrawl)")
+                    truncated = true
                     return@flow
                 }
                 if (page == null) {
@@ -146,7 +153,9 @@ class WebsiteSource(
         val section: CatalogSection?,
         private val suffix: String?,
         private val budget: RequestBudget,
+        private val isKnown: (String) -> Boolean = GameSource.NOTHING_KNOWN,
     ) {
+        private val incremental = isKnown !== GameSource.NOTHING_KNOWN
         private val useIndex = config.list.indexPages.isNotEmpty()
         private val queue = ArrayDeque(listOf(start))
         private val seenPages = hashSetOf(start)
@@ -192,6 +201,12 @@ class WebsiteSource(
                 val fresh = games.count { seenGames.add(it.id) }
                 pagesWithoutNewGames = if (fresh == 0) pagesWithoutNewGames + 1 else 0
                 if (pagesWithoutNewGames >= MAX_PAGES_WITHOUT_NEW_GAMES) return null
+                // Incremental run: this listing's first page is always read (it shows updates);
+                // afterwards a page of known games only means the rest was already seen. An index
+                // (letters) has no order, so its known pages are just skipped.
+                if (incremental && emitted > 0 && games.all { isKnown(it.id) }) {
+                    if (useIndex) continue else return null
+                }
                 emitted++
                 return CatalogPage(games, hasNext = queue.isNotEmpty() && page < config.maxPages, section = section?.name)
             }

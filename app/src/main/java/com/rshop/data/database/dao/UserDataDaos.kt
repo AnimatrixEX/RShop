@@ -10,6 +10,8 @@ import androidx.room.Upsert
 import com.rshop.data.database.entity.DownloadEntity
 import com.rshop.data.database.entity.FavoriteEntity
 import com.rshop.data.database.entity.GameEntity
+import com.rshop.data.database.entity.GameListEntity
+import com.rshop.data.database.entity.GameListEntryEntity
 import com.rshop.data.database.entity.HistoryEntity
 import com.rshop.data.database.entity.InstalledGameEntity
 import kotlinx.coroutines.flow.Flow
@@ -123,4 +125,50 @@ interface DownloadDao {
 
     @Query("DELETE FROM downloads WHERE game_id = :gameId")
     suspend fun delete(gameId: String)
+}
+
+data class GameListWithCount(
+    val id: Long,
+    val name: String,
+    val games: Int,
+)
+
+@Dao
+interface GameListDao {
+
+    @Query(
+        """
+        SELECT game_lists.id AS id, game_lists.name AS name, COUNT(game_list_entries.game_id) AS games
+        FROM game_lists LEFT JOIN game_list_entries ON game_list_entries.list_id = game_lists.id
+        GROUP BY game_lists.id
+        ORDER BY game_lists.created_at
+        """,
+    )
+    fun observeLists(): Flow<List<GameListWithCount>>
+
+    @Query(
+        """
+        SELECT games.* FROM games JOIN game_list_entries ON game_list_entries.game_id = games.id
+        WHERE game_list_entries.list_id = :listId ORDER BY game_list_entries.added_at DESC
+        """,
+    )
+    fun observeGames(listId: Long): Flow<List<GameEntity>>
+
+    @Query("SELECT list_id FROM game_list_entries WHERE game_id = :gameId")
+    fun observeListIdsOf(gameId: String): Flow<List<Long>>
+
+    @Insert
+    suspend fun insertList(list: GameListEntity): Long
+
+    @Query("UPDATE game_lists SET name = :name WHERE id = :listId")
+    suspend fun rename(listId: Long, name: String)
+
+    @Query("DELETE FROM game_lists WHERE id = :listId")
+    suspend fun delete(listId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addEntry(entry: GameListEntryEntity)
+
+    @Query("DELETE FROM game_list_entries WHERE list_id = :listId AND game_id = :gameId")
+    suspend fun removeEntry(listId: Long, gameId: String)
 }

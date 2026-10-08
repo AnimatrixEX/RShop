@@ -12,6 +12,7 @@ enum class TopLevelDestination(
 ) {
     Home(HomeRoute, HomeRoute::class, R.string.tab_home),
     Store(StoreRoute(), StoreRoute::class, R.string.tab_store),
+    Favorites(FavoritesRoute, FavoritesRoute::class, R.string.tab_favorites),
     Library(LibraryRoute, LibraryRoute::class, R.string.tab_library),
     Downloads(DownloadsRoute, DownloadsRoute::class, R.string.tab_downloads),
     Settings(SettingsRoute, SettingsRoute::class, R.string.tab_settings),

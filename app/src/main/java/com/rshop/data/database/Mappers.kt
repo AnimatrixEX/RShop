@@ -3,6 +3,7 @@ package com.rshop.data.database
 import com.rshop.data.database.entity.GameEntity
 import com.rshop.data.database.entity.GameWithScreenshots
 import com.rshop.data.database.entity.ScreenshotEntity
+import com.rshop.domain.genre.TagCodec
 import com.rshop.domain.model.Game
 import java.time.Instant
 
@@ -18,6 +19,7 @@ fun GameEntity.toDomain(screenshots: List<String> = emptyList()): Game = Game(
     sizeBytes = sizeBytes,
     platform = platform,
     genre = genre,
+    tags = TagCodec.decode(tags),
     sourceUrl = sourceUrl,
     sha256 = sha256,
     addedAt = addedAt?.let(Instant::ofEpochMilli),
@@ -45,6 +47,7 @@ fun Game.toEntity(syncedAt: Long): GameWithScreenshots = GameWithScreenshots(
         sizeBytes = sizeBytes,
         platform = platform,
         genre = genre,
+        tags = TagCodec.encode(tags),
         sourceUrl = sourceUrl,
         sha256 = sha256,
         addedAt = addedAt?.toEpochMilli(),

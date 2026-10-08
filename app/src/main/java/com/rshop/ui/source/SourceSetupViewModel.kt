@@ -170,8 +170,8 @@ class SourceSetupViewModel @Inject constructor(
         _state.update { it.copy(message = SourceMessage.Removed(name)) }
     }
 
-    fun syncSource(sourceId: String) {
-        viewModelScope.launch { sourceManager.syncNow(sourceId) }
+    fun syncSource(sourceId: String, full: Boolean = false) {
+        viewModelScope.launch { sourceManager.syncNow(sourceId, full) }
     }
 
     fun stopSync(sourceId: String) = sourceManager.stopSync(sourceId)

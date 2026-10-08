@@ -80,10 +80,13 @@ class SyncScheduler @Inject constructor(
         )
     }
 
-    /** Syncs [sourceId], or every source. [restart]: cancel a running sync first (source changed). */
-    suspend fun syncNow(sourceId: String? = null, restart: Boolean = false) {
+    /**
+     * Syncs [sourceId], or every source. [restart]: cancel a running sync first (source changed).
+     * [full]: rescan the whole catalogue; otherwise a source already scanned only looks for new games.
+     */
+    suspend fun syncNow(sourceId: String? = null, restart: Boolean = false, full: Boolean = false) {
         val ids = sourceId?.let(::listOf) ?: sources.all().map { it.id }
-        ids.forEach { id -> enqueue(id, restart) }
+        ids.forEach { id -> enqueue(id, restart, full) }
     }
 
     /** Stops the sync of [sourceId], or every sync. Games already read are kept. */
@@ -96,13 +99,13 @@ class SyncScheduler @Inject constructor(
         val records = status.records.first()
         sources.all().forEach { config ->
             val last = records[config.id]?.lastSuccessAt
-            if (last == null || Duration.between(last, clock.instant()) > maxAge) enqueue(config.id, restart = false)
+            if (last == null || Duration.between(last, clock.instant()) > maxAge) enqueue(config.id, restart = false, full = false)
         }
     }
 
-    private fun enqueue(sourceId: String, restart: Boolean) {
+    private fun enqueue(sourceId: String, restart: Boolean, full: Boolean) {
         val request = OneTimeWorkRequestBuilder<CatalogSyncWorker>()
-            .setInputData(workDataOf(CatalogSyncWorker.KEY_SOURCE_ID to sourceId))
+            .setInputData(workDataOf(CatalogSyncWorker.KEY_SOURCE_ID to sourceId, CatalogSyncWorker.KEY_FULL to full))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
             .addTag(TAG)

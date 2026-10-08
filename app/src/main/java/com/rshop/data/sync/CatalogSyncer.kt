@@ -13,6 +13,9 @@ import javax.inject.Singleton
 
 data class SyncProgress(val pages: Int, val games: Int, val section: String?)
 
+/** [games]: games known for the source after the run; [fullScan]: the run went through the whole catalogue. */
+data class SyncOutcome(val games: Int, val fullScan: Boolean)
+
 class NoSourceConfiguredException : IllegalStateException("No catalogue source configured")
 
 /** Source part of a game id ("<sourceId>:<path>"). */
@@ -28,32 +31,50 @@ class CatalogSyncer @Inject constructor(
     private val sources: SourceRepository,
     private val games: GameRepository,
     private val clock: Clock,
+    private val status: SyncStatusStore,
 ) {
 
-    suspend fun sync(sourceId: String, onProgress: suspend (SyncProgress) -> Unit = {}): Int {
+    /**
+     * Once a source was scanned completely, later runs are incremental: each listing is read from
+     * its first page until a page holds only games already known, so the same games are not
+     * scanned again. [full] forces a complete rescan (which also removes games that left the site).
+     */
+    suspend fun sync(sourceId: String, full: Boolean = false, onProgress: suspend (SyncProgress) -> Unit = {}): SyncOutcome {
         val config = sources.get(sourceId) ?: throw NoSourceConfiguredException()
         val source = sources.createSource(config)
         val start = clock.instant()
 
+        val incremental = !full && status.current(sourceId)?.lastFullScanAt != null
+        val known = if (incremental) games.knownGameIds(config.id) else emptySet()
+        val prefix = "${config.id}:"
         val seen = HashSet<String>()
         var pages = 0
         var pagesWithoutNewGames = 0
-        source.crawl().takeWhile { page ->
+        val crawl = if (incremental) source.crawl { scrapedId -> (prefix + scrapedId) in known } else source.crawl()
+        crawl.takeWhile { page ->
             pages++
             val fresh = page.games.filter { seen.add(it.id) }
             if (fresh.isNotEmpty()) games.saveListing(fresh.map { it.toDomain(config.id) }, start)
             onProgress(SyncProgress(pages, seen.size, page.section))
             // Guard against sites that serve the last page again for any page number.
             pagesWithoutNewGames = if (fresh.isEmpty()) pagesWithoutNewGames + 1 else 0
-            pagesWithoutNewGames < MAX_PAGES_WITHOUT_NEW_GAMES
+            incremental || pagesWithoutNewGames < MAX_PAGES_WITHOUT_NEW_GAMES
         }.collect()
 
         if (seen.isEmpty()) {
             throw ScraperException.StructureChanged(config.baseUrl, "the sync found no game")
         }
-        val stale = games.deleteStaleGames(config.id, start)
-        Timber.i("Sync of %s done: %d games in %d pages, %d removed", config.id, seen.size, pages, stale)
-        return seen.size
+        if (incremental) {
+            val total = known.size + seen.count { (prefix + it) !in known }
+            Timber.i("Incremental sync of %s: %d new games, %d pages read", config.id, total - known.size, pages)
+            return SyncOutcome(total, fullScan = false)
+        }
+        // A scan cut short by the request budget has not reached everything: nothing may be
+        // deleted from it and it does not count as complete.
+        val complete = !source.crawlTruncated
+        val stale = if (complete) games.deleteStaleGames(config.id, start) else 0
+        Timber.i("Sync of %s done: %d games in %d pages, %d removed, complete=%s", config.id, seen.size, pages, stale, complete)
+        return SyncOutcome(seen.size, fullScan = complete)
     }
 
     /**

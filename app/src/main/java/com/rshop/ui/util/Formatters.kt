@@ -38,5 +38,5 @@ fun formatDate(instant: Instant): String {
 @Composable
 fun rememberGameMetaLine(game: Game): String {
     val size = game.sizeBytes?.let { formatSize(it) }
-    return listOfNotNull(game.platform, game.genre, size).joinToString(" · ")
+    return listOfNotNull(game.platform, gameGenreText(game, max = 2), size).joinToString(" · ")
 }

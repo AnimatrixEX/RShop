@@ -48,6 +48,7 @@ fun testGame(
     sizeBytes = sizeBytes,
     platform = platform,
     genre = genre,
+    tags = listOfNotNull(genre?.takeIf { it.isNotBlank() }),
     sourceUrl = null,
     addedAt = addedDaysAgo?.let { TEST_NOW.minusSeconds(it * 86_400) },
     updatedAt = updatedDaysAgo?.let { TEST_NOW.minusSeconds(it * 86_400) },
