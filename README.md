@@ -43,6 +43,8 @@ N'ajoutez que des sources dont vous avez le droit d'utiliser le contenu. Vous ê
 2. Autorisez l'installation d'apps depuis cette source, puis ouvrez le fichier.
 3. Au premier lancement : *Paramètres → Dossier des jeux* (où seront installés les jeux), puis *Paramètres → Sources du catalogue → Ajouter une source*.
 
+**Avec [Obtainium](https://github.com/ImranR98/Obtainium)** (installation et mises à jour automatiques depuis les releases GitHub) : [ajouter RShop dans Obtainium](obtainium://add/https://github.com/AnimatrixEX/RShop), ou *Ajouter une app* puis coller `https://github.com/AnimatrixEX/RShop`. Aucune option à changer.
+
 Prérequis : Android 13 (API 33) ou plus, processeur **arm64** (la quasi-totalité des consoles portables et des téléphones récents). Compter ~200 Mo : GeckoView, le moteur du navigateur intégré, embarque son code natif.
 
 ### Ajouter une source
