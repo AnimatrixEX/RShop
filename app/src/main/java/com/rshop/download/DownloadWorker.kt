@@ -1,0 +1,327 @@
+package com.rshop.download
+
+import android.content.Context
+import android.os.SystemClock
+import androidx.hilt.work.HiltWorker
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
+import com.rshop.BuildConfig
+import com.rshop.R
+import com.rshop.data.database.dao.DownloadDao
+import com.rshop.data.database.entity.DownloadEntity
+import com.rshop.data.source.SourceRepository
+import com.rshop.data.sync.sourceIdOf
+import com.rshop.data.work.AppNotifications
+import com.rshop.domain.model.DownloadStatus
+import com.rshop.domain.repository.SettingsRepository
+import com.rshop.installation.GameInstaller
+import com.rshop.scraper.website.DownloadUrlPolicy
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.CookieJar
+import okhttp3.OkHttpClient
+import timber.log.Timber
+import java.io.File
+import java.io.IOException
+import java.time.Clock
+
+/**
+ * One game's pipeline: (download page → wait) → download with resume → SHA-256 check →
+ * extraction into the games folder. Runs as a data-sync foreground job with a progress
+ * notification. Each step is skipped when an earlier run already completed it.
+ */
+@HiltWorker
+class DownloadWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val dao: DownloadDao,
+    private val installer: GameInstaller,
+    private val sources: SourceRepository,
+    private val settings: SettingsRepository,
+    private val tracker: DownloadProgressTracker,
+    private val notifications: AppNotifications,
+    private val clock: Clock,
+    private val slots: DownloadSlots,
+    private val browserStreams: BrowserStreams,
+    okHttpClient: OkHttpClient,
+) : CoroutineWorker(context, params) {
+
+    private val gameId = requireNotNull(params.inputData.getString(KEY_GAME_ID))
+    private val notificationId = 1000 + (gameId.hashCode() and 0xFFFF)
+    private val downloader = HttpFileDownloader(
+        // No shared cookie jar: a browser download carries its own Cookie header.
+        client = okHttpClient.newBuilder().cache(null).cookieJar(CookieJar.NO_COOKIES).build(),
+        userAgent = "RShop/${BuildConfig.VERSION_NAME} (Android)",
+    )
+    private var lastDbWrite = 0L
+    private var lastNotification = 0L
+
+    override suspend fun doWork(): Result {
+        var row = dao.get(gameId) ?: return Result.success()
+        if (!DownloadStatus.valueOf(row.state).isActive) return Result.success()
+        runCatching { setForeground(foreground(row.title, null)) }
+            .onFailure { Timber.w(it, "Download runs without foreground service") }
+
+        // The path can change once: a download page resolves to the real file name.
+        var file = File(row.tempPath)
+        return try {
+            if (row.url.startsWith(BrowserStreams.SCHEME)) {
+                // Already flowing from the browser: never held back by the parallel-download limit.
+                row = copyBrowserStream(row, file)
+            } else if (!isDownloaded(row, file)) {
+                // Only the transfer is limited; verification and installation run freely.
+                row = slots.semaphore.withPermit { download(row, file) }
+                file = File(row.tempPath)
+            }
+            if (row.expectedSha256 != null && !row.verified) {
+                row = verify(row, file)
+            }
+            install(row, file)
+            Result.success()
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) {
+                // Stopped by the system (network lost, constraints): back in the queue. A user
+                // pause or cancel already changed or removed the row.
+                val current = dao.get(gameId)
+                if (current != null && DownloadStatus.valueOf(current.state).isActive) {
+                    dao.updateState(gameId, DownloadStatus.Queued.name, null, clock.millis())
+                }
+                tracker.clear(gameId)
+            }
+            throw e
+        } catch (e: Exception) {
+            val error = e.toDownloadError()
+            Timber.w(e, "Download of %s failed (%s)", gameId, error.kind)
+            tracker.clear(gameId)
+            if (error.isTransient && runAttemptCount < MAX_TRANSIENT_RETRIES) {
+                dao.updateState(gameId, DownloadStatus.Queued.name, error.encode(), clock.millis())
+                Result.retry()
+            } else {
+                dao.updateState(gameId, DownloadStatus.Failed.name, error.encode(), clock.millis())
+                notifyDone(row.title, success = false)
+                Result.failure()
+            }
+        }
+    }
+
+    override suspend fun getForegroundInfo() = foreground(dao.get(gameId)?.title ?: "", null)
+
+    private fun isDownloaded(row: DownloadEntity, file: File): Boolean =
+        file.exists() && row.totalBytes != null && file.length() == row.totalBytes && row.downloadedBytes == row.totalBytes
+
+    private suspend fun download(start: DownloadEntity, file: File): DownloadEntity {
+        var row = start
+        dao.updateState(gameId, DownloadStatus.Downloading.name, null, clock.millis())
+
+        // A file the user downloaded themselves: copy it into app storage, no network.
+        if (row.url.startsWith("content://")) return copyLocal(row, file)
+
+        // Unresolved link: the scraper follows download pages (waiting as asked) and redirects until
+        // a URL answers with a file, read from its headers only. It never passes a CAPTCHA or login.
+        if (row.viaPage) {
+            val config = sources.get(sourceIdOf(row.gameId)) ?: throw DownloadException.Rejected("The game's source was removed")
+            // The game page is where the first link was clicked.
+            val gamePage = config.base.resolve(row.gameId.substringAfter(':'))?.toString()
+            val info = sources.createSource(config).resolveDownload(row.url, referer = gamePage)
+            val url = info.url.toHttpUrl()
+            val fileName = DownloadPolicy.fileName(info.fileName, url, row.title, info.contentType)
+            val policy = DownloadUrlPolicy(config.base, config.allowedDownloadHosts)
+            DownloadPolicy.check(url, fileName) { policy.accepts(it) }
+            DownloadPolicy.checkContentType(info.contentType)
+            val target = File(file.parentFile, fileName)
+            row = row.copy(
+                url = info.url,
+                viaPage = false,
+                fileName = fileName,
+                tempPath = target.absolutePath,
+                totalBytes = info.sizeBytes ?: row.totalBytes,
+                referer = info.sourcePage,
+            )
+            dao.upsert(row)
+            return download(row, target)
+        }
+
+        val validators = ResumeValidators(row.etag, row.lastModified).takeIf { it.ifRange != null }
+        val outcome = downloader.download(
+            url = row.url.toHttpUrl(),
+            target = file,
+            referer = row.referer,
+            session = if (row.requestCookie != null || row.requestUserAgent != null) {
+                BrowserSession(row.requestCookie, row.requestUserAgent)
+            } else {
+                null
+            },
+            validators = validators,
+            onStarted = { newValidators, total ->
+                row = row.copy(etag = newValidators.etag, lastModified = newValidators.lastModified, totalBytes = total ?: row.totalBytes)
+                dao.upsert(row.copy(state = DownloadStatus.Downloading.name, updatedAt = clock.millis()))
+            },
+            onProgress = { downloaded, total -> onDownloadProgress(row.title, downloaded, total) },
+        )
+        dao.updateProgress(gameId, outcome.totalBytes, outcome.totalBytes, clock.millis())
+        val done = dao.get(gameId) ?: throw CancellationException("Download removed")
+        if (done.requestCookie == null) return done
+        // The browser cookies are not kept beyond the file they were given for.
+        return done.copy(requestCookie = null).also { dao.upsert(it) }
+    }
+
+    /** Streams a user-picked file (content://) into [file], reporting progress like a download. */
+    private suspend fun copyLocal(row: DownloadEntity, file: File): DownloadEntity {
+        val uri = android.net.Uri.parse(row.url)
+        val resolver = applicationContext.contentResolver
+        val total = row.totalBytes ?: runCatching {
+            resolver.openAssetFileDescriptor(uri, "r")?.use { it.length.takeIf { len -> len >= 0 } }
+        }.getOrNull()
+        file.parentFile?.mkdirs()
+        withContext(Dispatchers.IO) {
+            val input = resolver.openInputStream(uri) ?: throw DownloadException.Rejected("The chosen file could not be opened")
+            input.use { source ->
+                file.outputStream().use { out ->
+                    val buffer = ByteArray(256 * 1024)
+                    var copied = 0L
+                    while (true) {
+                        val read = source.read(buffer)
+                        if (read < 0) break
+                        out.write(buffer, 0, read)
+                        copied += read
+                        onDownloadProgress(row.title, copied, total)
+                    }
+                    if (copied == 0L) throw DownloadException.Rejected("The chosen file is empty")
+                }
+            }
+        }
+        runCatching {
+            resolver.releasePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val size = file.length()
+        val done = row.copy(url = file.toURI().toString(), totalBytes = size, downloadedBytes = size)
+        dao.upsert(done)
+        dao.updateProgress(gameId, size, size, clock.millis())
+        return done
+    }
+
+    /** Reads the body the in-app browser handed over (see [BrowserStreams]) into [file]. */
+    private suspend fun copyBrowserStream(row: DownloadEntity, file: File): DownloadEntity {
+        val handle = browserStreams.take(gameId) ?: throw DownloadException.StreamLost()
+        dao.updateState(gameId, DownloadStatus.Downloading.name, null, clock.millis())
+        try {
+            file.parentFile?.mkdirs()
+            withContext(Dispatchers.IO) {
+                handle.body.use { source ->
+                    file.outputStream().use { out ->
+                        val buffer = ByteArray(256 * 1024)
+                        var copied = 0L
+                        while (true) {
+                            val read = source.read(buffer)
+                            if (read < 0) break
+                            out.write(buffer, 0, read)
+                            copied += read
+                            onDownloadProgress(row.title, copied, row.totalBytes)
+                        }
+                        if (copied == 0L) throw DownloadException.Rejected("The browser handed over an empty file")
+                    }
+                }
+            }
+        } catch (e: IOException) {
+            file.delete()
+            // Cut mid-way: the body cannot be requested again, so no automatic retry.
+            throw if (e is DownloadException) e else DownloadException.StreamLost()
+        } finally {
+            handle.release()
+        }
+        val size = file.length()
+        if (row.totalBytes != null && size != row.totalBytes) {
+            file.delete()
+            throw DownloadException.StreamLost()
+        }
+        val done = row.copy(url = file.toURI().toString(), totalBytes = size, downloadedBytes = size)
+        dao.upsert(done)
+        dao.updateProgress(gameId, size, size, clock.millis())
+        return done
+    }
+
+    private suspend fun verify(row: DownloadEntity, file: File, retried: Boolean = false): DownloadEntity {
+        dao.updateState(gameId, DownloadStatus.Verifying.name, null, clock.millis())
+        runCatching { setForeground(foreground(row.title, null, verifying = true)) }
+        try {
+            IntegrityVerifier.verify(file, row.expectedSha256!!)
+        } catch (e: DownloadException.ChecksumMismatch) {
+            // Corrupted or changed file: delete it and download again once from scratch.
+            Timber.w("SHA-256 mismatch for %s (retried=%s)", gameId, retried)
+            file.delete()
+            val reset = row.copy(downloadedBytes = 0, etag = null, lastModified = null, verified = false)
+            dao.upsert(reset)
+            if (retried) throw e
+            return verify(download(reset, file), file, retried = true)
+        }
+        val verified = (dao.get(gameId) ?: row).copy(verified = true, state = DownloadStatus.Verifying.name)
+        dao.upsert(verified)
+        Timber.i("SHA-256 verified for %s", gameId)
+        return verified
+    }
+
+    private suspend fun install(row: DownloadEntity, file: File) {
+        dao.updateState(gameId, DownloadStatus.Installing.name, null, clock.millis())
+        runCatching { setForeground(foreground(row.title, null, installing = true)) }
+        installer.install(row, file) { written -> tracker.onInstall(gameId, written) }
+        dao.updateState(gameId, DownloadStatus.Completed.name, null, clock.millis())
+        tracker.clear(gameId)
+        if (settings.settings.first().deleteArchivesAfterInstall) {
+            file.parentFile?.deleteRecursively()
+        }
+        notifyDone(row.title, success = true)
+        Timber.i("Installed %s", gameId)
+    }
+
+    private suspend fun onDownloadProgress(title: String, downloaded: Long, total: Long?) {
+        tracker.onDownload(gameId, downloaded, total)
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastDbWrite >= DB_WRITE_INTERVAL_MS) {
+            lastDbWrite = now
+            dao.updateProgress(gameId, downloaded, total, clock.millis())
+        }
+        if (now - lastNotification >= NOTIFICATION_INTERVAL_MS) {
+            lastNotification = now
+            val percent = total?.takeIf { it > 0 }?.let { (downloaded * 100 / it).toInt() }
+            runCatching { setForeground(foreground(title, percent)) }
+        }
+    }
+
+    private fun foreground(title: String, percent: Int?, verifying: Boolean = false, installing: Boolean = false) =
+        notifications.foregroundInfo(
+            id = notificationId,
+            channel = AppNotifications.CHANNEL_DOWNLOADS,
+            title = title,
+            text = applicationContext.getString(
+                when {
+                    verifying -> R.string.download_status_verifying
+                    installing -> R.string.download_status_installing
+                    else -> R.string.download_status_downloading
+                },
+            ),
+            progress = percent,
+        )
+
+    private fun notifyDone(title: String, success: Boolean) {
+        notifications.notifyFinished(
+            id = notificationId,
+            title = title,
+            text = applicationContext.getString(if (success) R.string.download_done_installed else R.string.download_done_failed),
+        )
+    }
+
+    companion object {
+        const val KEY_GAME_ID = "game_id"
+        private const val MAX_TRANSIENT_RETRIES = 5
+        private const val DB_WRITE_INTERVAL_MS = 1_000L
+        private const val NOTIFICATION_INTERVAL_MS = 1_000L
+    }
+}

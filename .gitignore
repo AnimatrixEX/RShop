@@ -1,0 +1,16 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+.tools/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local editor settings and experiments
+.vscode/
+__pycache__/
+jsontest/
+bin/

@@ -1,0 +1,173 @@
+package com.rshop.ui.components
+
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import com.rshop.navigation.TopLevelDestination
+import com.rshop.ui.theme.Dimens
+import com.rshop.ui.theme.RShopColors
+
+@Composable
+fun ConsoleTopBar(
+    selected: TopLevelDestination?,
+    onSelect: (TopLevelDestination) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Switching tabs with L1/R1: the ring moves to the selected tab instead of staying on the
+    // previous one. A new screen with its own focus target takes it right after (one frame later).
+    val requesters = remember { TopLevelDestination.entries.associateWith { FocusRequester() } }
+    val inputMode = LocalInputModeManager.current.inputMode
+    LaunchedEffect(selected) {
+        if (inputMode == InputMode.Keyboard && selected != null) runCatching { requesters.getValue(selected).requestFocus() }
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(Dimens.TopBarHeight)
+            .padding(horizontal = Dimens.ScreenPadding),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Logo()
+        Spacer(Modifier.width(28.dp))
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                // No focusRestorer here: it would redirect the selected-tab request above to the
+                // previously focused tab.
+                .horizontalScroll(rememberScrollState())
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            ShoulderHint("L1")
+            TopLevelDestination.entries
+                .filter { it != TopLevelDestination.Settings }
+                .forEach { tab ->
+                    TextTab(
+                        label = stringResource(tab.labelRes),
+                        selected = tab == selected,
+                        onClick = { onSelect(tab) },
+                        modifier = Modifier
+                            .focusRequester(requesters.getValue(tab))
+                            .testTag("tab_${tab.name}"),
+                    )
+                }
+            ShoulderHint("R1")
+        }
+        Spacer(Modifier.width(12.dp))
+        val settingsSelected = selected == TopLevelDestination.Settings
+        FocusableSurface(
+            onClick = { onSelect(TopLevelDestination.Settings) },
+            shape = CircleShape,
+            containerColor = if (settingsSelected) RShopColors.SurfaceHighest else Color.Transparent,
+            focusedContainerColor = RShopColors.SurfaceHighest,
+            glow = false,
+            modifier = Modifier
+                .size(44.dp)
+                .focusRequester(requesters.getValue(TopLevelDestination.Settings))
+                .testTag("tab_${TopLevelDestination.Settings.name}"),
+            contentAlignment = Alignment.Center,
+        ) { focused ->
+            Icon(
+                imageVector = Icons.Filled.Settings,
+                contentDescription = stringResource(TopLevelDestination.Settings.labelRes),
+                tint = if (focused || settingsSelected) RShopColors.TextPrimary else RShopColors.TextSecondary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TextTab(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    FocusableSurface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = Dimens.PillShape,
+        focusedScale = 1.05f,
+        containerColor = Color.Transparent,
+        focusedContainerColor = RShopColors.SurfaceHighest,
+        glow = false,
+    ) { focused ->
+        val textColor by animateColorAsState(
+            if (selected || focused) RShopColors.TextPrimary else RShopColors.TextSecondary,
+            label = "tabText",
+        )
+        val indicatorWidth by animateDpAsState(if (selected) 22.dp else 0.dp, label = "tabIndicator")
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(text = label, style = MaterialTheme.typography.titleMedium, color = textColor, maxLines = 1)
+            Spacer(Modifier.height(4.dp))
+            Box(
+                Modifier
+                    .width(indicatorWidth)
+                    .height(3.dp)
+                    .background(RShopColors.Accent, RoundedCornerShape(2.dp)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ShoulderHint(label: String) {
+    Text(
+        text = label,
+        modifier = Modifier
+            .border(1.dp, RShopColors.TextTertiary, RoundedCornerShape(6.dp))
+            .padding(horizontal = 6.dp, vertical = 1.dp),
+        style = MaterialTheme.typography.labelSmall,
+        color = RShopColors.TextTertiary,
+    )
+}
+
+@Composable
+private fun Logo() {
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(color = RShopColors.Accent)) { append("R") }
+            withStyle(SpanStyle(color = RShopColors.TextPrimary)) { append("Shop") }
+        },
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.Black,
+    )
+}

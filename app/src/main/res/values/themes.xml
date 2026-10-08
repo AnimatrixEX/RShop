@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.RShop" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/rshop_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.RShop.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/rshop_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.RShop</item>
+    </style>
+</resources>
