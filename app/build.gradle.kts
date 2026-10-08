@@ -21,14 +21,32 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Release key: kept outside the repository; its path and passwords come from the user's
+    // ~/.gradle/gradle.properties (RSHOP_KEYSTORE…). Without them the release APK is unsigned.
+    val releaseKeystore = providers.gradleProperty("RSHOP_KEYSTORE").orNull
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = providers.gradleProperty("RSHOP_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.gradleProperty("RSHOP_KEY_ALIAS").get()
+                keyPassword = providers.gradleProperty("RSHOP_KEY_PASSWORD").get()
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
         }
         release {
+            // GeckoView ships ~170 MB of native code per CPU architecture. Handhelds and phones are
+            // arm64; debug builds keep every ABI (emulators).
+            ndk { abiFilters += "arm64-v8a" }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
