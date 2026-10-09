@@ -96,7 +96,7 @@ class DriveApi(
             .addQueryParameter("fields", FILE_FIELDS)
             .addQueryParameter("supportsAllDrives", "true")
             .build()
-        val body = get(url, resourceKeyHeader(listOf(fileId to resourceKey)))
+        val body = get(url, resourceKeyHeader(listOf(fileId to resourceKey)), what = "file ${fileId.take(8)}")
         return JSON.decodeFromString(DriveFile.serializer(), body)
     }
 
@@ -121,7 +121,8 @@ class DriveApi(
                     .addQueryParameter("includeItemsFromAllDrives", "true")
                     .apply { token?.let { addQueryParameter("pageToken", it) } }
                     .build()
-                val page = JSON.decodeFromString(FileList.serializer(), get(url, keys))
+                val what = "folder " + batch.take(3).joinToString(", ") { it.name.ifBlank { it.id.take(8) } } + if (batch.size > 3) "..." else ""
+                val page = JSON.decodeFromString(FileList.serializer(), get(url, keys, what))
                 for (file in page.files) {
                     for (parent in file.parents) result[parent]?.add(file)
                 }
@@ -134,7 +135,7 @@ class DriveApi(
     private fun resourceKeyHeader(pairs: List<Pair<String, String?>>): String? =
         pairs.filter { it.second != null }.joinToString(",") { "${it.first}/${it.second}" }.ifEmpty { null }
 
-    private suspend fun get(url: HttpUrl, resourceKeys: String?): String {
+    private suspend fun get(url: HttpUrl, resourceKeys: String?, what: String): String {
         if (credentials() == null) throw ScraperException.ApiKeyMissing(SERVICE)
         var attempt = 0
         while (true) {
@@ -166,7 +167,7 @@ class DriveApi(
                 delay(wait)
                 continue
             }
-            throw error.toException(url.redactedString())
+            throw error.toException(url.redactedString(), what)
         }
     }
 
@@ -187,12 +188,12 @@ class DriveApi(
 internal class DriveError(val code: Int, val kind: Kind, val reason: String?, val message: String?) {
     enum class Kind { RateLimited, Quota, KeyRejected, Forbidden, NotFound, Other }
 
-    fun toException(url: String): ScraperException = when (kind) {
+    fun toException(url: String, what: String? = null): ScraperException = when (kind) {
         Kind.RateLimited -> ScraperException.Busy(url)
         Kind.Quota -> ScraperException.QuotaExceeded(url, reason)
         Kind.KeyRejected -> ScraperException.ApiKeyRejected(DriveApi.SERVICE, reason ?: message)
         // Google's own words say why (folder not shared with the link, domain policy…).
-        Kind.Forbidden -> ScraperException.AccessDenied(url, code, message ?: reason)
+        Kind.Forbidden -> ScraperException.AccessDenied(url, code, listOfNotNull(message ?: reason, what?.let { "[$it]" }).joinToString(" "))
         Kind.NotFound -> ScraperException.Http(url, 404)
         Kind.Other -> ScraperException.Http(url, code)
     }

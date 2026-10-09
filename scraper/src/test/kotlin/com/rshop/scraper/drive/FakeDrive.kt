@@ -52,6 +52,9 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
     val server = MockWebServer()
     val requests = CopyOnWriteArrayList<RecordedRequest>()
 
+    /** Folders that refuse to be listed (not shared with the link). */
+    val refused = mutableSetOf<String>()
+
     /** Set to answer every request with this error (status, reason). */
     @Volatile var failure: Pair<Int, String>? = null
 
@@ -78,6 +81,7 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
 
     private fun list(q: String, token: String?): MockResponse {
         val parents = Regex("'([^']+)' in parents").findAll(q).map { it.groupValues[1] }.toSet()
+        if (parents.any { it in refused }) return error(403, "insufficientFilePermissions")
         val all = tree.files.filter { f -> f.parents.any { it in parents } }.sortedBy { it.name }
         val start = token?.toInt() ?: 0
         val page = all.drop(start).take(pageLimit)

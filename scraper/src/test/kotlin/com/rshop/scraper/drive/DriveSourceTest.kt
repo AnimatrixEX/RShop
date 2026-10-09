@@ -128,6 +128,28 @@ class DriveSourceTest {
     }
 
     @Test
+    fun `a refused sub-folder is skipped, a refused shared folder is an error that names it`() = runTest {
+        val (tree, root) = tree("Mes jeux") { r ->
+            folder("GBA", r) { g -> file("Advance Wars.zip", g) }
+            folder("Wii", r) { w -> file("Wii Sports.rvz", w) }
+        }
+        FakeDrive(tree).use { drive ->
+            val wii = tree.files.first { it.name == "Wii" }.id
+            drive.refused += wii
+            val source = source(drive, root)
+            val games = source.crawl().toList().flatMap { it.games }
+            assertEquals(listOf("Advance Wars"), games.map { it.title })
+            // Nothing may be deleted after a scan that left a folder out.
+            assertTrue(source.crawlTruncated)
+
+            drive.refused += root
+            val error = runCatching { source(drive, root).crawl().toList() }.exceptionOrNull() as ScraperException.AccessDenied
+            assertEquals(403, error.code)
+            assertTrue(error.detail!!.contains("[folder"))
+        }
+    }
+
+    @Test
     fun `a download resolves to the media link with its real name`() = runTest {
         val (tree, root) = sample
         FakeDrive(tree).use { drive ->

@@ -43,6 +43,10 @@ class DriveSource(
 
     @Volatile
     private var truncated = false
+
+    /** Folders refused to us during the crawl (a shortcut to someone else's folder, a restricted sub-folder). */
+    @Volatile
+    private var skipped = 0
     override val crawlTruncated: Boolean get() = truncated
 
     /** Reads the shared folder's name and its console folders. */
@@ -71,6 +75,7 @@ class DriveSource(
     override fun crawl(isKnown: (String) -> Boolean): Flow<CatalogPage> = flow {
         truncated = false
         val budget = Budget(config.maxRequestsPerCrawl)
+        skipped = 0
         val walker = walker(budget)
         val consoles = if (config.platform != null) {
             listOf(DriveConsole(config.platform, root))
@@ -92,6 +97,8 @@ class DriveSource(
             log.warn("Drive crawl stopped after ${config.maxRequestsPerCrawl} requests (maxRequestsPerCrawl)")
             truncated = true
         }
+        // Folders that could not be read were left out: the scan is not complete, nothing may be deleted from it.
+        if (skipped > 0) truncated = true
     }
 
     /** Pages only exist through [crawl]; this reads the whole tree, kept for the interface. */
@@ -183,10 +190,40 @@ class DriveSource(
     private fun walker(budget: Budget) = DriveCatalogWalker(
         list = { folders ->
             repeat((folders.size + DriveApi.BATCH - 1) / DriveApi.BATCH) { if (!budget.take()) throw DriveBudgetExhausted() }
-            api.listChildren(folders)
+            listSkippingRefused(folders)
         },
         maxDepth = config.maxDepth,
     )
+
+    /**
+     * One folder of a Drive may refuse us (a shortcut to a folder the owner never shared, a restricted
+     * sub-folder) without the rest being unreadable. The folders of a refused batch are tried one by
+     * one and the refused ones are skipped; the shared folder itself must be readable.
+     */
+    private suspend fun listSkippingRefused(folders: List<DriveFile>): Map<String, List<DriveFile>> {
+        try {
+            return api.listChildren(folders)
+        } catch (e: ScraperException.AccessDenied) {
+            if (folders.size == 1 && folders.single().id == config.folderId) throw e
+            if (folders.size == 1) return skip(folders.single(), e)
+        }
+        val result = LinkedHashMap<String, List<DriveFile>>()
+        for (folder in folders) {
+            try {
+                result += api.listChildren(listOf(folder))
+            } catch (e: ScraperException.AccessDenied) {
+                if (folder.id == config.folderId) throw e
+                result += skip(folder, e)
+            }
+        }
+        return result
+    }
+
+    private fun skip(folder: DriveFile, cause: ScraperException.AccessDenied): Map<String, List<DriveFile>> {
+        skipped++
+        log.warn("Skipping folder '${folder.name}': ${cause.message}")
+        return mapOf(folder.id to emptyList())
+    }
 
     private class Budget(private val max: Int) {
         private val used = AtomicInteger()
