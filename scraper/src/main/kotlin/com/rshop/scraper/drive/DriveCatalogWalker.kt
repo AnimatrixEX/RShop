@@ -104,10 +104,12 @@ class DriveCatalogWalker(
                 // An "Update" sub-folder belongs to the game; any other sub-folder makes this a sorting folder.
                 val updateFolders = subfolders.filter { GameFiles.isUpdateFolderName(it.name) }
                 val isGameFolder = depth > 0 && subfolders.size == updateFolders.size && files.isNotEmpty() &&
-                    !GameFiles.isGroupingName(folder.name) && files.map { GameFiles.groupKey(it.name) }.distinct().size == 1
+                    !GameFiles.isGroupingName(folder.name) && files.map { DriveNaming.parse(it.name, isFile = true).groupKey }.distinct().size == 1
                 if (isGameFolder) {
                     val others = offered.filterNot { GameFiles.isGameFile(it.name) }.sortedBy { it.name }
-                    val game = DriveGame(folder.id, folder.name.trim(), platform, files.sortedBy { it.name }, others = others)
+                    // Updates and DLC next to the game in its folder are its add-ons, not other games.
+                    val (bases, addOns) = splitRoles(files)
+                    val game = DriveGame(folder.id, DriveNaming.parse(folder.name, isFile = false).title, platform, bases, updates = addOns, others = others)
                     if (updateFolders.isEmpty()) games += game else withUpdates += game to updateFolders
                 } else {
                     games += gamesOfFiles(files, platform)
@@ -126,7 +128,7 @@ class DriveCatalogWalker(
     private suspend fun attachUpdates(pending: List<Pair<DriveGame, List<DriveFile>>>): List<DriveGame> {
         val listed = list(pending.flatMap { it.second }.distinctBy { it.id })
         return pending.map { (game, folders) ->
-            game.copy(updates = folders.flatMap { updateFiles(listed[it.id].orEmpty()) })
+            game.copy(updates = game.updates + folders.flatMap { updateFiles(listed[it.id].orEmpty()) })
         }
     }
 
@@ -141,15 +143,43 @@ class DriveCatalogWalker(
         fun updateFiles(entries: List<DriveFile>): List<DriveFile> =
             entries.map { it.resolved() }.filter { !it.isFolder && !it.isGoogleDocument && GameFiles.isOffered(it.name) }.sortedBy { it.name }
 
-        /** Loose files of one folder: one game per title. */
-        fun gamesOfFiles(files: List<DriveFile>, platform: String?): List<DriveGame> =
-            files.groupBy { GameFiles.groupKey(it.name) }.values.map { group ->
-                val sorted = group.sortedBy { it.name }
-                val title = if (group.size == 1) GameFiles.titleOf(group.single().name) else commonTitle(sorted)
-                DriveGame(sorted.first().id, title, platform, sorted)
+        /**
+         * The game files of a name-sorted list as (the game itself, its updates and DLC): `Game.nsp` is the
+         * game, `Game [UPDATE].nsp` and `Game [DLC].nsp` are add-ons. A list with no game itself is all game.
+         */
+        fun splitRoles(files: List<DriveFile>): Pair<List<DriveFile>, List<DriveFile>> {
+            val sorted = files.sortedBy { it.name }
+            val (addOns, bases) = sorted.partition { DriveNaming.parse(it.name, isFile = true).role != DriveNaming.Role.Base }
+            return if (bases.isEmpty()) addOns to emptyList() else bases to addOns
+        }
+
+        /**
+         * Loose files of one folder: one game per title, with its updates and DLC attached. Files of the same
+         * title (discs, cue + bin, one file per region) are one game offering several files.
+         */
+        fun gamesOfFiles(files: List<DriveFile>, platform: String?): List<DriveGame> {
+            val groups = LinkedHashMap<String, MutableList<DriveFile>>()
+            val parsed = files.associateWith { DriveNaming.parse(it.name, isFile = true) }
+            for (file in files) groups.getOrPut(parsed.getValue(file).groupKey) { mutableListOf() } += file
+
+            // "Celeste (Update 1.1).nsp" carries no id: it joins the game of the same title that has one.
+            val idOfTitle = groups.filterKeys { it.startsWith(DriveNaming.ID_PREFIX) }.mapNotNull { (key, members) ->
+                members.firstOrNull { parsed.getValue(it).role == DriveNaming.Role.Base }
+                    ?.let { DriveNaming.titleKey(parsed.getValue(it).title) to key }
+            }.toMap()
+            for (key in groups.keys.toList()) {
+                if (key.startsWith(DriveNaming.ID_PREFIX)) continue
+                val members = groups.getValue(key)
+                if (members.any { parsed.getValue(it).role == DriveNaming.Role.Base }) continue
+                val target = idOfTitle[key] ?: continue
+                groups.getValue(target) += members
+                groups.remove(key)
             }
 
-        /** The title the files of one game share: "Game (Disc 1).bin" + "Game (Disc 2).bin" → "Game". */
-        private fun commonTitle(files: List<DriveFile>): String = GameFiles.baseTitle(files.first().name)
+            return groups.values.map { group ->
+                val (bases, addOns) = splitRoles(group)
+                DriveGame(bases.first().id, parsed.getValue(bases.first()).title, platform, bases, updates = addOns)
+            }
+        }
     }
 }

@@ -112,23 +112,23 @@ class DriveSource(
             file.isFolder -> {
                 val children = api.listChildren(listOf(file), full = true)[file.id].orEmpty().map { it.resolved() }
                 val offered = children.filter { !it.isFolder && !it.isGoogleDocument && GameFiles.isOffered(it.name) }
-                val files = offered.filter { GameFiles.isGameFile(it.name) }.sortedBy { it.name }
+                val (files, addOns) = DriveCatalogWalker.splitRoles(offered.filter { GameFiles.isGameFile(it.name) })
                 val others = offered.filterNot { GameFiles.isGameFile(it.name) }.sortedBy { it.name }
                 val updateFolders = children.filter { it.isFolder && GameFiles.isUpdateFolderName(it.name) }
                 val updates = if (updateFolders.isEmpty()) emptyList() else {
                     val listed = api.listChildren(updateFolders, full = true)
                     updateFolders.flatMap { DriveCatalogWalker.updateFiles(listed[it.id].orEmpty()) }
                 }
-                DriveGame(file.id, file.name.trim(), config.platform, files, updates, others)
+                DriveGame(file.id, DriveNaming.parse(file.name, isFile = false).title, config.platform, files, addOns + updates, others)
             }
             file.isGoogleDocument -> throw ScraperException.InvalidContent(id, "a Google document is not a game file")
             else -> {
-                // The other files of the same title (cue + bin, discs) live next to it.
+                // The other files of the same title (cue + bin, discs, updates, DLC) live next to it.
                 val parent = file.parents.firstOrNull()?.let { DriveFile(it, "", DriveFile.FOLDER_MIME) }
                 val siblings = parent?.let { api.listChildren(listOf(it), full = true)[it.id] }.orEmpty().map { it.resolved() }
                     .filter { !it.isFolder && GameFiles.isGameFile(it.name) }
-                val key = GameFiles.groupKey(file.name)
-                val group = siblings.filter { GameFiles.groupKey(it.name) == key }.ifEmpty { listOf(file) }
+                val key = DriveNaming.parse(file.name, isFile = true).groupKey
+                val group = siblings.filter { DriveNaming.parse(it.name, isFile = true).groupKey == key }.ifEmpty { listOf(file) }
                 DriveCatalogWalker.gamesOfFiles(group, config.platform).first().copy(id = id)
             }
         }
@@ -155,7 +155,7 @@ class DriveSource(
                     url = api.mediaUrl(f.id, f.resourceKey).toString(),
                     fileName = f.name,
                     sizeBytes = f.sizeBytes,
-                    label = UPDATE_LABEL,
+                    label = DriveNaming.addOnLabel(f.name),
                     isUpdate = true,
                 )
             },
@@ -238,7 +238,6 @@ class DriveSource(
 
     private companion object {
         const val PAGE_SIZE = 100
-        const val UPDATE_LABEL = "UPDATE"
         val MD5 = Regex("[0-9a-f]{32}")
     }
 }

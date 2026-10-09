@@ -15,10 +15,17 @@ internal object CatalogMerge {
             return new.copy(addedAt = new.addedAt ?: now, updatedAt = new.updatedAt ?: now, lastSyncedAt = now)
         }
         val versionChanged = versionChanged(old.version, new.version)
+        // The source renamed the game (a Drive title cleaned of its tags): what was looked up outside under
+        // the old name (cover, screenshots, description) may be another game's, so it is looked up again.
+        val renamed = old.title != new.title
         return new.copy(
-            description = new.description ?: old.description,
+            description = if (renamed && old.descriptionSource != null) new.description else new.description ?: old.description,
             // A game page usually has a larger cover than the listing thumbnail.
-            coverUrl = if (old.detailsSyncedAt != null) old.coverUrl ?: new.coverUrl else new.coverUrl ?: old.coverUrl,
+            coverUrl = when {
+                renamed -> new.coverUrl
+                old.detailsSyncedAt != null -> old.coverUrl ?: new.coverUrl
+                else -> new.coverUrl ?: old.coverUrl
+            },
             downloadUrl = new.downloadUrl ?: old.downloadUrl,
             downloadViaPage = if (new.downloadUrl != null) new.downloadViaPage else old.downloadViaPage,
             downloadOptions = new.downloadOptions ?: old.downloadOptions,
@@ -36,12 +43,12 @@ internal object CatalogMerge {
             lastSyncedAt = now,
             // A new version means the files and hash on the game page changed too.
             detailsSyncedAt = if (versionChanged) null else old.detailsSyncedAt,
-            artworkCheckedAt = old.artworkCheckedAt,
+            artworkCheckedAt = if (renamed) null else old.artworkCheckedAt,
             statsCheckedAt = old.statsCheckedAt,
             // A description the source gives wins over one from outside.
-            descriptionSource = if (new.description != null) null else old.descriptionSource,
-            descriptionCheckedAt = old.descriptionCheckedAt,
-            screenshotsCheckedAt = old.screenshotsCheckedAt,
+            descriptionSource = if (new.description != null || renamed) null else old.descriptionSource,
+            descriptionCheckedAt = if (renamed) null else old.descriptionCheckedAt,
+            screenshotsCheckedAt = if (renamed) null else old.screenshotsCheckedAt,
         )
     }
 
