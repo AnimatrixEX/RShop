@@ -62,8 +62,8 @@ object ArchiveExtractor {
                     writer.write(rawName.removeSuffix(".gz").removeSuffix(".GZ"), it)
                 }
                 ArchiveFormat.Raw -> FileInputStream(file).use { writer.write(rawName, it) }
-                // No maintained pure-Java RAR5 extractor: say so instead of copying an unusable file.
-                ArchiveFormat.Rar -> throw InstallException.UnsupportedFormat("RAR")
+                // The 7-Zip engine (native): RAR 2 to 5. Without it, say so instead of copying an unusable file.
+                ArchiveFormat.Rar -> RarExtraction.extract(file, writer)
             }
         } catch (e: InstallException) {
             throw e
@@ -132,7 +132,7 @@ object ArchiveExtractor {
     }
 
     /** Counts entries and bytes across the whole archive and stops at the limits. */
-    private class LimitedWriter(
+    internal class LimitedWriter(
         private val sink: ExtractionSink,
         private val limits: ExtractionLimits,
         private val onProgress: (Long) -> Unit,
@@ -157,6 +157,42 @@ object ArchiveExtractor {
             sink.file(path).use { output -> copy(input, output) }
             files++
             if (fileNames.size < MAX_NAMES) fileNames += path.last()
+        }
+
+        /**
+         * A stream for one file, for engines that push the bytes themselves (RAR). Null when the name is
+         * not safe: that entry is left out, as with [write]. The file counts once the stream is closed.
+         */
+        fun open(name: String): OutputStream? {
+            val path = SafeEntryPath.normalize(name) ?: return null
+            countEntry()
+            topLevel += path.first()
+            val output = sink.file(path)
+            return object : OutputStream() {
+                private var lastReport = 0L
+                private var closed = false
+
+                override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
+
+                override fun write(b: ByteArray, off: Int, len: Int) {
+                    bytes += len
+                    if (bytes > limits.maxTotalBytes) throw InstallException.TooLarge(limits.maxTotalBytes)
+                    output.write(b, off, len)
+                    if (bytes - lastReport >= REPORT_EVERY) {
+                        lastReport = bytes
+                        onProgress(bytes)
+                    }
+                }
+
+                override fun close() {
+                    if (closed) return
+                    closed = true
+                    output.close()
+                    files++
+                    if (fileNames.size < MAX_NAMES) fileNames += path.last()
+                    onProgress(bytes)
+                }
+            }
         }
 
         private fun countEntry() {

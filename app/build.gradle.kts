@@ -89,6 +89,8 @@ dependencies {
     implementation(libs.androidx.browser)
     // Optional path: reads Drive with the Google account already on the device (needs Play Services).
     implementation(libs.play.services.auth)
+    // RAR (and RAR5) extraction: the 7-Zip engine through JNI.
+    implementation(libs.sevenzip.jbinding)
     implementation(libs.geckoview)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
@@ -123,6 +125,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.timber)
 
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.junit)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)

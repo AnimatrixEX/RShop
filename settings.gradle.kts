@@ -17,6 +17,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // 7-Zip-JBinding for Android (RAR extraction) is published only here.
+        maven("https://jitpack.io") {
+            content { includeGroup("com.github.omicronapps") }
+        }
         // GeckoView (the in-app browser engine) is published only here.
         maven("https://maven.mozilla.org/maven2/") {
             content { includeGroup("org.mozilla.geckoview") }

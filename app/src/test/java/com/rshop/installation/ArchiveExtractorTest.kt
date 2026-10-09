@@ -81,6 +81,18 @@ class ArchiveExtractorTest {
     }
 
     @Test
+    fun `RAR archives are recognised, and refused cleanly where the 7-Zip engine cannot run`() = runTest {
+        // RAR 4 and RAR 5 signatures. The native engine is not loadable in a JVM unit test: the answer
+        // must be the clear "not supported" error, never a copy of the archive as if it were a game.
+        for (signature in listOf(byteArrayOf(0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00), byteArrayOf(0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00))) {
+            val file = tmp.newFile().apply { writeBytes(signature + ByteArray(64)) }
+            assertEquals(ArchiveFormat.Rar, ArchiveExtractor.detect(file))
+            val error = runCatching { extract(file) }.exceptionOrNull()
+            assertTrue("got $error", error is InstallException.UnsupportedFormat)
+        }
+    }
+
+    @Test
     fun `plain file is copied as is`() = runTest {
         val file = tmp.newFile("download.tmp").apply { writeText("NES ROM") }
         assertEquals(ArchiveFormat.Raw, ArchiveExtractor.detect(file))
