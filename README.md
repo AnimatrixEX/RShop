@@ -1,97 +1,76 @@
 # RShop
 
-**Un game store pour consoles portables Android** : parcourir un catalogue, télécharger, installer et gérer ses jeux, avec une interface pensée pour la manette, façon store de console.
+**A game store for Android handhelds.** Browse a catalogue, download, install and manage games, with a console-style interface built for controllers.
 
-RShop est **uniquement un store et un gestionnaire de téléchargements/installation**. Il ne lance pas les jeux : le lancement reste le rôle de votre frontend ou de vos émulateurs. Il ne fournit **aucun catalogue** : vous ajoutez vous-même les sites dont vous avez le droit de télécharger le contenu (homebrew, créations personnelles, contenu libre de droits, votre propre serveur…).
+RShop is **only a store and a download/install manager**. It does not launch games (that stays with your frontend or emulators) and it ships **no catalogue**: you add the sites whose content you have the right to download (homebrew, your own creations, freely licensed content, your own server…).
 
-Conçu en priorité pour les Retroid, Ayn, Anbernic et consorts (écran 16:9, manette), il fonctionne aussi sur un téléphone ou une tablette Android 13+.
+Made for Retroid, Ayn, Anbernic and similar devices (16:9, gamepad), and works on any Android 13+ phone or tablet.
 
-| Accueil | Fiche d'un jeu |
+| Home | Game page |
 |---|---|
-| ![Accueil](docs/screenshots/home.png) | ![Fiche d'un jeu](docs/screenshots/details.png) |
-| **Sources du catalogue** | **Apparence** |
-| ![Sources](docs/screenshots/sources.png) | ![Apparence](docs/screenshots/theme.png) |
+| ![Home](docs/screenshots/home.png) | ![Game page](docs/screenshots/details.png) |
+| **Catalogue sources** | **Appearance** |
+| ![Sources](docs/screenshots/sources.png) | ![Appearance](docs/screenshots/theme.png) |
 
-*Les captures utilisent un site de test fictif (`tools/testsite`).*
+*Screenshots use a fictional test site (`tools/testsite`).*
 
-## Fonctionnalités
+## Features
 
-- **Accueil** : carrousel « À la une » des jeux les plus téléchargés (avec barre de progression avant le défilement), étagères *Consultés récemment*, *Favoris*, *Ajoutés récemment*, *Populaires*, *Mis à jour*, catégories et plateformes.
-- **Store** : recherche instantanée (et recherche sur le site source), filtres par plateforme, genre (tags détectés depuis le site, le titre et la description) et source, tris (titre, populaires, récents, taille), chargement progressif pour les très gros catalogues. Trois filtres mémorisés : masquer les jeux déjà installés, masquer les démos/bêtas/prototypes, ne garder qu'une région (USA, Europe, Japon ; les jeux « World » et sans région restent).
-- **Plusieurs sources de catalogue** en parallèle, chacune synchronisée en arrière-plan dans une base locale (Room) : l'app reste utilisable hors ligne. Une fois un site entièrement scanné, les synchronisations suivantes ne cherchent que les nouveaux jeux (« Tout rescanner » pour tout relire). Pour un site organisé par console, vous choisissez **les consoles à récupérer** (à l'ajout de la source, puis à tout moment via le bouton *Consoles*).
-- **Téléchargements** en arrière-plan : progression, vitesse, temps restant, pause, reprise, annulation, nouvelle tentative, vérification SHA-256 quand le site la publie.
-- **Installation** automatique dans le dossier de votre choix (Storage Access Framework) : `.zip`, `.7z`, `.tar`, `.tar.gz`, `.tar.xz`… avec protection contre le *path traversal* et les *zip bombs*. Plusieurs formats par jeu (ZIP, CHD, ISO…) : vous choisissez. Un jeu en plusieurs fichiers (disques, bin + cue) : « Tout télécharger » est proposé quand les fichiers semblent être les parties d'un même jeu, ou cochez-les à la main ; ils sont téléchargés et installés l'un après l'autre dans le même jeu.
-- **Navigateur intégré** (GeckoView) pour les sites qui passent par des pages intermédiaires : le fichier cliqué est récupéré directement par l'app et installé, même si vous fermez le navigateur.
-- **Favoris et listes personnalisées** : un onglet dédié, des listes créées/renommées/supprimées à volonté, jeux ajoutés depuis leur page.
-- **Bibliothèque** des jeux installés : informations, mise à jour, suppression.
-- **Manette de bout en bout** : focus toujours visible, L1/R1 pour changer d'onglet, Y sur une carte pour son menu (fiche, favori, listes ; appui long au toucher), X pour la recherche, une barre d'aide des boutons (visible seulement à la manette), retour au jeu précédemment sélectionné, clavier ouvert seulement sur appui.
-- **Sauvegarde** : *Paramètres → Sauvegarde* enregistre sources, favoris, listes et réglages dans un fichier JSON et les restaure (sur le même appareil ou un autre). Les favoris dont le jeu n'est pas encore dans le catalogue sont ajoutés à la fin de la synchronisation.
-- **Personnalisation** : fonds (Nuit, OLED noir, Ardoise, Crépuscule), 7 couleurs d'accent, contour de sélection, taille du texte, arrière-plans dynamiques, langue (français / anglais).
-- **Mise à jour de l'app** : *Paramètres → À propos → Rechercher une mise à jour* consulte la dernière release GitHub, télécharge l'APK (reprise possible, SHA-256 vérifié) et le confie à l'installateur d'Android, qui contrôle la signature.
-- Reste en **paysage**, plein écran.
+- **Store**: instant search (plus the source site's own search), filters by platform, genre and source, sorting, lazy loading for huge catalogues. Remembered filters: hide installed games, hide demos/betas, keep one region.
+- **Several sources** synced in the background into a local database, so the app works offline. Later syncs only look for new games. For sites organised by console, you choose which consoles to fetch.
+- **Downloads** in the background: progress, speed, pause/resume, retry, SHA-256 check when the site publishes one.
+- **Installation** into the folder you pick (Storage Access Framework): zip, 7z, tar, tar.gz, tar.xz…, protected against path traversal and zip bombs. Games with several formats let you choose; games made of several files (discs, bin + cue) can be downloaded and installed together.
+- **Built-in browser** (GeckoView) for sites with intermediate pages: the file you click is captured and installed by the app.
+- **Favorites, custom lists, library** of installed games with update and delete.
+- **Controller first**: visible focus, L1/R1 tabs, Y for a game menu, X for search, button hints.
+- **Backup**: save and restore sources, favorites, lists and settings as one JSON file.
+- **Customisation**: themes, accent colors, text size, French / English.
+- **In-app update**: *Settings → About → Check for updates* downloads the latest GitHub release (SHA-256 checked) and hands it to Android's installer.
 
-## Respect des sites
+## Responsible use
 
-Le scraper est un module indépendant (`:scraper`, JVM pur) et :
+The scraper is a standalone module (`:scraper`, pure JVM). It respects `robots.txt`, rate-limits its requests, **never bypasses** CAPTCHAs, anti-bot protection, DRM, paywalls or logins, never silently downloads executables, and validates URLs, sizes, file types, hashes and extraction paths.
 
-- respecte `robots.txt` et limite le rythme de ses requêtes ;
-- **ne contourne jamais** CAPTCHA, protections anti-bot, DRM, paywalls ou authentification ;
-- ne télécharge jamais de fichier exécutable en silence et valide les URL, tailles, types de fichier, hash et chemins d'extraction.
+Only add sources whose content you are allowed to use. You are responsible for what you download.
 
-N'ajoutez que des sources dont vous avez le droit d'utiliser le contenu. Vous êtes responsable de ce que vous téléchargez.
+## Install
 
-## Installer
+1. Download `app-release.apk` from [Releases](../../releases) and open it (allow installs from your file manager or browser if asked).
+2. On first launch: *Settings → Games folder*, then *Settings → Catalogue sources → Add a source*.
 
-1. Téléchargez `RShop-*-arm64.apk` depuis la page [Releases](../../releases).
-2. Autorisez l'installation d'apps depuis cette source, puis ouvrez le fichier.
-3. Au premier lancement : *Paramètres → Dossier des jeux* (où seront installés les jeux), puis *Paramètres → Sources du catalogue → Ajouter une source*.
+With [Obtainium](https://github.com/ImranR98/Obtainium): [add RShop](obtainium://add/https://github.com/AnimatrixEX/RShop) for automatic updates.
 
-**Avec [Obtainium](https://github.com/ImranR98/Obtainium)** (installation et mises à jour automatiques depuis les releases GitHub) : [ajouter RShop dans Obtainium](obtainium://add/https://github.com/AnimatrixEX/RShop), ou *Ajouter une app* puis coller `https://github.com/AnimatrixEX/RShop`. Aucune option à changer.
+Requires Android 13+ and an **arm64** CPU. About 200 MB, mostly GeckoView.
 
-Prérequis : Android 13 (API 33) ou plus, processeur **arm64** (la quasi-totalité des consoles portables et des téléphones récents). Compter ~200 Mo : GeckoView, le moteur du navigateur intégré, embarque son code natif.
+**Adding a source**: paste the address of a page listing games (or consoles). RShop analyses the site and proposes a configuration with a preview; you can also import/export the JSON config (`ScraperConfig`) for tricky sites.
 
-### Ajouter une source
+**Covers** come from [SteamGridDB](https://www.steamgriddb.com/) with your own free API key (*Settings → Covers*), stored encrypted on the device. Without a key, games get a generated thumbnail.
 
-Collez l'adresse d'une page qui liste les jeux (ou les consoles) : RShop analyse le site et propose une configuration (cartes, pagination, recherche, fiches, téléchargements, compteur de téléchargements…) avec un aperçu. Vous pouvez aussi importer/exporter une configuration JSON (`ScraperConfig`) pour un site qui demande des réglages précis.
+## Build
 
-Les jaquettes ne viennent pas des sites : elles sont cherchées sur [SteamGridDB](https://www.steamgriddb.com/) avec votre propre clé API gratuite (*Paramètres → Jaquettes*), stockée chiffrée sur l'appareil. Sans clé, les jeux s'affichent avec une vignette générée.
-
-## Compiler
-
-Prérequis : JDK 17+ (le projet est testé avec JDK 21) et le SDK Android (API 37).
+JDK 17+ (tested with 21) and the Android SDK (API 37).
 
 ```bash
-./gradlew installDebug              # APK de debug (applicationId com.rshop.debug)
+./gradlew installDebug                           # debug APK (com.rshop.debug)
 ./gradlew :scraper:test :app:testDebugUnitTest   # tests
-./gradlew :app:assembleRelease      # APK release (arm64)
+./gradlew :app:assembleRelease                   # release APK (arm64)
 ```
 
-Le build *debug* est livré avec un petit catalogue fictif et autorise le HTTP en clair vers `localhost` seulement (pour le site de test). Pour signer l'APK *release*, définissez dans `~/.gradle/gradle.properties` : `RSHOP_KEYSTORE`, `RSHOP_KEYSTORE_PASSWORD`, `RSHOP_KEY_ALIAS`, `RSHOP_KEY_PASSWORD` ; sans eux, l'APK release n'est pas signé.
+The debug build includes a small fictional catalogue and allows cleartext HTTP to `localhost` only. To sign the release APK, set `RSHOP_KEYSTORE`, `RSHOP_KEYSTORE_PASSWORD`, `RSHOP_KEY_ALIAS` and `RSHOP_KEY_PASSWORD` in `~/.gradle/gradle.properties`.
 
-### Site de test local
-
-```bash
-python tools/testsite/server.py --rate 4          # http://localhost:8099/consoles
-adb reverse tcp:8099 tcp:8099
-```
-
-Jeux fictifs (pages intermédiaires, redirections, pop-ups publicitaires, formats multiples, hash…), débit réglable (`--rate` en Mo/s, `--chunk` en Ko) pour observer pause, reprise et progression.
+A local fictional site for testing: `python tools/testsite/server.py --rate 4`, then `adb reverse tcp:8099 tcp:8099` and use `http://localhost:8099/consoles`.
 
 ## Architecture
 
 ```
-app/        Kotlin · Jetpack Compose · Material 3 · Hilt · Room · WorkManager · Coil · GeckoView
- ├─ data/        database (Room), repository, sync, artwork, source (multi-sources), storage (SAF)
- ├─ domain/      modèles et interfaces de repository
- ├─ download/    DownloadManager, DownloadWorker (reprise Range/ETag, SHA-256)
- ├─ installation/ extraction d'archives, installation dans le dossier SAF
- └─ ui/          home, store, details, downloads, library, settings, source, browser, components, theme
-scraper/    module JVM pur (Jsoup, OkHttp) : GameSource, WebsiteSource, SiteAnalyzer, ScraperConfig
-tools/testsite/   site de test local
+app/       Kotlin · Compose · Material 3 · Hilt · Room · WorkManager · Coil · GeckoView
+ ├─ data/ domain/ download/ installation/ ui/
+scraper/   pure JVM (Jsoup, OkHttp): GameSource, WebsiteSource, SiteAnalyzer, ScraperConfig
+tools/testsite/   local test site
 ```
 
-MVVM, pattern Repository, coroutines / Flow. Le parsing HTML ne touche jamais l'interface : `Scraper → Website Adapter → Parser → modèle → base locale → UI`.
+MVVM, repositories, coroutines/Flow. HTML parsing never touches the UI: `Scraper → Website adapter → Parser → model → local database → UI`.
 
-## État du projet
+## Status
 
-Version 0.1.6, usage personnel. Le projet suit les phases décrites dans [`CLAUDE.md`](CLAUDE.md) (le lanceur de jeux en est volontairement exclu). Testé sur Retroid Pocket 6.
+Version 0.1.6, personal project, tested on a Retroid Pocket 6. See [`CLAUDE.md`](CLAUDE.md) for the development plan (the game launcher is deliberately out of scope).
