@@ -30,6 +30,8 @@ data class InstalledGame(
     val installedAt: Instant,
     /** Format of the installed files ("GBA", "BIN + CUE"); null when not known yet. */
     val fileFormat: String? = null,
+    /** Where the files are (stored document addresses, several separated by newlines); tells which games folder holds the game. */
+    val documentUri: String = "",
 ) {
     /** Phase 9 replaces this plain comparison with real version ordering. */
     val updateAvailable: Boolean

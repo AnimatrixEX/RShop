@@ -145,6 +145,9 @@ class GameInstaller @Inject constructor(
         return FileFormats.summary(names)
     }
 
+    /** Free and total bytes of the volume holding [folder]. */
+    fun spaceOf(folder: com.rshop.data.storage.GamesFolder): DeviceSpace? = storage.volumeSpace(folder.location)
+
     /** Free and total bytes of the volume holding the games folder a download goes to (the default folder when none is given). */
     suspend fun deviceSpace(download: DownloadEntity? = null): DeviceSpace? {
         val state = directoryManager.stateFor(download?.targetDirectory, download?.let { installedDao.get(it.gameId)?.documentUri })

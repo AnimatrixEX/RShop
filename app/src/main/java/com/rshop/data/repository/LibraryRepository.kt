@@ -3,6 +3,8 @@ package com.rshop.data.repository
 import com.rshop.data.database.dao.InstalledGameDao
 import com.rshop.data.database.dao.InstalledWithCatalog
 import com.rshop.domain.model.InstalledGame
+import com.rshop.data.storage.GamesDirectoryManager
+import com.rshop.data.storage.GamesFolder
 import com.rshop.installation.DeviceSpace
 import com.rshop.installation.GameInstaller
 import com.rshop.installation.InstalledRomScanner
@@ -14,12 +16,16 @@ import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Installed games: what is in the user's games folder according to RShop. */
+/** A usable games folder and the room left on its volume. */
+data class FolderSpace(val folder: GamesFolder, val device: DeviceSpace?)
+
+/** Installed games: what is in the user's games folders according to RShop. */
 @Singleton
 class LibraryRepository @Inject constructor(
     private val dao: InstalledGameDao,
     private val installer: GameInstaller,
     private val scanner: InstalledRomScanner,
+    private val directoryManager: GamesDirectoryManager,
 ) {
     /** Adds the games found in the games folder that RShop did not install; returns how many. */
     suspend fun scanInstalled(): Int = scanner.scan()
@@ -48,8 +54,17 @@ class LibraryRepository @Inject constructor(
         return withContext(Dispatchers.IO) { installer.filesPresent(entity) }
     }
 
-    /** Free and total space of the volume holding the games folder; null when unknown. */
-    suspend fun deviceSpace(): DeviceSpace? = withContext(Dispatchers.IO) { installer.deviceSpace() }
+    /** The games folders, as they change (added, removed, access lost). */
+    fun observeFolders(): Flow<List<GamesFolder>> = directoryManager.folders
+
+    /** Free and total space of the volume of every usable games folder; null when a volume's space is unknown. */
+    suspend fun folderSpaces(): List<FolderSpace> = withContext(Dispatchers.IO) {
+        directoryManager.availableFolders().map { FolderSpace(it, installer.spaceOf(it)) }
+    }
+
+    /** The folder each of [games] is in, by game id. */
+    suspend fun foldersOf(games: List<InstalledGame>): Map<String, GamesFolder?> =
+        directoryManager.ownersOf(games.associate { it.gameId to it.documentUri })
 
     /**
      * The format of an installed game: stored at install time, read from the files (and stored)
@@ -74,5 +89,6 @@ class LibraryRepository @Inject constructor(
         sizeOnDisk = installed.sizeOnDisk,
         installedAt = Instant.ofEpochMilli(installed.installedAt),
         fileFormat = installed.fileFormat,
+        documentUri = installed.documentUri,
     )
 }

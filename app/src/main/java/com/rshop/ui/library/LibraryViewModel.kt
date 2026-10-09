@@ -6,6 +6,8 @@ import com.rshop.data.repository.LibraryRepository
 import com.rshop.domain.model.DownloadError
 import com.rshop.domain.model.InstalledGame
 import com.rshop.domain.model.LibrarySort
+import com.rshop.data.repository.FolderSpace
+import com.rshop.data.storage.GamesFolder
 import com.rshop.installation.DeviceSpace
 import com.rshop.download.DownloadManager
 import com.rshop.download.StartResult
@@ -30,12 +32,26 @@ data class LibraryUiState(
     val storage: StorageUsage = StorageUsage(),
 )
 
-/** What the installed games take: in total, per console (biggest first), and the volume around them. */
+/** What the installed games take: in total, and in each games folder (per console, biggest first, with the volume around). */
 data class StorageUsage(
     val gamesBytes: Long = 0,
-    val byPlatform: List<PlatformUsage> = emptyList(),
-    val device: DeviceSpace? = null,
+    val folders: List<FolderUsage> = emptyList(),
+    /** Consoles by size over every folder: the same console keeps the same color in each. */
+    val platformOrder: List<String> = emptyList(),
 )
+
+data class FolderUsage(
+    /** Null for the games whose folder was removed or is not one of the added folders. */
+    val folder: GamesFolder?,
+    val gamesBytes: Long,
+    val byPlatform: List<PlatformUsage>,
+    val device: DeviceSpace?,
+    /** What the games of every folder on the same volume take: the volume bar is shared between them. */
+    val volumeGamesBytes: Long,
+)
+
+/** Where each game is and how much room each folder's volume has; refreshed when installs or folders change. */
+private data class Placement(val owners: Map<String, GamesFolder?> = emptyMap(), val spaces: List<FolderSpace> = emptyList())
 
 data class PlatformUsage(val platform: String, val bytes: Long, val games: Int)
 
@@ -70,7 +86,7 @@ class LibraryViewModel @Inject constructor(
     private val _events = MutableStateFlow<LibraryEvent?>(null)
     val events: StateFlow<LibraryEvent?> = _events.asStateFlow()
 
-    private val device = MutableStateFlow<DeviceSpace?>(null)
+    private val placement = MutableStateFlow(Placement())
 
     private val _scanning = MutableStateFlow(false)
     val scanning: StateFlow<Boolean> = _scanning.asStateFlow()
@@ -90,11 +106,15 @@ class LibraryViewModel @Inject constructor(
     }
 
     init {
-        // The volume's free space changes whenever a game is installed or removed.
-        viewModelScope.launch { library.observeInstalled().collect { device.value = library.deviceSpace() } }
+        // The volumes' free space changes whenever a game is installed or removed, or a folder is added or taken away.
+        viewModelScope.launch {
+            combine(library.observeInstalled(), library.observeFolders()) { games, _ -> games }.collect { games ->
+                placement.value = Placement(library.foldersOf(games), library.folderSpaces())
+            }
+        }
     }
 
-    val uiState: StateFlow<LibraryUiState> = combine(library.observeInstalled(), platformFilter, device, sort) { games, platform, deviceSpace, order ->
+    val uiState: StateFlow<LibraryUiState> = combine(library.observeInstalled(), platformFilter, placement, sort) { games, platform, where, order ->
         val platforms = games.mapNotNull { it.platform }.distinct().sortedBy { it.lowercase() }
         val active = platform?.takeIf { it in platforms }
         LibraryUiState(
@@ -104,7 +124,7 @@ class LibraryViewModel @Inject constructor(
             platform = active,
             sort = order,
             totalCount = games.size,
-            storage = storageUsage(games, deviceSpace),
+            storage = storageUsage(games, where.owners, where.spaces),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryUiState())
 
@@ -177,10 +197,41 @@ class LibraryViewModel @Inject constructor(
     }
 }
 
-internal fun storageUsage(games: List<InstalledGame>, device: DeviceSpace?): StorageUsage {
+internal fun storageUsage(
+    games: List<InstalledGame>,
+    owners: Map<String, GamesFolder?> = emptyMap(),
+    spaces: List<FolderSpace> = emptyList(),
+): StorageUsage {
     val sized = games.filter { (it.sizeOnDisk ?: 0) > 0 }
-    val byPlatform = sized.groupBy { it.platform ?: "?" }
-        .map { (platform, list) -> PlatformUsage(platform, list.sumOf { it.sizeOnDisk ?: 0 }, list.size) }
+    fun byPlatform(list: List<InstalledGame>) = list.groupBy { it.platform ?: "?" }
+        .map { (platform, items) -> PlatformUsage(platform, items.sumOf { it.sizeOnDisk ?: 0 }, items.size) }
         .sortedByDescending { it.bytes }
-    return StorageUsage(gamesBytes = byPlatform.sumOf { it.bytes }, byPlatform = byPlatform, device = device)
+
+    // Folders to show: every usable one (an empty one still has room to tell about), plus the ones that hold games.
+    val known = LinkedHashMap<String, Pair<GamesFolder, DeviceSpace?>>()
+    spaces.forEach { known[it.folder.uri.toString()] = it.folder to it.device }
+    owners.values.filterNotNull().forEach { known.getOrPut(it.uri.toString()) { it to null } }
+    val gamesByFolder = sized.groupBy { owners[it.gameId]?.uri?.toString() }
+
+    val rows = known.entries
+        .sortedByDescending { it.value.first.isDefault }
+        .map { (key, value) ->
+            val (folder, device) = value
+            val inFolder = gamesByFolder[key].orEmpty()
+            FolderUsage(folder, inFolder.sumOf { it.sizeOnDisk ?: 0 }, byPlatform(inFolder), device, volumeGamesBytes = 0)
+        }
+        .let { list ->
+            // Folders on one volume share its bar: it shows what all their games take.
+            val perVolume = list.groupBy { it.folder?.location?.volume }
+                .mapValues { (_, items) -> items.sumOf { it.gamesBytes } }
+            list.map { it.copy(volumeGamesBytes = perVolume[it.folder?.location?.volume] ?: it.gamesBytes) }
+        }
+    val unplaced = gamesByFolder.filterKeys { it == null || it !in known }.values.flatten()
+    val all = if (unplaced.isEmpty()) rows else rows + FolderUsage(null, unplaced.sumOf { it.sizeOnDisk ?: 0 }, byPlatform(unplaced), null, 0)
+
+    return StorageUsage(
+        gamesBytes = sized.sumOf { it.sizeOnDisk ?: 0 },
+        folders = all,
+        platformOrder = byPlatform(sized).map { it.platform },
+    )
 }

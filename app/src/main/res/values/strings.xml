@@ -559,4 +559,5 @@
     <string name="drive_device_help">Google utilise le compte déjà présent sur l\'appareil et demande votre accord. Une seule fois dans Google Cloud Console : activer \"Google Drive API\", configurer l\'écran de consentement (Externe, votre adresse Google comme utilisateur test) et créer un ID client OAuth de type \"Android\" avec le nom de package %1$s et l\'empreinte SHA-1 %2$s.</string>
     <string name="drive_device_not_registered">Google ne reconnaît pas cette application : créez l\'ID client OAuth \"Android\" (package et empreinte SHA-1 indiqués plus bas) dans Google Cloud Console.</string>
     <string name="source_speed_turbo">Très rapide</string>
+    <string name="library_storage_unknown_folder">Dossier retiré ou inaccessible</string>
 </resources>

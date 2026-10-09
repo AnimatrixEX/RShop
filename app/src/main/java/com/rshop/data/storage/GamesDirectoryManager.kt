@@ -70,6 +70,12 @@ class GamesDirectoryManager @Inject constructor(
     /** The folder holding a stored document address (several are joined by newlines; the first is used). */
     suspend fun folderOf(documentUris: String): GamesFolder? = owning(documentUris, folders.first())
 
+    /** The folder holding each game's files, by game id; null for a game whose folder was removed (or never was one of ours). */
+    suspend fun ownersOf(documentUris: Map<String, String>): Map<String, GamesFolder?> {
+        val list = folders.first()
+        return documentUris.mapValues { (_, uris) -> owning(uris, list) }
+    }
+
     /** Adds a folder (the first one added becomes the default). */
     suspend fun add(treeUri: Uri): Result<Unit> {
         try {
