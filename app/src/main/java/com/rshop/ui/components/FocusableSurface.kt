@@ -26,6 +26,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.geometry.Rect
@@ -35,7 +38,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.rshop.ui.theme.ActiveTheme
 import com.rshop.ui.theme.Dimens
+import com.rshop.ui.theme.LiquidGlass
 import com.rshop.ui.theme.RShopColors
 
 /**
@@ -53,6 +58,10 @@ fun FocusableSurface(
     containerColor: Color = Color.Transparent,
     focusedContainerColor: Color = containerColor,
     glow: Boolean = true,
+    /** Draws the theme's rim around the surface: by default only when it has a fill of its own. */
+    showEdge: Boolean = containerColor.alpha > 0f,
+    /** The frame drawn around the surface when it has the focus; a game box shows the focus by itself. */
+    focusRing: Boolean = true,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     contentAlignment: Alignment = Alignment.TopStart,
     content: @Composable BoxScope.(focused: Boolean) -> Unit,
@@ -64,7 +73,9 @@ fun FocusableSurface(
         label = "focusScale",
     )
     val ringAlpha by animateFloatAsState(if (focused) 1f else 0f, label = "focusRing")
-    val elevation by animateDpAsState(if (focused && glow) 18.dp else 0.dp, label = "focusElevation")
+    val look = ActiveTheme.look
+    val elevation by animateDpAsState(if (focused && glow) 18.dp else look.restingElevation, label = "focusElevation")
+    val shadowColor = if (focused && glow) RShopColors.Accent else Color.Black
     val background by animateColorAsState(if (focused) focusedContainerColor else containerColor, label = "focusBackground")
 
     // Moving the focus scrolls the list just enough to show the item itself, which leaves the
@@ -90,15 +101,40 @@ fun FocusableSurface(
                 scaleX = scale
                 scaleY = scale
             }
-            .shadow(elevation, shape, clip = false, ambientColor = RShopColors.Accent, spotColor = RShopColors.Accent)
+            .shadow(elevation, shape, clip = false, ambientColor = shadowColor, spotColor = shadowColor)
             .clip(shape)
             .background(background)
-            .border(Dimens.FocusBorder, RShopColors.Focus.copy(alpha = ringAlpha), shape)
+            .then(
+                when {
+                    !showEdge -> Modifier
+                    look.glossy -> Modifier.background(LiquidGlass.Body, shape).border(1.2.dp, LiquidGlass.Rim, shape)
+                    look.edge.alpha > 0f -> Modifier.border(1.dp, look.edge, shape)
+                    else -> Modifier
+                },
+            )
+            .then(if (focusRing) Modifier.border(Dimens.FocusBorder, RShopColors.Focus.copy(alpha = ringAlpha), shape) else Modifier)
             .then(
                 if (onLongClick != null) {
                     Modifier.combinedClickable(interactionSource = interactionSource, indication = ripple(), onClick = onClick, onLongClick = onLongClick)
                 } else {
                     Modifier.clickable(interactionSource = interactionSource, indication = ripple(), onClick = onClick)
+                },
+            )
+            // Liquid glass: a glare where the light catches the top left corner, over the content too.
+            .then(
+                if (look.glossy && showEdge) {
+                    Modifier.drawWithContent {
+                        drawContent()
+                        drawRect(
+                            Brush.radialGradient(
+                                listOf(Color.White.copy(alpha = 0.14f), Color.Transparent),
+                                center = Offset(size.width * 0.12f, size.height * 0.04f),
+                                radius = maxOf(size.width, size.height) * 0.85f,
+                            ),
+                        )
+                    }
+                } else {
+                    Modifier
                 },
             ),
         contentAlignment = contentAlignment,

@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.rshop.data.artwork.ArtworkResolver
+import com.rshop.data.metadata.GameMetadata
 import com.rshop.data.repository.LibraryRepository
 import com.rshop.data.storage.GamesDirectoryManager
 import com.rshop.data.sync.CatalogSyncer
@@ -78,6 +79,7 @@ class GameDetailsViewModel @Inject constructor(
     private val clock: Clock,
     private val artwork: ArtworkResolver,
     private val sources: SourceRepository,
+    private val metadata: GameMetadata,
 ) : ViewModel() {
 
     private val gameId = savedStateHandle.toRoute<GameDetailsRoute>().gameId
@@ -114,6 +116,8 @@ class GameDetailsViewModel @Inject constructor(
             // History rows reference the games table: only log games that exist.
             repository.recordView(gameId)
             launch { artwork.resolveNow(gameId) }
+            // Screenshots and a description from outside the source, for what its page lacks.
+            launch { metadata.resolveNow(gameId) }
             val stale = game.detailsSyncedAt == null ||
                 Duration.between(game.detailsSyncedAt, clock.instant()) > DETAILS_MAX_AGE
             if (stale) refreshDetails()

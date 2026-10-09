@@ -51,6 +51,12 @@ import com.rshop.R
 import com.rshop.domain.model.InstalledGame
 import com.rshop.ui.components.ConsoleButton
 import com.rshop.ui.components.ConsoleButtonStyle
+import com.rshop.domain.model.LibrarySort
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.ui.graphics.RectangleShape
+import com.rshop.domain.model.CoverStyle
+import com.rshop.ui.components.GameCase
+import com.rshop.ui.theme.ActiveTheme
 import com.rshop.ui.components.ConsoleChip
 import com.rshop.ui.components.EmptyState
 import com.rshop.ui.components.FocusableSurface
@@ -110,7 +116,7 @@ fun LibraryScreen(
         when {
             state.loading -> Unit
             state.totalCount == 0 -> EmptyLibrary(onBrowseStore, scanning, viewModel::onScan)
-            else -> LibraryGrid(state, returnFocus, scanning, viewModel::onScan, viewModel::onPlatformSelected, viewModel::onSelect)
+            else -> LibraryGrid(state, returnFocus, scanning, viewModel::onScan, viewModel::onCycleSort, viewModel::onPlatformSelected, viewModel::onSelect)
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(24.dp))
     }
@@ -162,6 +168,7 @@ private fun LibraryGrid(
     returnFocus: ReturnFocus,
     scanning: Boolean,
     onScan: () -> Unit,
+    onCycleSort: () -> Unit,
     onPlatform: (String?) -> Unit,
     onSelect: (InstalledGame) -> Unit,
 ) {
@@ -185,6 +192,12 @@ private fun LibraryGrid(
                         color = RShopColors.TextSecondary,
                         modifier = Modifier.weight(1f),
                     )
+                    ConsoleChip(
+                        stringResource(R.string.store_sort, stringResource(state.sort.labelRes())),
+                        selected = false,
+                        onClick = onCycleSort,
+                    )
+                    Spacer(Modifier.width(10.dp))
                     ConsoleChip(
                         stringResource(if (scanning) R.string.library_scanning else R.string.library_scan),
                         selected = false,
@@ -218,20 +231,20 @@ private fun LibraryGrid(
     }
 }
 
+private fun LibrarySort.labelRes(): Int = when (this) {
+    LibrarySort.Title -> R.string.sort_title
+    LibrarySort.RecentlyInstalled -> R.string.sort_recently_installed
+    LibrarySort.Size -> R.string.sort_size
+    LibrarySort.Platform -> R.string.sort_platform
+}
+
 @Composable
 private fun InstalledCard(game: InstalledGame, onClick: () -> Unit, focus: FocusRequester?, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     Column {
-        FocusableSurface(
-            onClick = onClick,
-            interactionSource = interaction,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(Dimens.CoverAspectRatio)
-                .then(if (focus != null) Modifier.focusRequester(focus) else Modifier)
-                .then(modifier),
-        ) {
+        val box3d = ActiveTheme.settings.coverStyle == CoverStyle.Box3d
+        val front: @Composable BoxScope.() -> Unit = {
             GameCover(coverGame(game.gameId, game.title, game.platform, game.coverUrl), showTitle = game.coverUrl == null, modifier = Modifier.fillMaxSize())
             if (game.updateAvailable) {
                 Text(
@@ -244,6 +257,26 @@ private fun InstalledCard(game: InstalledGame, onClick: () -> Unit, focus: Focus
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White,
                 )
+            }
+        }
+        FocusableSurface(
+            onClick = onClick,
+            showEdge = !box3d,
+            focusRing = !box3d,
+            glow = !box3d,
+            shape = if (box3d) RectangleShape else Dimens.CardShape,
+            focusedScale = if (box3d) 1.04f else Dimens.FocusScale,
+            interactionSource = interaction,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(Dimens.CoverAspectRatio)
+                .then(if (focus != null) Modifier.focusRequester(focus) else Modifier)
+                .then(modifier),
+        ) { isFocused ->
+            if (box3d) {
+                GameCase(seed = game.gameId, title = game.title, focused = isFocused, modifier = Modifier.fillMaxSize(), front = front)
+            } else {
+                front()
             }
         }
         Spacer(Modifier.height(10.dp))

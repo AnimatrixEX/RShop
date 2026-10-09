@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -26,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,7 +38,10 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.RectangleShape
+import com.rshop.domain.model.CoverStyle
 import com.rshop.domain.model.Game
+import com.rshop.ui.theme.ActiveTheme
 import com.rshop.ui.theme.Dimens
 import com.rshop.ui.theme.RShopColors
 import com.rshop.ui.util.gameGenreText
@@ -54,30 +59,26 @@ fun GameCard(
     val focused by interactionSource.collectIsFocusedAsState()
     val titleColor by animateColorAsState(if (focused) RShopColors.TextPrimary else RShopColors.TextSecondary, label = "cardTitle")
 
+    val prefetch = LocalDetailsPrefetch.current
+    LaunchedEffect(focused) {
+        if (focused) {
+            delay(PREFETCH_DELAY_MS)
+            prefetch(game)
+        }
+    }
+
     val currentOnFocused by rememberUpdatedState(onFocused)
     LaunchedEffect(focused) {
         if (focused) currentOnFocused(game)
     }
 
     Column(modifier) {
-        FocusableSurface(
-            onClick = onClick,
-            onLongClick = onMenu?.let { menu -> { menu(game) } },
-            interactionSource = interactionSource,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(Dimens.CoverAspectRatio)
-                .onPreviewKeyEvent { event ->
-                    if (onMenu != null && event.type == KeyEventType.KeyDown && event.key == Key.ButtonY) {
-                        onMenu(game)
-                        true
-                    } else {
-                        false
-                    }
-                },
-        ) {
+        val box3d = ActiveTheme.settings.coverStyle == CoverStyle.Box3d
+        val installed = game.id in LocalInstalledIds.current
+        // What is on the front of the card: the cover, the installed mark, the console.
+        val front: @Composable BoxScope.() -> Unit = {
             GameCover(game = game, showTitle = game.coverUrl == null, modifier = Modifier.fillMaxSize())
-            if (game.id in LocalInstalledIds.current) {
+            if (installed) {
                 Icon(
                     Icons.Filled.CheckCircle,
                     contentDescription = stringResource(R.string.card_installed),
@@ -101,6 +102,33 @@ fun GameCard(
                     color = Color.White,
                     maxLines = 1,
                 )
+            }
+        }
+        FocusableSurface(
+            onClick = onClick,
+            onLongClick = onMenu?.let { menu -> { menu(game) } },
+            showEdge = !box3d,
+            focusRing = !box3d,
+            glow = !box3d,
+            shape = if (box3d) RectangleShape else Dimens.CardShape,
+            focusedScale = if (box3d) 1.04f else Dimens.FocusScale,
+            interactionSource = interactionSource,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(Dimens.CoverAspectRatio)
+                .onPreviewKeyEvent { event ->
+                    if (onMenu != null && event.type == KeyEventType.KeyDown && event.key == Key.ButtonY) {
+                        onMenu(game)
+                        true
+                    } else {
+                        false
+                    }
+                },
+        ) { isFocused ->
+            if (box3d) {
+                GameCase(seed = game.id, title = game.title, focused = isFocused, modifier = Modifier.fillMaxSize(), front = front)
+            } else {
+                front()
             }
         }
         Spacer(Modifier.height(10.dp))

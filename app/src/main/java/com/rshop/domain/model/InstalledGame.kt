@@ -2,6 +2,21 @@ package com.rshop.domain.model
 
 import java.time.Instant
 
+/** How the library orders the installed games. */
+enum class LibrarySort {
+    Title, RecentlyInstalled, Size, Platform;
+
+    fun next(): LibrarySort = entries[(ordinal + 1) % entries.size]
+
+    fun apply(games: List<InstalledGame>): List<InstalledGame> = when (this) {
+        Title -> games.sortedBy { it.title.lowercase() }
+        RecentlyInstalled -> games.sortedByDescending { it.installedAt }
+        // Games of unknown size last.
+        Size -> games.sortedWith(compareByDescending<InstalledGame> { it.sizeOnDisk ?: -1L }.thenBy { it.title.lowercase() })
+        Platform -> games.sortedWith(compareBy<InstalledGame> { it.platform?.lowercase() ?: "\uffff" }.thenBy { it.title.lowercase() })
+    }
+}
+
 data class InstalledGame(
     val gameId: String,
     val title: String,

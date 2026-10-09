@@ -13,6 +13,16 @@ import com.rshop.domain.model.DownloadTask
 @Composable
 fun downloadErrorText(error: DownloadError): String = LocalContext.current.downloadErrorMessage(error)
 
+/** "needed/available" bytes, as the error stores them, shown in a readable way. */
+private fun Context.storageMessage(detail: String?): String {
+    val (needed, available) = detail?.split('/')?.mapNotNull { it.toLongOrNull() }?.takeIf { it.size == 2 } ?: return getString(R.string.dl_error_storage)
+    return getString(
+        R.string.dl_error_storage_detail,
+        android.text.format.Formatter.formatShortFileSize(this, needed),
+        android.text.format.Formatter.formatShortFileSize(this, available.coerceAtLeast(0)),
+    )
+}
+
 fun Context.downloadErrorMessage(error: DownloadError): String = when (error.kind) {
     DownloadErrorKind.Network -> getString(R.string.dl_error_network)
     DownloadErrorKind.Busy -> getString(R.string.dl_error_busy)
@@ -20,7 +30,7 @@ fun Context.downloadErrorMessage(error: DownloadError): String = when (error.kin
     DownloadErrorKind.NotFound -> getString(R.string.dl_error_not_found)
     DownloadErrorKind.Http -> getString(R.string.dl_error_http, error.detail.orEmpty())
     DownloadErrorKind.Html -> getString(R.string.dl_error_html)
-    DownloadErrorKind.Storage -> getString(R.string.dl_error_storage)
+    DownloadErrorKind.Storage -> storageMessage(error.detail)
     DownloadErrorKind.TooLarge -> getString(R.string.dl_error_too_large)
     DownloadErrorKind.Checksum -> getString(R.string.dl_error_checksum)
     DownloadErrorKind.Rejected -> getString(R.string.dl_error_rejected, error.detail.orEmpty())

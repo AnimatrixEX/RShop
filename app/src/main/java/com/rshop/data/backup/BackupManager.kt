@@ -6,9 +6,9 @@ import com.rshop.data.preferences.AppLanguageController
 import com.rshop.data.repository.GameListRepository
 import com.rshop.data.source.SourceManager
 import com.rshop.data.source.SourceRepository
-import com.rshop.domain.catalog.CatalogRegion
 import com.rshop.domain.model.CatalogPrefs
 import com.rshop.domain.model.FocusStyle
+import com.rshop.domain.model.CoverStyle
 import com.rshop.domain.model.TextSize
 import com.rshop.domain.model.ThemeAccent
 import com.rshop.domain.model.ThemeBase
@@ -47,14 +47,17 @@ class BackupManager @Inject constructor(
             settings = BackupSettings(
                 wifiOnly = current.wifiOnly,
                 deleteArchivesAfterInstall = current.deleteArchivesAfterInstall,
+                pauseOnLowBattery = current.pauseOnLowBattery,
+                minFreeSpaceMb = current.minFreeSpaceMb,
+                autoCheckUpdates = current.autoCheckUpdates,
                 themeBase = current.theme.base.name,
                 themeAccent = current.theme.accent.name,
                 themeFocus = current.theme.focus.name,
                 themeTextSize = current.theme.textSize.name,
+                themeCoverStyle = current.theme.coverStyle.name,
                 dynamicBackdrop = current.theme.dynamicBackdrop,
                 hideInstalled = current.catalog.hideInstalled,
                 hideExtras = current.catalog.hideExtras,
-                region = current.catalog.region.name,
                 language = language.current().tag,
             ),
         )
@@ -106,16 +109,20 @@ class BackupManager @Inject constructor(
     private suspend fun applySettings(saved: BackupSettings) {
         settings.setWifiOnly(saved.wifiOnly)
         settings.setDeleteArchivesAfterInstall(saved.deleteArchivesAfterInstall)
+        settings.setPauseOnLowBattery(saved.pauseOnLowBattery)
+        settings.setMinFreeSpaceMb(saved.minFreeSpaceMb)
+        settings.setAutoCheckUpdates(saved.autoCheckUpdates)
         val theme = ThemeSettings(
             base = enumOrDefault(saved.themeBase, ThemeBase.Night),
             accent = enumOrDefault(saved.themeAccent, ThemeAccent.Blue),
             focus = enumOrDefault(saved.themeFocus, FocusStyle.White),
             textSize = enumOrDefault(saved.themeTextSize, TextSize.Normal),
+            coverStyle = enumOrDefault(saved.themeCoverStyle, CoverStyle.Flat),
             dynamicBackdrop = saved.dynamicBackdrop,
         )
         settings.setTheme(theme)
         settings.setCatalogPrefs(
-            CatalogPrefs(saved.hideInstalled, saved.hideExtras, enumOrDefault(saved.region, CatalogRegion.All)),
+            CatalogPrefs(saved.hideInstalled, saved.hideExtras, filtersExpanded = settings.settings.first().catalog.filtersExpanded),
         )
     }
 

@@ -306,6 +306,16 @@ private fun GameDetailsContent(
                 SectionHeader(stringResource(R.string.details_description))
                 Spacer(Modifier.height(10.dp))
                 ExpandableDescription(description, Modifier.padding(horizontal = Dimens.ScreenPadding))
+                // Text from Wikipedia is credited (CC BY-SA 4.0).
+                val credit = game.descriptionSource
+                if (credit != null && credit.startsWith("wikipedia:")) {
+                    Text(
+                        stringResource(R.string.details_description_wikipedia, credit.substringAfter(':').uppercase()),
+                        modifier = Modifier.padding(horizontal = Dimens.ScreenPadding, vertical = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = RShopColors.TextTertiary,
+                    )
+                }
             }
 
             if (game.screenshots.isNotEmpty()) {

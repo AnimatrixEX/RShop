@@ -1,6 +1,6 @@
 package com.rshop.domain.model
 
-/** How the app looks. All bases are dark: the UI is read from 1–3 m on handhelds and TVs. */
+/** How the app looks. Most bases are dark (the UI is read from 1–3 m on handhelds and TVs); Glass, PS2 and eShop are looks of their own. */
 data class ThemeSettings(
     val base: ThemeBase = ThemeBase.Night,
     val accent: ThemeAccent = ThemeAccent.Blue,
@@ -8,9 +8,13 @@ data class ThemeSettings(
     val textSize: TextSize = TextSize.Normal,
     /** Blurred artwork of the highlighted game behind Home and game pages. */
     val dynamicBackdrop: Boolean = true,
+    /** How covers are shown: flat, or as game boxes in perspective. */
+    val coverStyle: CoverStyle = CoverStyle.Flat,
 )
 
-enum class ThemeBase { Night, Oled, Slate, Twilight }
+enum class CoverStyle { Flat, Box3d }
+
+enum class ThemeBase { Night, Oled, Slate, Twilight, Glass, Ps2, Eshop }
 
 enum class ThemeAccent { Blue, Violet, Cyan, Green, Orange, Pink, Red }
 

@@ -88,7 +88,7 @@ class StoreViewModel @Inject constructor(
         _query.debounce { if (it.isBlank()) 0L else SEARCH_DEBOUNCE_MS },
         options,
         prefs,
-    ) { q, f, p -> f.copy(query = q, hideInstalled = p.hideInstalled, hideExtras = p.hideExtras, region = p.region) }.distinctUntilChanged()
+    ) { q, f, p -> f.copy(query = q, hideInstalled = p.hideInstalled, hideExtras = p.hideExtras) }.distinctUntilChanged()
 
     /** Lazily loaded results: only the visible part of a large catalogue is read. */
     val games: Flow<PagingData<Game>> = filter
@@ -142,9 +142,9 @@ class StoreViewModel @Inject constructor(
 
     fun onToggleHideInstalled() = updatePrefs { it.copy(hideInstalled = !it.hideInstalled) }
 
-    fun onToggleHideExtras() = updatePrefs { it.copy(hideExtras = !it.hideExtras) }
+    fun onToggleFilters() = updatePrefs { it.copy(filtersExpanded = !it.filtersExpanded) }
 
-    fun onCycleRegion() = updatePrefs { it.copy(region = it.region.next()) }
+    fun onToggleHideExtras() = updatePrefs { it.copy(hideExtras = !it.hideExtras) }
 
     private fun updatePrefs(change: (CatalogPrefs) -> CatalogPrefs) {
         viewModelScope.launch { settings.setCatalogPrefs(change(settings.settings.first().catalog)) }

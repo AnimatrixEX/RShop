@@ -29,6 +29,8 @@ data class Game(
     val tags: List<String> = emptyList(),
     /** Every file the game page offers (formats, discs…); [downloadUrl] is the first one. */
     val downloadOptions: List<DownloadOption> = emptyList(),
+    /** Set when [description] was not written by the catalogue source ("wikipedia:en"). */
+    val descriptionSource: String? = null,
 )
 
 /** One file a game page offers. [label] tells it apart from the others ("ZIP", "Disc 2 · CHD"). */

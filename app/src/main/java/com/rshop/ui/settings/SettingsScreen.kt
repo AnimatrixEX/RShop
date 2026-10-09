@@ -17,7 +17,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.focus.focusRestorer
+import com.rshop.domain.model.FREE_SPACE_CHOICES_MB
 import com.rshop.domain.model.FocusStyle
+import com.rshop.domain.model.CoverStyle
 import com.rshop.domain.model.TextSize
 import com.rshop.domain.model.ThemeAccent
 import com.rshop.domain.model.ThemeBase
@@ -176,6 +178,24 @@ fun SettingsScreen(
             }
             item {
                 SettingsRow(
+                    title = stringResource(R.string.settings_low_battery),
+                    subtitle = stringResource(R.string.settings_low_battery_desc),
+                    onClick = { viewModel.onPauseOnLowBatteryChange(!state.settings.pauseOnLowBattery) },
+                    trailing = { RShopSwitch(state.settings.pauseOnLowBattery) },
+                )
+            }
+            item {
+                ChoiceRow(
+                    title = stringResource(R.string.settings_free_space),
+                    options = (FREE_SPACE_CHOICES_MB + state.settings.minFreeSpaceMb).distinct().sorted(),
+                    selected = state.settings.minFreeSpaceMb,
+                    label = { megabytes -> if (megabytes >= 1024) "${megabytes / 1024} ${stringResource(R.string.unit_gb)}" else "$megabytes ${stringResource(R.string.unit_mb)}" },
+                    swatch = null,
+                    onSelect = viewModel::onMinFreeSpaceChange,
+                )
+            }
+            item {
+                SettingsRow(
                     title = stringResource(R.string.settings_delete_archives),
                     subtitle = stringResource(R.string.settings_delete_archives_desc),
                     onClick = { viewModel.onDeleteArchivesChange(!state.settings.deleteArchivesAfterInstall) },
@@ -184,6 +204,22 @@ fun SettingsScreen(
             }
 
             item { GroupTitle(stringResource(R.string.settings_artwork)) }
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_libretro),
+                    subtitle = stringResource(R.string.settings_libretro_desc),
+                    onClick = { viewModel.onLibretroChange(!state.artwork.libretroEnabled) },
+                    trailing = { RShopSwitch(state.artwork.libretroEnabled) },
+                )
+            }
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_wikipedia),
+                    subtitle = stringResource(R.string.settings_wikipedia_desc),
+                    onClick = { viewModel.onMetadataChange(!state.artwork.metadataEnabled) },
+                    trailing = { RShopSwitch(state.artwork.metadataEnabled) },
+                )
+            }
             item {
                 SteamGridDbKeyForm(
                     status = state.artwork,
@@ -208,7 +244,8 @@ fun SettingsScreen(
                     selected = theme.base,
                     label = { stringResource(it.labelRes()) },
                     swatch = { ThemePalettes.swatch(it) },
-                    onSelect = { base -> viewModel.onThemeChange { t -> t.copy(base = base) } },
+                    // A style comes with the accent that suits it (red eShop, blue PS2); the accent can still be changed.
+                    onSelect = { base -> viewModel.onThemeChange { t -> t.copy(base = base, accent = ThemePalettes.recommendedAccent(base) ?: t.accent) } },
                 )
             }
             item {
@@ -239,6 +276,16 @@ fun SettingsScreen(
                     label = { stringResource(if (it == TextSize.Normal) R.string.text_size_normal else R.string.text_size_large) },
                     swatch = null,
                     onSelect = { size -> viewModel.onThemeChange { t -> t.copy(textSize = size) } },
+                )
+            }
+            item {
+                ChoiceRow(
+                    title = stringResource(R.string.settings_cover_style),
+                    options = CoverStyle.entries,
+                    selected = theme.coverStyle,
+                    label = { stringResource(if (it == CoverStyle.Flat) R.string.cover_style_flat else R.string.cover_style_3d) },
+                    swatch = null,
+                    onSelect = { style -> viewModel.onThemeChange { t -> t.copy(coverStyle = style) } },
                 )
             }
             item {
@@ -277,6 +324,14 @@ fun SettingsScreen(
                     title = stringResource(R.string.settings_version),
                     subtitle = BuildConfig.VERSION_NAME,
                     onClick = null,
+                )
+            }
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_auto_update),
+                    subtitle = stringResource(R.string.settings_auto_update_desc),
+                    onClick = { viewModel.onAutoCheckUpdatesChange(!state.settings.autoCheckUpdates) },
+                    trailing = { RShopSwitch(state.settings.autoCheckUpdates) },
                 )
             }
             updateItems(
@@ -491,6 +546,9 @@ private fun ThemeBase.labelRes(): Int = when (this) {
     ThemeBase.Oled -> R.string.theme_base_oled
     ThemeBase.Slate -> R.string.theme_base_slate
     ThemeBase.Twilight -> R.string.theme_base_twilight
+    ThemeBase.Glass -> R.string.theme_base_glass
+    ThemeBase.Ps2 -> R.string.theme_base_ps2
+    ThemeBase.Eshop -> R.string.theme_base_eshop
 }
 
 private fun ThemeAccent.labelRes(): Int = when (this) {

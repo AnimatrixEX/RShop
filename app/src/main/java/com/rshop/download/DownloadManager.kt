@@ -15,6 +15,7 @@ import com.rshop.data.source.SourceRepository
 import com.rshop.data.storage.GamesDirectoryManager
 import com.rshop.data.storage.GamesDirectoryState
 import com.rshop.data.sync.CatalogSyncer
+import com.rshop.data.work.AppNotifications
 import com.rshop.domain.model.DownloadError
 import com.rshop.domain.model.DownloadErrorKind
 import com.rshop.domain.model.DownloadOption
@@ -75,6 +76,7 @@ class DownloadManager @Inject constructor(
     private val tracker: DownloadProgressTracker,
     private val clock: Clock,
     private val browserStreams: BrowserStreams,
+    private val notifications: AppNotifications,
 ) {
     private val workManager by lazy { WorkManager.getInstance(context) }
 
@@ -327,11 +329,16 @@ class DownloadManager @Inject constructor(
         tracker.clear(gameId)
     }
 
+    /** The game's title as the queue shows it; null when it is not in the queue. */
+    suspend fun titleOf(gameId: String): String? = dao.get(gameId)?.title
+
     suspend fun resume(gameId: String) {
         val row = dao.get(gameId) ?: return
         val status = DownloadStatus.valueOf(row.state)
         if (status != DownloadStatus.Paused && status != DownloadStatus.Failed) return
         dao.updateState(gameId, DownloadStatus.Queued.name, null, clock.millis())
+        // The "paused" notification gives way to the progress one once the work starts.
+        notifications.dismiss(AppNotifications.downloadNotificationId(gameId))
         enqueue(gameId)
     }
 
@@ -344,6 +351,7 @@ class DownloadManager @Inject constructor(
         workManager.cancelUniqueWork(workName(gameId))
         browserStreams.discard(gameId)
         tracker.clear(gameId)
+        notifications.dismiss(AppNotifications.downloadNotificationId(gameId))
         withContext(Dispatchers.IO) { File(row.tempPath).parentFile?.deleteRecursively() }
     }
 
@@ -370,13 +378,15 @@ class DownloadManager @Inject constructor(
     }
 
     private suspend fun enqueue(gameId: String, policy: ExistingWorkPolicy = ExistingWorkPolicy.REPLACE, anyNetwork: Boolean = false) {
-        val wifiOnly = !anyNetwork && settings.settings.first().wifiOnly
+        val current = settings.settings.first()
+        val wifiOnly = !anyNetwork && current.wifiOnly
         val request = OneTimeWorkRequestBuilder<DownloadWorker>()
             .setInputData(workDataOf(DownloadWorker.KEY_GAME_ID to gameId))
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
                     .setRequiresStorageNotLow(true)
+                    .setRequiresBatteryNotLow(current.pauseOnLowBattery)
                     .build(),
             )
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)

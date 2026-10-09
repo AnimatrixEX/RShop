@@ -57,7 +57,7 @@ class BackupTest {
             sources = listOf(source),
             favorites = listOf(BackupGame("demo:/a", "Alpha", "NES")),
             lists = listOf(BackupList("To finish", listOf(BackupGame("demo:/b", "Beta")))),
-            settings = BackupSettings(wifiOnly = false, themeAccent = "Orange", region = "Europe", language = "fr"),
+            settings = BackupSettings(wifiOnly = false, themeAccent = "Orange", language = "fr"),
         )
 
         val read = BackupCodec.decode(BackupCodec.encode(backup))

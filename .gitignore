@@ -14,3 +14,6 @@ captures/
 __pycache__/
 jsontest/
 bin/
+
+# Design references kept locally
+references/

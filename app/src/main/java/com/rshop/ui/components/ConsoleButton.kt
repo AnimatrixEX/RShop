@@ -35,6 +35,7 @@ fun ConsoleButton(
         ConsoleButtonStyle.Primary -> RShopColors.Accent to lerp(RShopColors.Accent, Color.White, 0.14f)
         ConsoleButtonStyle.Secondary -> RShopColors.SurfaceHighest to RShopColors.Outline
     }
+    val labelColor = if (style == ConsoleButtonStyle.Primary) RShopColors.OnAccent else RShopColors.TextPrimary
     FocusableSurface(
         onClick = onClick,
         modifier = modifier,
@@ -48,10 +49,10 @@ fun ConsoleButton(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (icon != null) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = RShopColors.TextPrimary)
+                Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = labelColor)
                 Spacer(Modifier.width(8.dp))
             }
-            Text(text = text, style = MaterialTheme.typography.labelLarge, color = RShopColors.TextPrimary)
+            Text(text = text, style = MaterialTheme.typography.labelLarge, color = labelColor)
         }
     }
 }
@@ -74,6 +75,6 @@ fun ConsoleIconButton(
         focusedContainerColor = if (active) RShopColors.AccentBright else RShopColors.Outline,
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = RShopColors.TextPrimary)
+        Icon(icon, contentDescription = contentDescription, tint = if (active) RShopColors.OnAccent else RShopColors.TextPrimary)
     }
 }

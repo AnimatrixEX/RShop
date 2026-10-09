@@ -51,7 +51,6 @@ interface GameDao {
           AND (:sourceId IS NULL OR source_id = :sourceId)
           AND (:hideInstalled = 0 OR id NOT IN (SELECT game_id FROM installed_games))
           AND (:hideExtras = 0 OR is_extra = 0)
-          AND (:regionMask = 0 OR region_flags = 0 OR (region_flags & :regionMask) != 0)
         ORDER BY
           CASE WHEN :sort = 'title' THEN title END COLLATE NOCASE ASC,
           CASE WHEN :sort = 'popular' THEN popularity END DESC,
@@ -63,7 +62,7 @@ interface GameDao {
     )
     fun observeCatalog(
         ftsQuery: String?, tag: String?, platform: String?, sourceId: String?,
-        hideInstalled: Int, hideExtras: Int, regionMask: Int, sort: String,
+        hideInstalled: Int, hideExtras: Int, sort: String,
     ): Flow<List<GameEntity>>
 
     @Query(
@@ -75,7 +74,6 @@ interface GameDao {
           AND (:sourceId IS NULL OR source_id = :sourceId)
           AND (:hideInstalled = 0 OR id NOT IN (SELECT game_id FROM installed_games))
           AND (:hideExtras = 0 OR is_extra = 0)
-          AND (:regionMask = 0 OR region_flags = 0 OR (region_flags & :regionMask) != 0)
         ORDER BY
           CASE WHEN :sort = 'title' THEN title END COLLATE NOCASE ASC,
           CASE WHEN :sort = 'popular' THEN popularity END DESC,
@@ -87,7 +85,7 @@ interface GameDao {
     )
     fun pagingCatalog(
         ftsQuery: String?, tag: String?, platform: String?, sourceId: String?,
-        hideInstalled: Int, hideExtras: Int, regionMask: Int, sort: String,
+        hideInstalled: Int, hideExtras: Int, sort: String,
     ): PagingSource<Int, GameEntity>
 
     @Query(
@@ -99,12 +97,11 @@ interface GameDao {
           AND (:sourceId IS NULL OR source_id = :sourceId)
           AND (:hideInstalled = 0 OR id NOT IN (SELECT game_id FROM installed_games))
           AND (:hideExtras = 0 OR is_extra = 0)
-          AND (:regionMask = 0 OR region_flags = 0 OR (region_flags & :regionMask) != 0)
         """,
     )
     fun observeCatalogCount(
         ftsQuery: String?, tag: String?, platform: String?, sourceId: String?,
-        hideInstalled: Int, hideExtras: Int, regionMask: Int,
+        hideInstalled: Int, hideExtras: Int,
     ): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM games")
@@ -196,14 +193,14 @@ interface GameDao {
     /** Games SteamGridDB was never asked about: installed ones first, then the most visible. */
     @Query(
         """
-        SELECT id, title FROM games WHERE artwork_checked_at IS NULL
+        SELECT id, title, platform FROM games WHERE artwork_checked_at IS NULL
         ORDER BY (id IN (SELECT game_id FROM installed_games)) DESC, popularity DESC, added_at DESC
         LIMIT :limit
         """,
     )
     suspend fun pendingArtwork(limit: Int): List<ArtworkCandidate>
 
-    @Query("SELECT id, title FROM games WHERE id = :id AND artwork_checked_at IS NULL")
+    @Query("SELECT id, title, platform FROM games WHERE id = :id AND artwork_checked_at IS NULL")
     suspend fun pendingArtwork(id: String): ArtworkCandidate?
 
     @Query("SELECT COUNT(*) FROM games WHERE artwork_checked_at IS NULL")
@@ -226,12 +223,18 @@ interface GameDao {
         setDownloadArtwork(id, coverUrl)
     }
 
-    /** Games whose download counter was never looked up and whose page was never read, newest first. */
+    /**
+     * Games whose page was never read (description, files, counter…) among the ones worth reading
+     * ahead of time: favorites, then the 500 most popular. Every other game has its
+     * page read when the player rests on its card or opens it.
+     */
     @Query(
         """
         SELECT id FROM games
-        WHERE download_count IS NULL AND stats_checked_at IS NULL AND details_synced_at IS NULL
-        ORDER BY added_at DESC
+        WHERE stats_checked_at IS NULL AND details_synced_at IS NULL
+          AND (id IN (SELECT game_id FROM favorites)
+               OR id IN (SELECT id FROM games WHERE popularity > 0 ORDER BY popularity DESC LIMIT 500))
+        ORDER BY (id IN (SELECT game_id FROM favorites)) DESC, popularity DESC, added_at DESC
         LIMIT :limit
         """,
     )
@@ -248,6 +251,75 @@ interface GameDao {
         """,
     )
     suspend fun setStats(id: String, count: Long?, checkedAt: Long)
+
+    // --- Infos from outside the catalogue source (Libretro screenshots, Wikipedia description) ---
+
+    /** Games never looked up for screenshots, the ones the user cares about first. */
+    @Query(
+        """
+        SELECT id, title, platform, 1 AS wantsScreenshots, 0 AS wantsDescription FROM games
+        WHERE screenshots_checked_at IS NULL
+        ORDER BY (id IN (SELECT game_id FROM favorites)) DESC, (id IN (SELECT game_id FROM installed_games)) DESC, popularity DESC, added_at DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun pendingScreenshots(limit: Int): List<MetadataCandidate>
+
+    /**
+     * Games without a description worth asking Wikipedia about: favorites, installed games, the
+     * most popular and the most recent (a lookup costs two requests, so not every game).
+     */
+    @Query(
+        """
+        SELECT id, title, platform, 0 AS wantsScreenshots, 1 AS wantsDescription FROM games
+        WHERE description_checked_at IS NULL AND (description IS NULL OR description = '')
+          AND (id IN (SELECT game_id FROM favorites)
+               OR id IN (SELECT game_id FROM installed_games)
+               OR id IN (SELECT id FROM games WHERE popularity > 0 ORDER BY popularity DESC LIMIT 500)
+               OR id IN (SELECT id FROM games ORDER BY added_at DESC LIMIT 200))
+        ORDER BY (id IN (SELECT game_id FROM favorites)) DESC, (id IN (SELECT game_id FROM installed_games)) DESC, popularity DESC, added_at DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun pendingDescriptions(limit: Int): List<MetadataCandidate>
+
+    /** One game being opened: whichever of the two lookups it still needs. */
+    @Query(
+        """
+        SELECT id, title, platform,
+               (screenshots_checked_at IS NULL) AS wantsScreenshots,
+               (description_checked_at IS NULL AND (description IS NULL OR description = '')) AS wantsDescription
+        FROM games WHERE id = :id
+        """,
+    )
+    suspend fun metadataCandidate(id: String): MetadataCandidate?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM screenshots WHERE game_id = :id)")
+    suspend fun hasScreenshots(id: String): Boolean
+
+    @Query("UPDATE games SET screenshots_checked_at = :checkedAt WHERE id = :id")
+    suspend fun setScreenshotsChecked(id: String, checkedAt: Long)
+
+    /** Adds [urls] as the game's screenshots unless the source already gave some; records the lookup. */
+    @Transaction
+    suspend fun setExternalScreenshots(id: String, urls: List<String>, checkedAt: Long) {
+        if (urls.isNotEmpty() && !hasScreenshots(id)) {
+            insertScreenshots(urls.mapIndexed { index, url -> ScreenshotEntity(gameId = id, position = index, url = url) })
+        }
+        setScreenshotsChecked(id, checkedAt)
+    }
+
+    /** Fills a description only where the source gave none; records the lookup either way. */
+    @Query(
+        """
+        UPDATE games SET
+          description = CASE WHEN (description IS NULL OR description = '') AND :text IS NOT NULL THEN :text ELSE description END,
+          description_source = CASE WHEN (description IS NULL OR description = '') AND :text IS NOT NULL THEN :source ELSE description_source END,
+          description_checked_at = :checkedAt
+        WHERE id = :id
+        """,
+    )
+    suspend fun setExternalDescription(id: String, text: String?, source: String?, checkedAt: Long)
 
     @Query("UPDATE games SET artwork_checked_at = NULL")
     suspend fun resetArtwork()
@@ -274,7 +346,16 @@ data class TagGroup(val tags: String, val games: Int)
 
 data class MatchCandidate(val id: String, val title: String, val platform: String?, val coverUrl: String?, val version: String?)
 
-data class ArtworkCandidate(val id: String, val title: String)
+data class ArtworkCandidate(val id: String, val title: String, val platform: String? = null)
+
+/** A game to look up outside the catalogue source, and which of the two lookups it needs. */
+data class MetadataCandidate(
+    val id: String,
+    val title: String,
+    val platform: String?,
+    val wantsScreenshots: Boolean,
+    val wantsDescription: Boolean,
+)
 
 data class SourceGameCount(
     @androidx.room.ColumnInfo(name = "source_id") val sourceId: String,

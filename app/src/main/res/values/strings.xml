@@ -227,7 +227,7 @@
     <string name="settings_sgdb_key">Clé API SteamGridDB</string>
     <string name="settings_sgdb_save">Enregistrer</string>
     <string name="settings_sgdb_remove">Supprimer</string>
-    <string name="settings_sgdb_none">Aucune clé : les jeux s’affichent sans jaquette.</string>
+    <string name="settings_sgdb_none">Aucune clé : seules les miniatures Libretro sont utilisées.</string>
     <string name="settings_sgdb_invalid">Clé refusée par SteamGridDB : saisissez-en une nouvelle.</string>
     <string name="settings_sgdb_ok">Clé …%1$s enregistrée · jaquettes à jour</string>
     <plurals name="settings_sgdb_pending">
@@ -395,11 +395,6 @@
     <!-- Filtres du catalogue -->
     <string name="store_hide_installed">Masquer les installés</string>
     <string name="store_hide_extras">Sans démos ni bêtas</string>
-    <string name="store_region">Région : %1$s</string>
-    <string name="region_all">Toutes</string>
-    <string name="region_usa">USA</string>
-    <string name="region_europe">Europe</string>
-    <string name="region_japan">Japon</string>
 
     <!-- Jeux en plusieurs fichiers -->
     <string name="details_choose_files">Choisir les fichiers</string>
@@ -455,4 +450,48 @@
     <string name="game_menu_favorite">Ajouter aux favoris</string>
     <string name="game_menu_unfavorite">Retirer des favoris</string>
     <string name="game_menu_lists">Ajouter à une liste…</string>
+
+    <!-- Tri de la bibliothèque -->
+    <string name="sort_recently_installed">Installation récente</string>
+    <string name="sort_platform">Console</string>
+
+    <!-- Réglages de téléchargement -->
+    <string name="settings_low_battery">Pause si la batterie est faible</string>
+    <string name="settings_low_battery_desc">Les téléchargements attendent que l\'appareil soit rechargé (au prochain téléchargement lancé)</string>
+    <string name="settings_free_space">Espace à garder libre</string>
+    <string name="unit_mb">Mo</string>
+    <string name="unit_gb">Go</string>
+    <string name="dl_error_storage_detail">espace insuffisant : %1$s nécessaires, %2$s libres</string>
+
+    <!-- Boutons des notifications de téléchargement -->
+    <string name="notif_action_pause">Pause</string>
+    <string name="notif_action_resume">Reprendre</string>
+    <string name="notif_action_cancel">Annuler</string>
+
+    <!-- Vérification automatique des mises à jour -->
+    <string name="settings_auto_update">Vérifier automatiquement</string>
+    <string name="settings_auto_update_desc">Une fois par jour à l\'ouverture ; un point apparaît sur Paramètres quand une version est disponible</string>
+
+    <!-- Jaquettes Libretro -->
+    <string name="settings_libretro">Miniatures Libretro</string>
+    <string name="settings_libretro_desc">Jaquettes gratuites, sans clé, pour les consoles connues (thumbnails.libretro.com)</string>
+
+    <!-- Infos hors source -->
+    <string name="settings_wikipedia">Descriptions Wikipédia</string>
+    <string name="settings_wikipedia_desc">Pour les jeux que la source ne décrit pas (favoris, installés, populaires, récents)</string>
+    <string name="details_description_wikipedia">Texte : Wikipédia (%1$s), licence CC BY-SA 4.0</string>
+
+    <!-- Styles d\'écran -->
+    <string name="theme_base_glass">Verre</string>
+    <string name="theme_base_ps2">PlayStation</string>
+    <string name="theme_base_eshop">eShop</string>
+
+    <!-- Filtres repliables -->
+    <string name="store_filters">Filtres</string>
+    <string name="store_filters_count">Filtres (%1$d)</string>
+
+    <!-- Jaquettes en 3D -->
+    <string name="settings_cover_style">Jaquettes</string>
+    <string name="cover_style_flat">Plates</string>
+    <string name="cover_style_3d">Boîtiers 3D</string>
 </resources>

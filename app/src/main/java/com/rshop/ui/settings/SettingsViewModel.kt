@@ -181,8 +181,37 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setWifiOnly(enabled) }
     }
 
+    fun onPauseOnLowBatteryChange(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setPauseOnLowBattery(enabled) }
+    }
+
+    fun onMinFreeSpaceChange(megabytes: Int) {
+        viewModelScope.launch { settingsRepository.setMinFreeSpaceMb(megabytes) }
+    }
+
+    fun onAutoCheckUpdatesChange(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setAutoCheckUpdates(enabled) }
+    }
+
     fun onDeleteArchivesChange(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setDeleteArchivesAfterInstall(enabled) }
+    }
+
+    fun onMetadataChange(enabled: Boolean) {
+        viewModelScope.launch {
+            artworkSettings.setMetadataEnabled(enabled)
+            if (enabled) artworkScheduler.restart()
+        }
+    }
+
+    fun onLibretroChange(enabled: Boolean) {
+        viewModelScope.launch {
+            artworkSettings.setLibretroEnabled(enabled)
+            if (enabled) {
+                artworkResolver.retryMissing()
+                artworkScheduler.restart()
+            }
+        }
     }
 
     /** Saves (or, when blank, removes) the SteamGridDB key and fetches the missing covers. */

@@ -1,6 +1,7 @@
 package com.rshop.data.sync
 
 import android.content.Context
+import android.net.ConnectivityManager
 import androidx.hilt.work.HiltWorker
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -36,7 +37,12 @@ class DownloadCountWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        if (settings.settings.first().syncPaused) return Result.success()
+        val current = settings.settings.first()
+        if (current.syncPaused) return Result.success()
+        // A long job: it follows the "Wi-Fi only" setting like downloads do. It starts again with the next sync.
+        if (current.wifiOnly && applicationContext.getSystemService(ConnectivityManager::class.java).isActiveNetworkMetered) {
+            return Result.success()
+        }
         val started = System.currentTimeMillis()
         return try {
             while (System.currentTimeMillis() - started < ROUND_MS) {
@@ -73,7 +79,7 @@ class DownloadCountScheduler @Inject constructor(
     /** [continuation]: queued after the running round instead of being dropped as a duplicate. */
     fun schedule(continuation: Boolean = false) {
         val request = OneTimeWorkRequestBuilder<DownloadCountWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).setRequiresBatteryNotLow(true).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(

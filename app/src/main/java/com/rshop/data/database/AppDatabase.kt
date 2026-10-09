@@ -1,6 +1,7 @@
 package com.rshop.data.database
 
 import androidx.room.AutoMigration
+import androidx.room.DeleteColumn
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.AutoMigrationSpec
@@ -36,7 +37,7 @@ import com.rshop.data.database.entity.ScreenshotEntity
         GameListEntity::class,
         GameListEntryEntity::class,
     ],
-    version = 11,
+    version = 13,
     exportSchema = true,
     autoMigrations = [
         // v2: games.details_synced_at + downloads table.
@@ -59,6 +60,10 @@ import com.rshop.data.database.entity.ScreenshotEntity
         AutoMigration(from = 9, to = 10),
         // v11: games.region_flags + is_extra (catalogue filters) and the several-files columns of downloads.
         AutoMigration(from = 10, to = 11, spec = AppDatabase.AddTitleTags::class),
+        // v12: games.region_flags removed again (a title does not tell which region the user wants).
+        AutoMigration(from = 11, to = 12, spec = AppDatabase.DropRegionFlags::class),
+        // v13: games.description_source / description_checked_at / screenshots_checked_at (infos from outside the catalogue source).
+        AutoMigration(from = 12, to = 13),
     ],
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -99,21 +104,19 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 
-    /** Reads the region and the demo/beta mark of every game already in the catalogue. */
+    @DeleteColumn(tableName = "games", columnName = "region_flags")
+    class DropRegionFlags : AutoMigrationSpec
+
+    /** Reads the demo/beta mark of every game already in the catalogue. */
     class AddTitleTags : AutoMigrationSpec {
         override fun onPostMigrate(db: SupportSQLiteDatabase) {
-            val updates = ArrayList<Triple<String, Int, Int>>()
+            val extras = ArrayList<String>()
             db.query("SELECT id, title FROM games").use { c ->
                 while (c.moveToNext()) {
-                    val title = c.getString(1)
-                    val flags = TitleTags.regionFlags(title)
-                    val extra = if (TitleTags.isExtra(title)) 1 else 0
-                    if (flags != 0 || extra != 0) updates += Triple(c.getString(0), flags, extra)
+                    if (TitleTags.isExtra(c.getString(1))) extras += c.getString(0)
                 }
             }
-            updates.forEach { (id, flags, extra) ->
-                db.execSQL("UPDATE games SET region_flags = ?, is_extra = ? WHERE id = ?", arrayOf<Any>(flags, extra, id))
-            }
+            extras.forEach { id -> db.execSQL("UPDATE games SET is_extra = 1 WHERE id = ?", arrayOf<Any>(id)) }
         }
     }
 

@@ -27,10 +27,15 @@ import androidx.compose.runtime.remember
 import com.rshop.ui.components.ConsoleTopBar
 import com.rshop.ui.components.ControllerHints
 import com.rshop.ui.components.ControllerHintsBar
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import com.rshop.ui.components.LocalDetailsPrefetch
 import com.rshop.ui.components.LocalSearchSignal
 import com.rshop.ui.components.SearchSignal
 import kotlinx.coroutines.flow.emptyFlow
-import com.rshop.ui.theme.RShopColors
+import androidx.compose.foundation.layout.Box
+import com.rshop.ui.theme.ThemeBackground
 import kotlinx.coroutines.flow.Flow
 
 @Composable
@@ -47,6 +52,8 @@ fun RShopRoot(tabSwitches: Flow<Int>, searchRequests: Flow<Unit> = emptyFlow()) 
         }
     }
 
+    val root: RootViewModel = hiltViewModel()
+    val updateAvailable by root.updateAvailable.collectAsStateWithLifecycle()
     val searchSignal = remember { SearchSignal() }
     LaunchedEffect(searchRequests) {
         searchRequests.collect {
@@ -66,11 +73,12 @@ fun RShopRoot(tabSwitches: Flow<Int>, searchRequests: Flow<Unit> = emptyFlow()) 
         else -> ControllerHints.OnPage
     }
 
-    CompositionLocalProvider(LocalSearchSignal provides searchSignal) {
+    CompositionLocalProvider(LocalSearchSignal provides searchSignal, LocalDetailsPrefetch provides root::prefetch) {
+    Box(Modifier.fillMaxSize()) {
+    ThemeBackground()
     Column(
         Modifier
             .fillMaxSize()
-            .background(RShopColors.Background)
             .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         AnimatedVisibility(
@@ -81,10 +89,12 @@ fun RShopRoot(tabSwitches: Flow<Int>, searchRequests: Flow<Unit> = emptyFlow()) 
             ConsoleTopBar(
                 selected = currentTab,
                 onSelect = { navController.navigateToTab(it) },
+                settingsBadge = updateAvailable,
             )
         }
         RShopNavHost(navController = navController, modifier = Modifier.weight(1f))
         ControllerHintsBar(hints)
+    }
     }
     }
 }

@@ -1,6 +1,11 @@
 package com.rshop.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
@@ -16,17 +21,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.dp
 import com.rshop.domain.model.Game
+import com.rshop.ui.theme.ActiveTheme
 import com.rshop.ui.theme.Dimens
 import com.rshop.ui.theme.RShopColors
 
 @Composable
 fun SectionHeader(title: String, modifier: Modifier = Modifier) {
-    Text(
-        text = title,
-        modifier = modifier.padding(horizontal = Dimens.ScreenPadding),
-        style = MaterialTheme.typography.titleLarge,
-        color = RShopColors.TextPrimary,
-    )
+    val rule = ActiveTheme.look.sectionRule
+    Column(modifier.padding(horizontal = Dimens.ScreenPadding).width(IntrinsicSize.Max)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = RShopColors.TextPrimary,
+        )
+        // The eShop underlines each row's title, as wide as the title, in its red.
+        if (rule) Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(2.dp).background(RShopColors.Accent))
+    }
 }
 
 /** Horizontal row of game cards. Coming back to the row with the D-pad restores the last focused card. */

@@ -32,6 +32,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.rshop.R
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.shape.CircleShape
+import com.rshop.ui.theme.ActiveTheme
+import com.rshop.ui.theme.liquidGlass
 import com.rshop.ui.theme.RShopColors
 
 /** One button of the controller and what it does on the current screen. */
@@ -55,18 +60,38 @@ object ControllerHints {
  * player uses: a touch screen user never sees it.
  */
 @Composable
-fun ControllerHintsBar(hints: List<ControllerHint>, modifier: Modifier = Modifier) {
-    val usingController = LocalInputModeManager.current.inputMode == InputMode.Keyboard
+fun ControllerHintsBar(hints: List<ControllerHint>, modifier: Modifier = Modifier, alwaysVisible: Boolean = false) {
+    val usingController = alwaysVisible || LocalInputModeManager.current.inputMode == InputMode.Keyboard
+    val onBar = ActiveTheme.look.accentBars
     AnimatedVisibility(
         visible = usingController && hints.isNotEmpty(),
         modifier = modifier,
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically(),
     ) {
+        val glass = ActiveTheme.look.glossy
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
         Row(
             Modifier
-                .fillMaxWidth()
-                .background(RShopColors.Surface)
+                .then(if (glass) Modifier else Modifier.fillMaxWidth())
+                .then(
+                    if (glass) {
+                        Modifier
+                    } else if (onBar) {
+                        Modifier.background(RShopColors.Accent)
+                    } else if (ActiveTheme.look.hairlines) {
+                        // The Switch's footer: a thin rule over a bar the color of the page.
+                        val rule = RShopColors.Outline
+                        Modifier.drawBehind { drawLine(rule, Offset(24.dp.toPx(), 0f), Offset(size.width - 24.dp.toPx(), 0f), 1.dp.toPx()) }
+                    } else {
+                        Modifier.background(RShopColors.Surface)
+                    },
+                )
+                .then(
+                    // Liquid glass: the hints float in a capsule above the content.
+                    if (ActiveTheme.look.glossy) Modifier.padding(horizontal = 24.dp, vertical = 6.dp) else Modifier,
+                )
+                .then(if (ActiveTheme.look.glossy) Modifier.liquidGlass(CircleShape) else Modifier)
                 .padding(horizontal = 24.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
@@ -77,7 +102,7 @@ fun ControllerHintsBar(hints: List<ControllerHint>, modifier: Modifier = Modifie
                     Modifier
                         .height(20.dp)
                         .widthIn(min = 20.dp)
-                        .background(RShopColors.SurfaceHighest, RoundedCornerShape(10.dp))
+                        .background(if (onBar) Color.White.copy(alpha = 0.28f) else RShopColors.SurfaceHighest, RoundedCornerShape(10.dp))
                         .padding(horizontal = 6.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -92,9 +117,10 @@ fun ControllerHintsBar(hints: List<ControllerHint>, modifier: Modifier = Modifie
                     stringResource(hint.label),
                     modifier = Modifier.padding(start = 6.dp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = RShopColors.TextSecondary,
+                    color = if (onBar) RShopColors.OnAccent else RShopColors.TextSecondary,
                 )
             }
+        }
         }
     }
 }

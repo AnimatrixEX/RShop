@@ -71,9 +71,11 @@ class HttpFileDownloader(
         onProgress: suspend (downloaded: Long, total: Long?) -> Unit = { _, _ -> },
         referer: String? = null,
         session: BrowserSession? = null,
+        /** Space that must stay free once the file is on disk. */
+        spaceMargin: Long = SPACE_MARGIN,
     ): DownloadOutcome = withContext(Dispatchers.IO) {
         // Blocking stream reads and file writes: never on the caller's thread.
-        downloadOnIo(url, target, validators, onStarted, onProgress, referer, session)
+        downloadOnIo(url, target, validators, onStarted, onProgress, referer, session, spaceMargin)
     }
 
     private suspend fun downloadOnIo(
@@ -84,6 +86,7 @@ class HttpFileDownloader(
         onProgress: suspend (downloaded: Long, total: Long?) -> Unit,
         referer: String?,
         session: BrowserSession?,
+        spaceMargin: Long,
     ): DownloadOutcome {
         target.parentFile?.mkdirs()
         val existing = if (target.exists()) target.length() else 0L
@@ -112,7 +115,7 @@ class HttpFileDownloader(
                     if (start != resumeFrom) {
                         // The server resumed elsewhere: start over rather than corrupt the file.
                         target.delete()
-                        return downloadOnIo(url, target, null, onStarted, onProgress, referer, session)
+                        return downloadOnIo(url, target, null, onStarted, onProgress, referer, session, spaceMargin)
                     }
                     true
                 }
@@ -120,7 +123,7 @@ class HttpFileDownloader(
                 416 -> {
                     // Range not satisfiable: what we have is not a prefix of the current file.
                     target.delete()
-                    if (resumeFrom > 0) return downloadOnIo(url, target, null, onStarted, onProgress, referer, session)
+                    if (resumeFrom > 0) return downloadOnIo(url, target, null, onStarted, onProgress, referer, session, spaceMargin)
                     throw DownloadException.Http(416)
                 }
                 401, 403 -> throw DownloadException.AccessDenied(response.code)
@@ -143,8 +146,8 @@ class HttpFileDownloader(
             if (total != null && total > maxFileSize) throw DownloadException.TooLarge(total)
             val remaining = bodyLength ?: 0L
             val available = target.parentFile?.usableSpace ?: Long.MAX_VALUE
-            if (remaining + SPACE_MARGIN > available) {
-                throw DownloadException.InsufficientStorage(remaining + SPACE_MARGIN, available)
+            if (remaining + spaceMargin > available) {
+                throw DownloadException.InsufficientStorage(remaining + spaceMargin, available)
             }
 
             val newValidators = ResumeValidators(response.header("ETag"), response.header("Last-Modified"))

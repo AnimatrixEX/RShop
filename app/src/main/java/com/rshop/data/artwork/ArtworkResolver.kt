@@ -26,6 +26,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class ArtworkResolver @Inject constructor(
     private val gameDao: GameDao,
     private val settings: ArtworkSettings,
+    private val libretro: LibretroThumbnails,
     private val okHttpClient: OkHttpClient,
     private val clock: Clock,
 ) {
@@ -41,13 +42,16 @@ class ArtworkResolver @Inject constructor(
      * 0 when there is nothing to do or no usable key. Network errors propagate (retry later).
      */
     suspend fun resolvePending(maxGames: Int): Int = mutex.withLock {
-        val client = client() ?: return 0
+        val client = client()
+        val useLibretro = settings.libretroEnabled()
+        // Neither SteamGridDB (no key) nor Libretro (switched off): nothing to look up.
+        if (client == null && !useLibretro) return 0
         val games = gameDao.pendingArtwork(maxGames)
         // Several games at once: the answers of the API arrive while the next requests go out.
         // Requests are still spaced by [throttled], so the rate stays bounded.
         val slots = Semaphore(PARALLEL_GAMES)
         coroutineScope {
-            games.map { game -> async { slots.withPermit { resolve(client, game) } } }.awaitAll()
+            games.map { game -> async { slots.withPermit { resolve(client, game, useLibretro) } } }.awaitAll()
         }
         games.size
     }
@@ -56,9 +60,11 @@ class ArtworkResolver @Inject constructor(
     suspend fun resolveNow(gameId: String) {
         val game = gameDao.pendingArtwork(gameId) ?: return
         mutex.withLock {
-            val client = client() ?: return
+            val client = client()
+            val useLibretro = settings.libretroEnabled()
+            if (client == null && !useLibretro) return
             try {
-                resolve(client, game)
+                resolve(client, game, useLibretro)
             } catch (e: ArtworkException.InvalidKey) {
                 // Already recorded.
             } catch (e: java.io.IOException) {
@@ -73,6 +79,7 @@ class ArtworkResolver @Inject constructor(
     /** At startup: when the matching rules changed, every cover is looked up again. */
     suspend fun redoIfMatcherChanged() {
         if (settings.consumeMatcherUpgrade()) gameDao.resetArtwork()
+        if (settings.consumeLibretroUpgrade()) gameDao.retryMissingArtwork()
     }
 
     private suspend fun client(): SteamGridDbClient? {
@@ -80,17 +87,23 @@ class ArtworkResolver @Inject constructor(
         return clientFactory(key)
     }
 
-    private suspend fun resolve(client: SteamGridDbClient, game: ArtworkCandidate) {
-        try {
-            val term = ArtworkTitle.searchTerm(game.title)
-            val match = ArtworkTitle.pick(throttled { client.search(term) }, term)
-            val cover = match?.let { throttled { client.cover(it.id) } }
-            gameDao.setArtwork(game.id, cover, clock.millis())
-            Timber.d("Cover for '%s' (%s): %s", game.title, term, cover ?: "none")
-        } catch (e: ArtworkException.InvalidKey) {
-            settings.markInvalidKey()
-            throw e
+    /** SteamGridDB first when there is a key, then the Libretro thumbnails for what it did not have. */
+    private suspend fun resolve(client: SteamGridDbClient?, game: ArtworkCandidate, useLibretro: Boolean) {
+        var cover: String? = null
+        if (client != null) {
+            try {
+                val term = ArtworkTitle.searchTerm(game.title)
+                val match = ArtworkTitle.pick(throttled { client.search(term) }, term)
+                cover = match?.let { throttled { client.cover(it.id) } }
+            } catch (e: ArtworkException.InvalidKey) {
+                settings.markInvalidKey()
+                // Libretro does not need the key: carry on with it for this game.
+                if (!useLibretro) throw e
+            }
         }
+        if (cover == null && useLibretro) cover = libretro.find(game.platform, game.title)
+        gameDao.setArtwork(game.id, cover, clock.millis())
+        Timber.d("Cover for '%s' (%s): %s", game.title, game.platform, cover ?: "none")
     }
 
     private val throttleLock = Mutex()

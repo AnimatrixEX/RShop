@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -54,7 +55,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import com.rshop.R
-import com.rshop.domain.catalog.CatalogRegion
 import com.rshop.domain.model.SortOrder
 import com.rshop.ui.components.ConsoleChip
 import com.rshop.ui.components.GameCard
@@ -79,6 +79,11 @@ fun StoreScreen(
     // Back from a game page, its card gets focus instead (see ReturnFocus).
     val returnFocus = rememberReturnFocus()
     val menu = rememberGameMenu()
+    val expanded = state.prefs.filtersExpanded
+    // Narrowing in force, so the closed button can still say that results are filtered.
+    val activeFilters = listOf(
+        state.genre != null, state.platform != null, state.sourceId != null, state.prefs.hideInstalled, state.prefs.hideExtras,
+    ).count { it }
     // X on the controller: the search field takes the focus (A then starts typing).
     val searchSignal = LocalSearchSignal.current
     val searchFocus = remember { FocusRequester() }
@@ -143,29 +148,16 @@ fun StoreScreen(
                         selected = false,
                         onClick = viewModel::onCycleSort,
                     )
+                    Spacer(Modifier.width(10.dp))
+                    ConsoleChip(
+                        text = if (activeFilters > 0) stringResource(R.string.store_filters_count, activeFilters) else stringResource(R.string.store_filters),
+                        selected = expanded,
+                        onClick = viewModel::onToggleFilters,
+                        // Hidden rows cannot hold the first focus: it goes to this button.
+                        modifier = if (!expanded) Modifier.focusRequester(filterFocus) else Modifier,
+                    )
                 }
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRestorer(),
-                    contentPadding = PaddingValues(top = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    item(key = "hide-installed") {
-                        ConsoleChip(stringResource(R.string.store_hide_installed), selected = state.prefs.hideInstalled, onClick = viewModel::onToggleHideInstalled)
-                    }
-                    item(key = "hide-extras") {
-                        ConsoleChip(stringResource(R.string.store_hide_extras), selected = state.prefs.hideExtras, onClick = viewModel::onToggleHideExtras)
-                    }
-                    item(key = "region") {
-                        ConsoleChip(
-                            stringResource(R.string.store_region, stringResource(state.prefs.region.labelRes())),
-                            selected = state.prefs.region != CatalogRegion.All,
-                            onClick = viewModel::onCycleRegion,
-                        )
-                    }
-                }
-                if (state.sources.isNotEmpty()) {
+                if (expanded) {
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -173,53 +165,71 @@ fun StoreScreen(
                         contentPadding = PaddingValues(top = 14.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        item(key = "all-sources") {
-                            ConsoleChip(stringResource(R.string.store_all_sources), selected = state.sourceId == null, onClick = { viewModel.onSourceSelected(null) })
+                        item(key = "hide-installed") {
+                            ConsoleChip(stringResource(R.string.store_hide_installed), selected = state.prefs.hideInstalled, onClick = viewModel::onToggleHideInstalled)
                         }
-                        items(state.sources, key = { "source:${it.first}" }) { (id, name) ->
-                            ConsoleChip(name, selected = state.sourceId == id, onClick = { viewModel.onSourceSelected(id) })
+                        item(key = "hide-extras") {
+                            ConsoleChip(stringResource(R.string.store_hide_extras), selected = state.prefs.hideExtras, onClick = viewModel::onToggleHideExtras)
                         }
                     }
-                }
-                if (state.platforms.size > 1) {
+                    if (state.sources.isNotEmpty()) {
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRestorer(),
+                            contentPadding = PaddingValues(top = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            item(key = "all-sources") {
+                                ConsoleChip(stringResource(R.string.store_all_sources), selected = state.sourceId == null, onClick = { viewModel.onSourceSelected(null) })
+                            }
+                            items(state.sources, key = { "source:${it.first}" }) { (id, name) ->
+                                ConsoleChip(name, selected = state.sourceId == id, onClick = { viewModel.onSourceSelected(id) })
+                            }
+                        }
+                    }
+                    if (state.platforms.size > 1) {
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRestorer(),
+                            contentPadding = PaddingValues(top = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            item(key = "all-platforms") {
+                                ConsoleChip(stringResource(R.string.library_all), selected = state.platform == null, onClick = { viewModel.onPlatformSelected(null) })
+                            }
+                            items(state.platforms, key = { "platform:$it" }) { platform ->
+                                ConsoleChip(platform, selected = state.platform == platform, onClick = { viewModel.onPlatformSelected(platform) })
+                            }
+                        }
+                    }
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRestorer(),
-                        contentPadding = PaddingValues(top = 14.dp),
+                        contentPadding = PaddingValues(vertical = 14.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        item(key = "all-platforms") {
-                            ConsoleChip(stringResource(R.string.library_all), selected = state.platform == null, onClick = { viewModel.onPlatformSelected(null) })
+                        item(key = "all") {
+                            ConsoleChip(
+                                text = stringResource(R.string.store_all),
+                                selected = state.genre == null,
+                                onClick = { viewModel.onGenreSelected(null) },
+                                modifier = if (state.genre == null && expanded) Modifier.focusRequester(filterFocus) else Modifier,
+                            )
                         }
-                        items(state.platforms, key = { "platform:$it" }) { platform ->
-                            ConsoleChip(platform, selected = state.platform == platform, onClick = { viewModel.onPlatformSelected(platform) })
+                        items(state.genres, key = { "genre:$it" }) { genre ->
+                            ConsoleChip(
+                                text = genreLabel(genre),
+                                selected = state.genre == genre,
+                                onClick = { viewModel.onGenreSelected(genre) },
+                                modifier = if (state.genre == genre && expanded) Modifier.focusRequester(filterFocus) else Modifier,
+                            )
                         }
                     }
-                }
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRestorer(),
-                    contentPadding = PaddingValues(vertical = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    item(key = "all") {
-                        ConsoleChip(
-                            text = stringResource(R.string.store_all),
-                            selected = state.genre == null,
-                            onClick = { viewModel.onGenreSelected(null) },
-                            modifier = if (state.genre == null) Modifier.focusRequester(filterFocus) else Modifier,
-                        )
-                    }
-                    items(state.genres, key = { "genre:$it" }) { genre ->
-                        ConsoleChip(
-                            text = genreLabel(genre),
-                            selected = state.genre == genre,
-                            onClick = { viewModel.onGenreSelected(genre) },
-                            modifier = if (state.genre == genre) Modifier.focusRequester(filterFocus) else Modifier,
-                        )
-                    }
+                } else {
+                    Spacer(Modifier.height(12.dp))
                 }
                 Text(
                     text = if (!state.isLoading && state.resultCount == 0) {
@@ -273,13 +283,6 @@ private fun RemoteSearchRow(query: String, state: RemoteSearchState, onSearch: (
             else -> Unit
         }
     }
-}
-
-private fun CatalogRegion.labelRes(): Int = when (this) {
-    CatalogRegion.All -> R.string.region_all
-    CatalogRegion.Usa -> R.string.region_usa
-    CatalogRegion.Europe -> R.string.region_europe
-    CatalogRegion.Japan -> R.string.region_japan
 }
 
 private fun SortOrder.labelRes(): Int = when (this) {

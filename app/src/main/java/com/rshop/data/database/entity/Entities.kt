@@ -58,10 +58,14 @@ data class GameEntity(
      * show; null while never looked up (or while the listing gives the counter itself).
      */
     @ColumnInfo(name = "stats_checked_at") val statsCheckedAt: Long? = null,
-    /** Regions named by the title, as a bit set (see TitleTags); 0 when it names none. */
-    @ColumnInfo(name = "region_flags", defaultValue = "0") val regionFlags: Int = 0,
     /** The title says demo, beta, prototype… (see TitleTags.isExtra). */
     @ColumnInfo(name = "is_extra", defaultValue = "0") val isExtra: Boolean = false,
+    /** Where [description] comes from when it is not the catalogue source ("wikipedia:en"); null for the source's own. */
+    @ColumnInfo(name = "description_source") val descriptionSource: String? = null,
+    /** When Wikipedia was last asked for a description of this game (answer or none); null while never. */
+    @ColumnInfo(name = "description_checked_at") val descriptionCheckedAt: Long? = null,
+    /** When the Libretro screenshots were last looked up for this game (found or not); null while never. */
+    @ColumnInfo(name = "screenshots_checked_at") val screenshotsCheckedAt: Long? = null,
 )
 
 /** Full-text index kept in sync with [GameEntity] by triggers Room generates. */

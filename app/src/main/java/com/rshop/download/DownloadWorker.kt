@@ -56,7 +56,7 @@ class DownloadWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
 
     private val gameId = requireNotNull(params.inputData.getString(KEY_GAME_ID))
-    private val notificationId = 1000 + (gameId.hashCode() and 0xFFFF)
+    private val notificationId = AppNotifications.downloadNotificationId(gameId)
     private val downloader = HttpFileDownloader(
         // No shared cookie jar: a browser download carries its own Cookie header.
         client = okHttpClient.newBuilder().cache(null).cookieJar(CookieJar.NO_COOKIES).build(),
@@ -198,7 +198,10 @@ class DownloadWorker @AssistedInject constructor(
         }
 
         val validators = ResumeValidators(row.etag, row.lastModified).takeIf { it.ifRange != null }
+        val margin = settings.settings.first().minFreeSpaceMb * BYTES_PER_MB
+        checkGamesFolderSpace(row, margin)
         val outcome = downloader.download(
+            spaceMargin = margin,
             url = row.url.toHttpUrl(),
             target = file,
             referer = row.referer,
@@ -219,6 +222,16 @@ class DownloadWorker @AssistedInject constructor(
         if (done.requestCookie == null) return done
         // The browser cookies are not kept beyond the file they were given for.
         return done.copy(requestCookie = null).also { dao.upsert(it) }
+    }
+
+    /**
+     * The file is extracted into the games folder, usually on another volume than the download
+     * folder: fail now, not after the whole transfer, when it cannot fit there.
+     */
+    private suspend fun checkGamesFolderSpace(row: DownloadEntity, margin: Long) {
+        val total = row.totalBytes ?: return
+        val free = installer.deviceSpace()?.freeBytes ?: return
+        if (total + margin > free) throw DownloadException.InsufficientStorage(total + margin, free)
     }
 
     /** Streams a user-picked file (content://) into [file], reporting progress like a download. */
@@ -360,6 +373,8 @@ class DownloadWorker @AssistedInject constructor(
                 },
             ),
             progress = percent,
+            // Pause and Cancel while bytes are moving; checking and extracting are not interrupted.
+            gameId = gameId.takeIf { !verifying && !installing },
         )
 
     private fun notifyDone(title: String, success: Boolean) {
@@ -373,6 +388,7 @@ class DownloadWorker @AssistedInject constructor(
     companion object {
         const val KEY_GAME_ID = "game_id"
         private const val MAX_TRANSIENT_RETRIES = 8
+        private const val BYTES_PER_MB = 1024L * 1024L
         private const val DB_WRITE_INTERVAL_MS = 1_000L
         private const val NOTIFICATION_INTERVAL_MS = 1_000L
     }

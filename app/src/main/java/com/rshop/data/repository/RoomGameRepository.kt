@@ -60,7 +60,6 @@ class RoomGameRepository @Inject constructor(
         sourceId = filter.sourceId,
         hideInstalled = filter.hideInstalled.toInt(),
         hideExtras = filter.hideExtras.toInt(),
-        regionMask = filter.region.mask,
         sort = filter.sort.toSql(),
     ).mapGames()
 
@@ -68,14 +67,14 @@ class RoomGameRepository @Inject constructor(
         Pager(PagingConfig(pageSize = PAGE_SIZE, prefetchDistance = PAGE_SIZE / 2, enablePlaceholders = false)) {
             gameDao.pagingCatalog(
                 FtsQuery.from(filter.query), filter.genre?.let(TagCodec::pattern), filter.platform, filter.sourceId,
-                filter.hideInstalled.toInt(), filter.hideExtras.toInt(), filter.region.mask, filter.sort.toSql(),
+                filter.hideInstalled.toInt(), filter.hideExtras.toInt(), filter.sort.toSql(),
             )
         }.flow.map { data -> data.map { it.toDomain() } }
 
     override fun observeCatalogCount(filter: CatalogFilter): Flow<Int> =
         gameDao.observeCatalogCount(
             FtsQuery.from(filter.query), filter.genre?.let(TagCodec::pattern), filter.platform, filter.sourceId,
-            filter.hideInstalled.toInt(), filter.hideExtras.toInt(), filter.region.mask,
+            filter.hideInstalled.toInt(), filter.hideExtras.toInt(),
         )
 
     private fun Boolean.toInt() = if (this) 1 else 0

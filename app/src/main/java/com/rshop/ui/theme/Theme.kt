@@ -3,15 +3,16 @@ package com.rshop.ui.theme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 
-private fun colorScheme(palette: RShopPalette) = darkColorScheme(
+private fun colorScheme(palette: RShopPalette) = (if (palette.isLight) lightColorScheme() else darkColorScheme()).copy(
     primary = palette.accent,
-    onPrimary = palette.textPrimary,
+    onPrimary = RShopColors.OnAccent,
     primaryContainer = palette.accent.copy(alpha = 0.25f),
     onPrimaryContainer = palette.textPrimary,
     secondary = palette.accentSecondary,

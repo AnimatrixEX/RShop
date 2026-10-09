@@ -218,7 +218,7 @@
     <string name="settings_sgdb_key">SteamGridDB API key</string>
     <string name="settings_sgdb_save">Save</string>
     <string name="settings_sgdb_remove">Remove</string>
-    <string name="settings_sgdb_none">No key: games are shown without cover art.</string>
+    <string name="settings_sgdb_none">No key: only the Libretro thumbnails are used.</string>
     <string name="settings_sgdb_invalid">SteamGridDB rejected the key: enter a new one.</string>
     <string name="settings_sgdb_ok">Key …%1$s saved · covers up to date</string>
     <plurals name="settings_sgdb_pending">
@@ -385,11 +385,6 @@
     <!-- Catalogue filters -->
     <string name="store_hide_installed">Hide installed</string>
     <string name="store_hide_extras">No demos or betas</string>
-    <string name="store_region">Region: %1$s</string>
-    <string name="region_all">All</string>
-    <string name="region_usa">USA</string>
-    <string name="region_europe">Europe</string>
-    <string name="region_japan">Japan</string>
 
     <!-- Games made of several files -->
     <string name="details_choose_files">Choose the files</string>
@@ -445,4 +440,48 @@
     <string name="game_menu_favorite">Add to favorites</string>
     <string name="game_menu_unfavorite">Remove from favorites</string>
     <string name="game_menu_lists">Add to a list…</string>
+
+    <!-- Library sorting -->
+    <string name="sort_recently_installed">Recently installed</string>
+    <string name="sort_platform">Console</string>
+
+    <!-- Download settings -->
+    <string name="settings_low_battery">Pause when the battery is low</string>
+    <string name="settings_low_battery_desc">Downloads wait until the device is charged (from the next download started)</string>
+    <string name="settings_free_space">Free space to keep</string>
+    <string name="unit_mb">MB</string>
+    <string name="unit_gb">GB</string>
+    <string name="dl_error_storage_detail">not enough space: %1$s needed, %2$s free</string>
+
+    <!-- Download notification buttons -->
+    <string name="notif_action_pause">Pause</string>
+    <string name="notif_action_resume">Resume</string>
+    <string name="notif_action_cancel">Cancel</string>
+
+    <!-- Automatic update check -->
+    <string name="settings_auto_update">Check automatically</string>
+    <string name="settings_auto_update_desc">Once a day when the app opens; a dot shows on Settings when a version is available</string>
+
+    <!-- Libretro covers -->
+    <string name="settings_libretro">Libretro thumbnails</string>
+    <string name="settings_libretro_desc">Free covers, no key needed, for known consoles (thumbnails.libretro.com)</string>
+
+    <!-- Infos from outside the source -->
+    <string name="settings_wikipedia">Wikipedia descriptions</string>
+    <string name="settings_wikipedia_desc">For games the source does not describe (favorites, installed, popular, recent)</string>
+    <string name="details_description_wikipedia">Text: Wikipedia (%1$s), CC BY-SA 4.0 licence</string>
+
+    <!-- Screen styles -->
+    <string name="theme_base_glass">Glass</string>
+    <string name="theme_base_ps2">PlayStation</string>
+    <string name="theme_base_eshop">eShop</string>
+
+    <!-- Collapsible filters -->
+    <string name="store_filters">Filters</string>
+    <string name="store_filters_count">Filters (%1$d)</string>
+
+    <!-- 3D covers -->
+    <string name="settings_cover_style">Covers</string>
+    <string name="cover_style_flat">Flat</string>
+    <string name="cover_style_3d">3D boxes</string>
 </resources>

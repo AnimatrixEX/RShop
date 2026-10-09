@@ -101,11 +101,16 @@ class AppUpdater @Inject constructor(
     /** The package an update must be for (the debug build updates the release package). */
     private val targetPackage = BuildConfig.APPLICATION_ID.removeSuffix(".debug")
 
-    /** Asks GitHub for the latest release. */
-    fun check() {
-        if (_state.value is UpdateState.Checking || _state.value is UpdateState.Downloading || _state.value is UpdateState.Verifying) return
+    /**
+     * Asks GitHub for the latest release. [quiet]: the automatic check at startup says nothing
+     * when there is nothing new or the check fails; it only turns up when a version is available.
+     */
+    fun check(quiet: Boolean = false) {
+        val now = _state.value
+        if (now is UpdateState.Checking || now is UpdateState.Downloading || now is UpdateState.Verifying || now is UpdateState.Installing) return
         launch {
-            _state.value = UpdateState.Checking
+            if (!quiet) _state.value = UpdateState.Checking
+            val quietly = if (quiet) now.takeIf { it is UpdateState.Available } ?: UpdateState.Idle else null
             _state.value = try {
                 val release = fetchLatest()
                 val current = AppVersion.parse(BuildConfig.VERSION_NAME)
@@ -114,17 +119,17 @@ class AppUpdater @Inject constructor(
                     UpdateState.Available(release)
                 } else {
                     clearCache()
-                    UpdateState.UpToDate(BuildConfig.VERSION_NAME)
+                    quietly ?: UpdateState.UpToDate(BuildConfig.VERSION_NAME)
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: UpdateException) {
-                UpdateState.Failed(e.kind, e.message)
+                quietly ?: UpdateState.Failed(e.kind, e.message)
             } catch (e: ReleaseParseException) {
                 Timber.w(e, "Unusable release")
-                UpdateState.Failed(UpdateErrorKind.BadRelease, e.message)
+                quietly ?: UpdateState.Failed(UpdateErrorKind.BadRelease, e.message)
             } catch (e: IOException) {
-                UpdateState.Failed(UpdateErrorKind.Network, e.message)
+                quietly ?: UpdateState.Failed(UpdateErrorKind.Network, e.message)
             }
         }
     }

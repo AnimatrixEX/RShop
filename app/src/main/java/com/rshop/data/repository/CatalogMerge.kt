@@ -38,6 +38,10 @@ internal object CatalogMerge {
             detailsSyncedAt = if (versionChanged) null else old.detailsSyncedAt,
             artworkCheckedAt = old.artworkCheckedAt,
             statsCheckedAt = old.statsCheckedAt,
+            // A description the source gives wins over one from outside.
+            descriptionSource = if (new.description != null) null else old.descriptionSource,
+            descriptionCheckedAt = old.descriptionCheckedAt,
+            screenshotsCheckedAt = old.screenshotsCheckedAt,
         )
     }
 
@@ -66,6 +70,9 @@ internal object CatalogMerge {
             artworkCheckedAt = old?.artworkCheckedAt,
             // The page was read: its counter, if any, is in downloadCount.
             statsCheckedAt = now,
+            descriptionSource = if (new.description != null) null else old?.descriptionSource,
+            descriptionCheckedAt = old?.descriptionCheckedAt,
+            screenshotsCheckedAt = old?.screenshotsCheckedAt,
         )
     }
 

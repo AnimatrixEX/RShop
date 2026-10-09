@@ -43,6 +43,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.rshop.navigation.TopLevelDestination
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import com.rshop.ui.theme.ActiveTheme
+import com.rshop.ui.theme.liquidGlass
 import com.rshop.ui.theme.Dimens
 import com.rshop.ui.theme.RShopColors
 
@@ -51,6 +56,8 @@ fun ConsoleTopBar(
     selected: TopLevelDestination?,
     onSelect: (TopLevelDestination) -> Unit,
     modifier: Modifier = Modifier,
+    /** A dot on the Settings button: something there needs attention (a new version). */
+    settingsBadge: Boolean = false,
 ) {
     // Switching tabs with L1/R1: the ring moves to the selected tab instead of staying on the
     // previous one. A new screen with its own focus target takes it right after (one frame later).
@@ -59,19 +66,26 @@ fun ConsoleTopBar(
     LaunchedEffect(selected) {
         if (inputMode == InputMode.Keyboard && selected != null) runCatching { requesters.getValue(selected).requestFocus() }
     }
+    val look = ActiveTheme.look
+    val onBar = look.accentBars
+    val hairline = look.hairlines
+    val ruleColor = RShopColors.Outline
     Row(
         modifier = modifier
             .fillMaxWidth()
+            // The eShop's red band with a soft shadow under it.
+            .then(if (onBar) Modifier.shadow(6.dp).background(RShopColors.Accent) else Modifier)
             .height(Dimens.TopBarHeight)
+            .then(if (hairline) Modifier.drawBehind { drawLine(ruleColor, Offset(24.dp.toPx(), size.height), Offset(size.width - 24.dp.toPx(), size.height), 1.dp.toPx()) } else Modifier)
             .padding(horizontal = Dimens.ScreenPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Logo()
+        Logo(onBar)
         Spacer(Modifier.width(28.dp))
         // The shoulder hints stay put on both sides: only the tabs between them scroll, so R1 is
         // never pushed off screen when there are many tabs.
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            ShoulderHint("L1")
+            ShoulderHint("L1", onBar)
             Spacer(Modifier.width(6.dp))
             Row(
                 modifier = Modifier
@@ -79,7 +93,9 @@ fun ConsoleTopBar(
                     // No focusRestorer here: it would redirect the selected-tab request above to the
                     // previously focused tab.
                     .horizontalScroll(rememberScrollState())
-                    .padding(vertical = 6.dp),
+                    // Liquid glass: the tabs sit in one floating capsule.
+                    .then(if (look.glossy) Modifier.liquidGlass(CircleShape) else Modifier)
+                    .padding(horizontal = if (look.glossy) 8.dp else 0.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
@@ -89,6 +105,7 @@ fun ConsoleTopBar(
                         TextTab(
                             label = stringResource(tab.labelRes),
                             selected = tab == selected,
+                            onBar = onBar,
                             onClick = { onSelect(tab) },
                             modifier = Modifier
                                 .focusRequester(requesters.getValue(tab))
@@ -97,15 +114,15 @@ fun ConsoleTopBar(
                     }
             }
             Spacer(Modifier.width(6.dp))
-            ShoulderHint("R1")
+            ShoulderHint("R1", onBar)
         }
         Spacer(Modifier.width(12.dp))
         val settingsSelected = selected == TopLevelDestination.Settings
         FocusableSurface(
             onClick = { onSelect(TopLevelDestination.Settings) },
             shape = CircleShape,
-            containerColor = if (settingsSelected) RShopColors.SurfaceHighest else Color.Transparent,
-            focusedContainerColor = RShopColors.SurfaceHighest,
+            containerColor = if (settingsSelected) (if (onBar) Color.White.copy(alpha = 0.22f) else RShopColors.SurfaceHighest) else Color.Transparent,
+            focusedContainerColor = if (onBar) Color.White.copy(alpha = 0.30f) else RShopColors.SurfaceHighest,
             glow = false,
             modifier = Modifier
                 .size(44.dp)
@@ -116,25 +133,42 @@ fun ConsoleTopBar(
             Icon(
                 imageVector = Icons.Filled.Settings,
                 contentDescription = stringResource(TopLevelDestination.Settings.labelRes),
-                tint = if (focused || settingsSelected) RShopColors.TextPrimary else RShopColors.TextSecondary,
+                tint = when {
+                    onBar -> RShopColors.OnAccent
+                    focused || settingsSelected -> RShopColors.TextPrimary
+                    else -> RShopColors.TextSecondary
+                },
             )
+            if (settingsBadge) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(9.dp)
+                        .size(10.dp)
+                        .background(RShopColors.Warning, CircleShape),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun TextTab(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun TextTab(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, onBar: Boolean = false) {
     FocusableSurface(
         onClick = onClick,
         modifier = modifier,
         shape = Dimens.PillShape,
         focusedScale = 1.05f,
         containerColor = Color.Transparent,
-        focusedContainerColor = RShopColors.SurfaceHighest,
+        focusedContainerColor = if (onBar) Color.White.copy(alpha = 0.26f) else RShopColors.SurfaceHighest,
         glow = false,
     ) { focused ->
         val textColor by animateColorAsState(
-            if (selected || focused) RShopColors.TextPrimary else RShopColors.TextSecondary,
+            when {
+                onBar -> if (selected || focused) RShopColors.OnAccent else RShopColors.OnAccent.copy(alpha = 0.82f)
+                selected || focused -> RShopColors.TextPrimary
+                else -> RShopColors.TextSecondary
+            },
             label = "tabText",
         )
         val indicatorWidth by animateDpAsState(if (selected) 22.dp else 0.dp, label = "tabIndicator")
@@ -148,30 +182,31 @@ private fun TextTab(label: String, selected: Boolean, onClick: () -> Unit, modif
                 Modifier
                     .width(indicatorWidth)
                     .height(3.dp)
-                    .background(RShopColors.Accent, RoundedCornerShape(2.dp)),
+                    .background(if (onBar) RShopColors.OnAccent else RShopColors.Accent, RoundedCornerShape(2.dp)),
             )
         }
     }
 }
 
 @Composable
-private fun ShoulderHint(label: String) {
+private fun ShoulderHint(label: String, onBar: Boolean = false) {
+    val color = if (onBar) RShopColors.OnAccent.copy(alpha = 0.85f) else RShopColors.TextTertiary
     Text(
         text = label,
         modifier = Modifier
-            .border(1.dp, RShopColors.TextTertiary, RoundedCornerShape(6.dp))
+            .border(1.dp, color, RoundedCornerShape(6.dp))
             .padding(horizontal = 6.dp, vertical = 1.dp),
         style = MaterialTheme.typography.labelSmall,
-        color = RShopColors.TextTertiary,
+        color = color,
     )
 }
 
 @Composable
-private fun Logo() {
+private fun Logo(onBar: Boolean = false) {
     Text(
         text = buildAnnotatedString {
-            withStyle(SpanStyle(color = RShopColors.Accent)) { append("R") }
-            withStyle(SpanStyle(color = RShopColors.TextPrimary)) { append("Shop") }
+            withStyle(SpanStyle(color = if (onBar) RShopColors.OnAccent else RShopColors.Accent)) { append("R") }
+            withStyle(SpanStyle(color = if (onBar) RShopColors.OnAccent else RShopColors.TextPrimary)) { append("Shop") }
         },
         style = MaterialTheme.typography.headlineSmall,
         fontWeight = FontWeight.Black,

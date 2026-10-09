@@ -6,12 +6,15 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.rshop.domain.catalog.CatalogRegion
 import com.rshop.domain.model.AppSettings
+import com.rshop.domain.model.DEFAULT_FREE_SPACE_MB
 import com.rshop.domain.model.CatalogPrefs
 import com.rshop.domain.model.FocusStyle
+import com.rshop.domain.model.CoverStyle
 import com.rshop.domain.model.TextSize
 import com.rshop.domain.model.ThemeAccent
 import com.rshop.domain.model.ThemeBase
@@ -35,6 +38,10 @@ class DataStoreSettingsRepository @Inject constructor(
 
     private val dataStore = context.settingsDataStore
 
+    private companion object {
+        const val MAX_FREE_SPACE_MB = 100 * 1024
+    }
+
     override val settings: Flow<AppSettings> = dataStore.data
         .catch { error ->
             if (error is IOException) {
@@ -49,18 +56,23 @@ class DataStoreSettingsRepository @Inject constructor(
                 gamesDirectoryUri = prefs[Keys.GamesDirectoryUri],
                 wifiOnly = prefs[Keys.WifiOnly] ?: true,
                 deleteArchivesAfterInstall = prefs[Keys.DeleteArchives] ?: true,
+                pauseOnLowBattery = prefs[Keys.PauseOnLowBattery] ?: true,
+                minFreeSpaceMb = prefs[Keys.MinFreeSpaceMb] ?: DEFAULT_FREE_SPACE_MB,
+                autoCheckUpdates = prefs[Keys.AutoCheckUpdates] ?: true,
+                lastUpdateCheckAt = prefs[Keys.LastUpdateCheckAt] ?: 0L,
                 syncPaused = prefs[Keys.SyncPaused] ?: false,
                 theme = ThemeSettings(
                     base = prefs[Keys.ThemeBase].toEnum(ThemeBase.Night),
                     accent = prefs[Keys.ThemeAccent].toEnum(ThemeAccent.Blue),
                     focus = prefs[Keys.FocusStyle].toEnum(FocusStyle.White),
                     textSize = prefs[Keys.TextSize].toEnum(TextSize.Normal),
+                    coverStyle = prefs[Keys.CoverStyle].toEnum(CoverStyle.Flat),
                     dynamicBackdrop = prefs[Keys.DynamicBackdrop] ?: true,
                 ),
                 catalog = CatalogPrefs(
                     hideInstalled = prefs[Keys.HideInstalled] ?: false,
                     hideExtras = prefs[Keys.HideExtras] ?: false,
-                    region = prefs[Keys.CatalogRegion].toEnum(CatalogRegion.All),
+                    filtersExpanded = prefs[Keys.FiltersExpanded] ?: false,
                 ),
             )
         }
@@ -79,6 +91,22 @@ class DataStoreSettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.DeleteArchives] = enabled }
     }
 
+    override suspend fun setPauseOnLowBattery(enabled: Boolean) {
+        dataStore.edit { it[Keys.PauseOnLowBattery] = enabled }
+    }
+
+    override suspend fun setMinFreeSpaceMb(megabytes: Int) {
+        dataStore.edit { it[Keys.MinFreeSpaceMb] = megabytes.coerceIn(0, MAX_FREE_SPACE_MB) }
+    }
+
+    override suspend fun setLastUpdateCheckAt(epochMillis: Long) {
+        dataStore.edit { it[Keys.LastUpdateCheckAt] = epochMillis }
+    }
+
+    override suspend fun setAutoCheckUpdates(enabled: Boolean) {
+        dataStore.edit { it[Keys.AutoCheckUpdates] = enabled }
+    }
+
     override suspend fun setSyncPaused(paused: Boolean) {
         dataStore.edit { it[Keys.SyncPaused] = paused }
     }
@@ -89,6 +117,7 @@ class DataStoreSettingsRepository @Inject constructor(
             prefs[Keys.ThemeAccent] = theme.accent.name
             prefs[Keys.FocusStyle] = theme.focus.name
             prefs[Keys.TextSize] = theme.textSize.name
+            prefs[Keys.CoverStyle] = theme.coverStyle.name
             prefs[Keys.DynamicBackdrop] = theme.dynamicBackdrop
         }
     }
@@ -97,7 +126,7 @@ class DataStoreSettingsRepository @Inject constructor(
         dataStore.edit {
             it[Keys.HideInstalled] = prefs.hideInstalled
             it[Keys.HideExtras] = prefs.hideExtras
-            it[Keys.CatalogRegion] = prefs.region.name
+            it[Keys.FiltersExpanded] = prefs.filtersExpanded
         }
     }
 
@@ -110,13 +139,18 @@ class DataStoreSettingsRepository @Inject constructor(
         val WifiOnly = booleanPreferencesKey("wifi_only")
         val DeleteArchives = booleanPreferencesKey("delete_archives_after_install")
         val SyncPaused = booleanPreferencesKey("sync_paused")
+        val PauseOnLowBattery = booleanPreferencesKey("pause_on_low_battery")
+        val MinFreeSpaceMb = intPreferencesKey("min_free_space_mb")
+        val AutoCheckUpdates = booleanPreferencesKey("auto_check_updates")
+        val LastUpdateCheckAt = longPreferencesKey("last_update_check_at")
         val ThemeBase = stringPreferencesKey("theme_base")
         val ThemeAccent = stringPreferencesKey("theme_accent")
         val FocusStyle = stringPreferencesKey("theme_focus")
         val TextSize = stringPreferencesKey("theme_text_size")
+        val CoverStyle = stringPreferencesKey("theme_cover_style")
         val DynamicBackdrop = booleanPreferencesKey("theme_dynamic_backdrop")
         val HideInstalled = booleanPreferencesKey("catalog_hide_installed")
         val HideExtras = booleanPreferencesKey("catalog_hide_extras")
-        val CatalogRegion = stringPreferencesKey("catalog_region")
+        val FiltersExpanded = booleanPreferencesKey("catalog_filters_expanded")
     }
 }

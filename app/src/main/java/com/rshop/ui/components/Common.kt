@@ -53,7 +53,7 @@ fun ConsoleChip(
             text = text,
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
             style = MaterialTheme.typography.labelLarge,
-            color = RShopColors.TextPrimary,
+            color = if (selected) RShopColors.OnAccent else RShopColors.TextPrimary,
             maxLines = 1,
         )
     }

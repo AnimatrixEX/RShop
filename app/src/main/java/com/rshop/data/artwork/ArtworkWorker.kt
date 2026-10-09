@@ -10,6 +10,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.rshop.data.metadata.GameMetadata
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -29,6 +30,7 @@ class ArtworkWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val resolver: ArtworkResolver,
+    private val metadata: GameMetadata,
     private val scheduler: ArtworkScheduler,
 ) : CoroutineWorker(context, params) {
 
@@ -36,7 +38,10 @@ class ArtworkWorker @AssistedInject constructor(
         val started = System.currentTimeMillis()
         return try {
             while (System.currentTimeMillis() - started < ROUND_MS) {
-                if (resolver.resolvePending(BATCH) < BATCH) return Result.success()
+                // Covers, then screenshots and descriptions found outside the catalogue source.
+                val covers = resolver.resolvePending(BATCH)
+                val infos = metadata.resolvePending(BATCH)
+                if (covers < BATCH && infos < BATCH) return Result.success()
             }
             scheduler.schedule(continuation = true)
             Result.success()

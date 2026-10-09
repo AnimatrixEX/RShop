@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.rshop.data.repository.LibraryRepository
 import com.rshop.domain.model.DownloadError
 import com.rshop.domain.model.InstalledGame
+import com.rshop.domain.model.LibrarySort
 import com.rshop.installation.DeviceSpace
 import com.rshop.download.DownloadManager
 import com.rshop.download.StartResult
@@ -24,6 +25,7 @@ data class LibraryUiState(
     val games: List<InstalledGame> = emptyList(),
     val platforms: List<String> = emptyList(),
     val platform: String? = null,
+    val sort: LibrarySort = LibrarySort.Title,
     val totalCount: Int = 0,
     val storage: StorageUsage = StorageUsage(),
 )
@@ -62,6 +64,7 @@ class LibraryViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val platformFilter = MutableStateFlow<String?>(null)
+    private val sort = MutableStateFlow(LibrarySort.Title)
     private val _selection = MutableStateFlow<LibrarySelection?>(null)
     val selection: StateFlow<LibrarySelection?> = _selection.asStateFlow()
     private val _events = MutableStateFlow<LibraryEvent?>(null)
@@ -91,18 +94,23 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch { library.observeInstalled().collect { device.value = library.deviceSpace() } }
     }
 
-    val uiState: StateFlow<LibraryUiState> = combine(library.observeInstalled(), platformFilter, device) { games, platform, deviceSpace ->
+    val uiState: StateFlow<LibraryUiState> = combine(library.observeInstalled(), platformFilter, device, sort) { games, platform, deviceSpace, order ->
         val platforms = games.mapNotNull { it.platform }.distinct().sortedBy { it.lowercase() }
         val active = platform?.takeIf { it in platforms }
         LibraryUiState(
             loading = false,
-            games = if (active == null) games else games.filter { it.platform == active },
+            games = order.apply(if (active == null) games else games.filter { it.platform == active }),
             platforms = platforms,
             platform = active,
+            sort = order,
             totalCount = games.size,
             storage = storageUsage(games, deviceSpace),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryUiState())
+
+    fun onCycleSort() {
+        sort.value = sort.value.next()
+    }
 
     fun onPlatformSelected(platform: String?) {
         platformFilter.value = platform

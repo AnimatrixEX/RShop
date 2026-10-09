@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.rshop.domain.model.Game
 import com.rshop.ui.theme.ActiveTheme
+import com.rshop.ui.theme.BackdropStyle
 import com.rshop.ui.theme.RShopColors
 
 /** Full-screen ambient background that follows the highlighted game, like console dashboards. */
@@ -32,8 +33,9 @@ fun Backdrop(highlighted: Game?, modifier: Modifier = Modifier) {
         modifier
             .fillMaxSize()
             .drawBehind {
-                drawRect(RShopColors.Background)
-                drawRect(
+                // Glass and PS2 draw their own page behind the screens: keep it.
+                if (ActiveTheme.look.backdrop == BackdropStyle.Plain) drawRect(RShopColors.Background)
+                if (!ActiveTheme.palette.isLight) drawRect(
                     Brush.radialGradient(
                         colors = listOf(end.copy(alpha = 0.45f), start.copy(alpha = 0.2f), RShopColors.Background.copy(alpha = 0f)),
                         center = Offset(size.width * 0.85f, 0f),
@@ -48,7 +50,7 @@ fun Backdrop(highlighted: Game?, modifier: Modifier = Modifier) {
                 model = coverUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                alpha = 0.18f,
+                alpha = if (ActiveTheme.look.glossy) 0.50f else 0.18f,
                 modifier = Modifier
                     .matchParentSize()
                     .blur(48.dp),

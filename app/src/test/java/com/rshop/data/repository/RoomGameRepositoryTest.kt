@@ -245,7 +245,7 @@ class RoomGameRepositoryTest {
     }
 
     @Test
-    fun `catalogue filters hide installed games, demos and other regions`() = runTest {
+    fun `catalogue filters hide installed games and demos`() = runTest {
         repository.saveGames(
             listOf(
                 testGame("sonic", title = "Sonic (USA, Europe)"),
@@ -265,15 +265,79 @@ class RoomGameRepositoryTest {
         assertEquals(5, titles(CatalogFilter()).size)
         assertEquals(listOf("Final Fantasy (Japan)", "Neon Drift", "Sonic (USA) (Demo)", "Sonic (USA, Europe)"), titles(CatalogFilter(hideInstalled = true)))
         assertEquals(listOf("Final Fantasy (Japan)", "Neon Drift", "Sonic (USA, Europe)", "Tetris (World)"), titles(CatalogFilter(hideExtras = true)))
-        // USA: its own games, world releases and games that name no region.
         assertEquals(
-            listOf("Neon Drift", "Sonic (USA) (Demo)", "Sonic (USA, Europe)", "Tetris (World)"),
-            titles(CatalogFilter(region = com.rshop.domain.catalog.CatalogRegion.Usa)),
+            listOf("Final Fantasy (Japan)", "Neon Drift", "Sonic (USA, Europe)"),
+            titles(CatalogFilter(hideInstalled = true, hideExtras = true)),
         )
-        assertEquals(
-            listOf("Neon Drift", "Sonic (USA, Europe)"),
-            titles(CatalogFilter(region = com.rshop.domain.catalog.CatalogRegion.Usa, hideInstalled = true, hideExtras = true)),
+        assertEquals(3, repository.observeCatalogCount(CatalogFilter(hideInstalled = true, hideExtras = true)).first())
+    }
+
+    @Test
+    fun `only favorites and popular games have their page read ahead`() = runTest {
+        repository.saveGames(
+            listOf(
+                testGame("fav", popularity = 0),
+                testGame("hit", popularity = 900),
+                testGame("ok", popularity = 10),
+                testGame("unknown", popularity = 0),
+                testGame("read", popularity = 500),
+            ),
         )
-        assertEquals(3, repository.observeCatalogCount(CatalogFilter(region = com.rshop.domain.catalog.CatalogRegion.Japan, hideExtras = true)).first())
+        repository.setFavorite("test:fav", true)
+        // A page already read is not read again.
+        repository.saveDetails(testGame("read", popularity = 500).copy(description = "d"))
+
+        // Favorites first, then by popularity; a game nobody counted is left for when it is opened.
+        assertEquals(listOf("test:fav", "test:hit", "test:ok"), repository.gamesWithoutStats(10))
+    }
+
+    @Test
+    fun `infos from outside never replace what the source gave, and the source replaces them`() = runTest {
+        val dao = db.gameDao()
+        repository.saveGames(
+            listOf(
+                testGame("a", title = "Alpha").copy(description = null),
+                testGame("b", title = "Beta", screenshots = listOf("https://x/own.png")),
+            ),
+        )
+
+        dao.setExternalScreenshots("test:a", listOf("https://l/snap.png", "https://l/title.png"), 5)
+        dao.setExternalScreenshots("test:b", listOf("https://l/snap.png"), 5)
+        dao.setExternalDescription("test:a", "From Wikipedia.", "wikipedia:en", 5)
+
+        val a = repository.getGame("test:a")!!
+        assertEquals(listOf("https://l/snap.png", "https://l/title.png"), a.screenshots)
+        assertEquals("From Wikipedia.", a.description)
+        assertEquals("wikipedia:en", a.descriptionSource)
+        // The screenshots of the source are kept; the lookup is recorded all the same.
+        assertEquals(listOf("https://x/own.png"), repository.getGame("test:b")!!.screenshots)
+        assertEquals(0, dao.pendingScreenshots(10).size)
+
+        // A description the source gives later wins, and is no longer credited to Wikipedia.
+        repository.saveDetails(a.copy(description = "Text of the source."))
+        val after = repository.getGame("test:a")!!
+        assertEquals("Text of the source.", after.description)
+        assertEquals(null, after.descriptionSource)
+        // And Wikipedia text does not overwrite it afterwards.
+        dao.setExternalDescription("test:a", "Again.", "wikipedia:en", 6)
+        assertEquals("Text of the source.", repository.getGame("test:a")!!.description)
+    }
+
+    @Test
+    fun `only worthwhile games are asked for a description`() = runTest {
+        val dao = db.gameDao()
+        repository.saveGames(
+            listOf(
+                testGame("hit", popularity = 900).copy(description = null),
+                testGame("fav", popularity = 0, addedDaysAgo = 900).copy(description = null),
+                testGame("described", popularity = 800).copy(description = "Has one."),
+            ),
+        )
+        repository.setFavorite("test:fav", true)
+
+        // Favorites first; a game that already has a description is not asked.
+        assertEquals(listOf("test:fav", "test:hit"), dao.pendingDescriptions(10).map { it.id })
+        dao.setExternalDescription("test:hit", null, null, 5)
+        assertEquals(listOf("test:fav"), dao.pendingDescriptions(10).map { it.id })
     }
 }

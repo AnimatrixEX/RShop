@@ -40,10 +40,13 @@ data class BackupSettings(
     val themeAccent: String? = null,
     val themeFocus: String? = null,
     val themeTextSize: String? = null,
+    val themeCoverStyle: String? = null,
     val dynamicBackdrop: Boolean = true,
+    val pauseOnLowBattery: Boolean = true,
+    val minFreeSpaceMb: Int = 1024,
+    val autoCheckUpdates: Boolean = true,
     val hideInstalled: Boolean = false,
     val hideExtras: Boolean = false,
-    val region: String? = null,
     /** Language tag ("fr", "en"); null follows the system. */
     val language: String? = null,
 )

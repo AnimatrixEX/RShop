@@ -29,6 +29,7 @@ fun GameEntity.toDomain(screenshots: List<String> = emptyList()): Game = Game(
     downloadCount = downloadCount,
     detailsSyncedAt = detailsSyncedAt?.let(Instant::ofEpochMilli),
     downloadOptions = DownloadOptionsJson.decode(downloadOptions),
+    descriptionSource = descriptionSource,
 )
 
 fun GameWithScreenshots.toDomain(): Game =
@@ -58,7 +59,6 @@ fun Game.toEntity(syncedAt: Long): GameWithScreenshots = GameWithScreenshots(
         lastSyncedAt = syncedAt,
         detailsSyncedAt = detailsSyncedAt?.toEpochMilli(),
         downloadOptions = DownloadOptionsJson.encode(downloadOptions),
-        regionFlags = TitleTags.regionFlags(title),
         isExtra = TitleTags.isExtra(title),
     ),
     screenshots = screenshots.mapIndexed { index, url -> ScreenshotEntity(gameId = id, position = index, url = url) },
