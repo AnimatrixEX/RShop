@@ -10,6 +10,8 @@ data class ThemeSettings(
     val dynamicBackdrop: Boolean = true,
     /** How covers are shown: flat, or as game boxes in perspective. */
     val coverStyle: CoverStyle = CoverStyle.Flat,
+    /** The Glass and PlayStation backgrounds drift slowly; off by default, since an animated screen keeps the GPU awake. */
+    val animatedBackground: Boolean = false,
 )
 
 enum class CoverStyle { Flat, Box3d }

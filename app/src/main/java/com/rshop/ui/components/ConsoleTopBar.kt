@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import com.rshop.ui.theme.ActiveTheme
+import com.rshop.ui.theme.BackdropStyle
 import com.rshop.ui.theme.liquidGlass
 import com.rshop.ui.theme.Dimens
 import com.rshop.ui.theme.RShopColors
@@ -203,9 +204,11 @@ private fun ShoulderHint(label: String, onBar: Boolean = false) {
 
 @Composable
 private fun Logo(onBar: Boolean = false) {
+    // On the PlayStation blue the accent would be lost: the brighter shade is used there.
+    val onBlue = ActiveTheme.look.backdrop == BackdropStyle.Ps2 || ActiveTheme.look.glossy
     Text(
         text = buildAnnotatedString {
-            withStyle(SpanStyle(color = if (onBar) RShopColors.OnAccent else RShopColors.Accent)) { append("R") }
+            withStyle(SpanStyle(color = if (onBar) RShopColors.OnAccent else if (onBlue) RShopColors.AccentBright else RShopColors.Accent)) { append("R") }
             withStyle(SpanStyle(color = if (onBar) RShopColors.OnAccent else RShopColors.TextPrimary)) { append("Shop") }
         },
         style = MaterialTheme.typography.headlineSmall,

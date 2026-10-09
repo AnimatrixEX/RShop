@@ -3,7 +3,10 @@ package com.rshop.data.metadata
 import com.rshop.data.artwork.ArtworkSettings
 import com.rshop.data.artwork.LibretroThumbnails
 import com.rshop.data.database.dao.GameDao
+import com.rshop.data.database.dao.DescriptionResult
 import com.rshop.data.database.dao.MetadataCandidate
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
@@ -35,14 +38,26 @@ class GameMetadata @Inject constructor(
     suspend fun resolvePending(maxGames: Int): Int = mutex.withLock {
         var handled = 0
         if (settings.libretroEnabled()) {
-            val games = gameDao.pendingScreenshots(maxGames)
-            games.forEach { lookUp(it) }
+            // A local match: a big batch, written in one transaction.
+            val games = gameDao.pendingScreenshots(maxGames.coerceAtLeast(SCREENSHOT_BATCH))
+            val found = ArrayList<Pair<String, List<String>>>(games.size)
+            for (game in games) found += game.id to libretro.findScreenshots(game.platform, game.title)
+            if (found.isNotEmpty()) gameDao.setExternalScreenshotsBatch(found, clock.millis())
             handled += games.size
         }
         if (settings.metadataEnabled()) {
             // Two requests per game: a short round, the worker comes back for more.
-            val games = gameDao.pendingDescriptions(maxGames.coerceAtMost(DESCRIPTION_BATCH))
-            games.forEach { lookUp(it) }
+            val games = gameDao.pendingDescriptions(DESCRIPTION_BATCH)
+            val found = ArrayList<DescriptionResult>(games.size)
+            try {
+                for (game in games) {
+                    val description = wikipedia.describe(game.title, languages())
+                    found += DescriptionResult(game.id, description?.text, description?.source)
+                }
+            } finally {
+                // What was found before a network error is kept.
+                if (found.isNotEmpty()) withContext(NonCancellable) { gameDao.setExternalDescriptionBatch(found, clock.millis()) }
+            }
             handled += games.size
         }
         handled
@@ -81,6 +96,7 @@ class GameMetadata @Inject constructor(
     }
 
     private companion object {
+        const val SCREENSHOT_BATCH = 400
         const val DESCRIPTION_BATCH = 20
     }
 }

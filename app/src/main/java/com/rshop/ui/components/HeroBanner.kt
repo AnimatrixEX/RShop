@@ -25,6 +25,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.rshop.ui.theme.ActiveTheme
+import com.rshop.ui.theme.ThemePalettes
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -82,13 +84,13 @@ fun HeroBanner(
                 Text(
                     text = stringResource(R.string.home_featured).uppercase(),
                     style = MaterialTheme.typography.labelMedium,
-                    color = RShopColors.AccentBright,
+                    color = ThemePalettes.accent(ActiveTheme.settings.accent).second,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = game.title,
                     style = MaterialTheme.typography.displaySmall,
-                    color = RShopColors.TextPrimary,
+                    color = Color.White,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -96,7 +98,7 @@ fun HeroBanner(
                 Text(
                     text = rememberGameMetaLine(game),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = RShopColors.TextSecondary,
+                    color = Color.White.copy(alpha = 0.78f),
                     maxLines = 1,
                 )
                 game.description?.let { description ->
@@ -104,7 +106,7 @@ fun HeroBanner(
                     Text(
                         text = description,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = RShopColors.TextPrimary.copy(alpha = 0.85f),
+                        color = Color.White.copy(alpha = 0.86f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )

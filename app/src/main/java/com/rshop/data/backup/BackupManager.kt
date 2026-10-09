@@ -50,11 +50,13 @@ class BackupManager @Inject constructor(
                 pauseOnLowBattery = current.pauseOnLowBattery,
                 minFreeSpaceMb = current.minFreeSpaceMb,
                 autoCheckUpdates = current.autoCheckUpdates,
+                readPagesAhead = current.readPagesAhead,
                 themeBase = current.theme.base.name,
                 themeAccent = current.theme.accent.name,
                 themeFocus = current.theme.focus.name,
                 themeTextSize = current.theme.textSize.name,
                 themeCoverStyle = current.theme.coverStyle.name,
+                animatedBackground = current.theme.animatedBackground,
                 dynamicBackdrop = current.theme.dynamicBackdrop,
                 hideInstalled = current.catalog.hideInstalled,
                 hideExtras = current.catalog.hideExtras,
@@ -112,12 +114,14 @@ class BackupManager @Inject constructor(
         settings.setPauseOnLowBattery(saved.pauseOnLowBattery)
         settings.setMinFreeSpaceMb(saved.minFreeSpaceMb)
         settings.setAutoCheckUpdates(saved.autoCheckUpdates)
+        settings.setReadPagesAhead(saved.readPagesAhead)
         val theme = ThemeSettings(
             base = enumOrDefault(saved.themeBase, ThemeBase.Night),
             accent = enumOrDefault(saved.themeAccent, ThemeAccent.Blue),
             focus = enumOrDefault(saved.themeFocus, FocusStyle.White),
             textSize = enumOrDefault(saved.themeTextSize, TextSize.Normal),
             coverStyle = enumOrDefault(saved.themeCoverStyle, CoverStyle.Flat),
+            animatedBackground = saved.animatedBackground,
             dynamicBackdrop = saved.dynamicBackdrop,
         )
         settings.setTheme(theme)

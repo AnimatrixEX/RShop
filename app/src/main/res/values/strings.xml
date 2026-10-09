@@ -494,4 +494,12 @@
     <string name="settings_cover_style">Jaquettes</string>
     <string name="cover_style_flat">Plates</string>
     <string name="cover_style_3d">Boîtiers 3D</string>
+
+    <!-- Fond animé -->
+    <string name="settings_animated_background">Fond animé</string>
+    <string name="settings_animated_background_desc">Dérive lente des styles Verre et PlayStation. Consomme plus de batterie</string>
+
+    <!-- Lecture des fiches à l\'avance -->
+    <string name="settings_read_ahead">Lire les fiches à l\'avance</string>
+    <string name="settings_read_ahead_desc">Descriptions, fichiers et compteurs des favoris et des jeux populaires, et du jeu sélectionné à la manette. Utilise le réseau et la batterie</string>
 </resources>

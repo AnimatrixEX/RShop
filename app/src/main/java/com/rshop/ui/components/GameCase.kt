@@ -1,12 +1,9 @@
 package com.rshop.ui.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -19,8 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -157,18 +154,26 @@ private fun Modifier.casePart(spine: Boolean, angle: () -> Float, lift: () -> Fl
         }
     }
 
-/** A slow back-and-forth turn while the box is in focus; nothing is animated for the others. */
+/**
+ * A slow back-and-forth turn when the box takes the focus: a few swings, then it rests. Nothing
+ * is animated for the other boxes, nor for this one once it has settled, so a handheld left on a
+ * card does not keep redrawing the screen.
+ */
 @Composable
 private fun rememberSway(active: Boolean): State<Float> {
-    val still = remember { mutableFloatStateOf(0f) }
-    if (!active) return still
-    val transition = rememberInfiniteTransition(label = "caseSway")
-    return transition.animateFloat(
-        initialValue = -SWAY,
-        targetValue = SWAY,
-        animationSpec = infiniteRepeatable(tween(2800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "caseSwayValue",
-    )
+    val sway = remember { Animatable(0f) }
+    LaunchedEffect(active) {
+        if (active) {
+            sway.snapTo(-SWAY)
+            repeat(SWINGS) { i ->
+                sway.animateTo(if (i % 2 == 0) SWAY else -SWAY, tween(1400, easing = FastOutSlowInEasing))
+            }
+            sway.animateTo(0f, tween(900, easing = FastOutSlowInEasing))
+        } else {
+            sway.snapTo(0f)
+        }
+    }
+    return sway.asState()
 }
 
 /** Text running bottom to top, for a spine; it is laid out along the height it is given. */
@@ -186,6 +191,7 @@ private fun Color.darken(by: Float): Color = Color(red * (1f - by), green * (1f 
 private const val RESTING_TURN = 33f
 private const val FOCUSED_TURN = 9f
 private const val SWAY = 6f
+private const val SWINGS = 4
 private const val FACE_WIDTH = 0.80f
 private const val FACE_HEIGHT = 0.90f
 private const val SPINE_RATIO = 0.16f

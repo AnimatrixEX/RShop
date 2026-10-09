@@ -45,7 +45,9 @@ fun Backdrop(highlighted: Game?, modifier: Modifier = Modifier) {
             },
     ) {
         val coverUrl = game?.coverUrl
-        if (coverUrl != null) {
+        // A blur of the whole screen's size, redone at every move of the focus: only where it shows.
+        val artShows = !ActiveTheme.palette.isLight && ActiveTheme.look.backdrop != BackdropStyle.Ps2
+        if (coverUrl != null && artShows) {
             AsyncImage(
                 model = coverUrl,
                 contentDescription = null,

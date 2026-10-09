@@ -12,6 +12,11 @@ data class AppSettings(
     val minFreeSpaceMb: Int = DEFAULT_FREE_SPACE_MB,
     /** Looks for a new RShop version about once a day, when the app opens. */
     val autoCheckUpdates: Boolean = true,
+    /**
+     * Game pages are read before the player opens them: in the background for favorites and the most
+     * popular games, and for the game in focus. Off by default: it costs network and battery.
+     */
+    val readPagesAhead: Boolean = false,
     /** Epoch milliseconds of the last automatic look for a new version; 0 when never. */
     val lastUpdateCheckAt: Long = 0,
     /** Catalogue syncs (automatic ones, download counters) are off until the user turns them back on. */

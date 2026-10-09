@@ -93,6 +93,11 @@ class SyncScheduler @Inject constructor(
         ids.forEach { id -> enqueue(id, restart, full) }
     }
 
+    /** Starts (or stops) the background reading of game pages. */
+    fun scheduleCounts() = downloadCounts.schedule()
+
+    fun cancelCounts() = downloadCounts.cancel()
+
     /** Stops the sync of [sourceId], or every sync. Games already read are kept. */
     fun cancel(sourceId: String? = null) {
         if (sourceId == null) workManager.cancelAllWorkByTag(TAG) else workManager.cancelUniqueWork(workName(sourceId))

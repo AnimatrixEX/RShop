@@ -15,6 +15,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -41,7 +42,9 @@ class ArtworkWorker @AssistedInject constructor(
                 // Covers, then screenshots and descriptions found outside the catalogue source.
                 val covers = resolver.resolvePending(BATCH)
                 val infos = metadata.resolvePending(BATCH)
-                if (covers < BATCH && infos < BATCH) return Result.success()
+                if (covers == 0 && infos == 0) return Result.success()
+                // Each round refreshes the screens that watch the catalogue: not more than a few times a second.
+                delay(BREATH_MS)
             }
             scheduler.schedule(continuation = true)
             Result.success()
@@ -57,7 +60,8 @@ class ArtworkWorker @AssistedInject constructor(
     }
 
     private companion object {
-        const val BATCH = 60
+        const val BATCH = 200
+        const val BREATH_MS = 400L
         /** Well under WorkManager's 10-minute limit for plain workers. */
         const val ROUND_MS = 7 * 60_000L
         const val MAX_RETRIES = 3

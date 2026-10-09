@@ -245,7 +245,7 @@ private fun InstalledCard(game: InstalledGame, onClick: () -> Unit, focus: Focus
     Column {
         val box3d = ActiveTheme.settings.coverStyle == CoverStyle.Box3d
         val front: @Composable BoxScope.() -> Unit = {
-            GameCover(coverGame(game.gameId, game.title, game.platform, game.coverUrl), showTitle = game.coverUrl == null, modifier = Modifier.fillMaxSize())
+            GameCover(coverGame(game.gameId, game.title, game.platform, game.coverUrl), showTitle = game.coverUrl == null, modifier = Modifier.fillMaxSize(), thumbnail = true)
             if (game.updateAvailable) {
                 Text(
                     stringResource(R.string.library_update_badge),

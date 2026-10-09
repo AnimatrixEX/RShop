@@ -340,4 +340,34 @@ class RoomGameRepositoryTest {
         dao.setExternalDescription("test:hit", null, null, 5)
         assertEquals(listOf("test:fav"), dao.pendingDescriptions(10).map { it.id })
     }
+
+    @Test
+    fun `batch writes give the same result as one by one`() = runTest {
+        val dao = db.gameDao()
+        repository.saveGames(
+            listOf(
+                testGame("a", title = "Alpha").copy(description = null),
+                testGame("b", title = "Beta", screenshots = listOf("https://x/own.png")).copy(description = null),
+                testGame("c", title = "Gamma"),
+            ),
+        )
+
+        dao.setArtworkBatch(listOf(com.rshop.data.database.dao.ArtworkResult("test:a", "https://c/a.png"), com.rshop.data.database.dao.ArtworkResult("test:b", null)), 7)
+        dao.setExternalScreenshotsBatch(listOf("test:a" to listOf("https://l/1.png"), "test:b" to listOf("https://l/2.png"), "test:c" to emptyList()), 7)
+        dao.setExternalDescriptionBatch(
+            listOf(
+                com.rshop.data.database.dao.DescriptionResult("test:a", "Text of a.", "wikipedia:en"),
+                com.rshop.data.database.dao.DescriptionResult("test:b", null, null),
+            ),
+            7,
+        )
+
+        assertEquals("https://c/a.png", repository.getGame("test:a")!!.coverUrl)
+        assertEquals(listOf("https://l/1.png"), repository.getGame("test:a")!!.screenshots)
+        assertEquals("Text of a.", repository.getGame("test:a")!!.description)
+        // The screenshots of the source stay; a game with nothing found is still recorded as looked up.
+        assertEquals(listOf("https://x/own.png"), repository.getGame("test:b")!!.screenshots)
+        assertEquals(emptyList<String>(), dao.pendingScreenshots(10).map { it.id })
+        assertEquals(emptyList<String>(), dao.pendingDescriptions(10).map { it.id })
+    }
 }

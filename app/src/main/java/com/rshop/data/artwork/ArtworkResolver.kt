@@ -1,6 +1,9 @@
 package com.rshop.data.artwork
 
 import com.rshop.data.database.dao.ArtworkCandidate
+import com.rshop.data.database.dao.ArtworkResult
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import com.rshop.data.database.dao.GameDao
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -50,8 +53,16 @@ class ArtworkResolver @Inject constructor(
         // Several games at once: the answers of the API arrive while the next requests go out.
         // Requests are still spaced by [throttled], so the rate stays bounded.
         val slots = Semaphore(PARALLEL_GAMES)
-        coroutineScope {
-            games.map { game -> async { slots.withPermit { resolve(client, game, useLibretro) } } }.awaitAll()
+        val results = java.util.concurrent.ConcurrentLinkedQueue<ArtworkResult>()
+        try {
+            coroutineScope {
+                games.map { game ->
+                    async { slots.withPermit { results += ArtworkResult(game.id, coverOf(client, game, useLibretro)) } }
+                }.awaitAll()
+            }
+        } finally {
+            // One commit for the whole batch; what was found before an error is kept.
+            if (results.isNotEmpty()) withContext(NonCancellable) { gameDao.setArtworkBatch(results.toList(), clock.millis()) }
         }
         games.size
     }
@@ -87,8 +98,12 @@ class ArtworkResolver @Inject constructor(
         return clientFactory(key)
     }
 
-    /** SteamGridDB first when there is a key, then the Libretro thumbnails for what it did not have. */
     private suspend fun resolve(client: SteamGridDbClient?, game: ArtworkCandidate, useLibretro: Boolean) {
+        gameDao.setArtwork(game.id, coverOf(client, game, useLibretro), clock.millis())
+    }
+
+    /** SteamGridDB first when there is a key, then the Libretro thumbnails for what it did not have. */
+    private suspend fun coverOf(client: SteamGridDbClient?, game: ArtworkCandidate, useLibretro: Boolean): String? {
         var cover: String? = null
         if (client != null) {
             try {
@@ -102,8 +117,7 @@ class ArtworkResolver @Inject constructor(
             }
         }
         if (cover == null && useLibretro) cover = libretro.find(game.platform, game.title)
-        gameDao.setArtwork(game.id, cover, clock.millis())
-        Timber.d("Cover for '%s' (%s): %s", game.title, game.platform, cover ?: "none")
+        return cover
     }
 
     private val throttleLock = Mutex()

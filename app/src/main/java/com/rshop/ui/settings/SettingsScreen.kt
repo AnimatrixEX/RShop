@@ -203,6 +203,15 @@ fun SettingsScreen(
                 )
             }
 
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_read_ahead),
+                    subtitle = stringResource(R.string.settings_read_ahead_desc),
+                    onClick = { viewModel.onReadPagesAheadChange(!state.settings.readPagesAhead) },
+                    trailing = { RShopSwitch(state.settings.readPagesAhead) },
+                )
+            }
+
             item { GroupTitle(stringResource(R.string.settings_artwork)) }
             item {
                 SettingsRow(
@@ -286,6 +295,14 @@ fun SettingsScreen(
                     label = { stringResource(if (it == CoverStyle.Flat) R.string.cover_style_flat else R.string.cover_style_3d) },
                     swatch = null,
                     onSelect = { style -> viewModel.onThemeChange { t -> t.copy(coverStyle = style) } },
+                )
+            }
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_animated_background),
+                    subtitle = stringResource(R.string.settings_animated_background_desc),
+                    onClick = { viewModel.onThemeChange { t -> t.copy(animatedBackground = !t.animatedBackground) } },
+                    trailing = { RShopSwitch(theme.animatedBackground) },
                 )
             }
             item {
@@ -761,7 +778,7 @@ private fun RShopSwitch(checked: Boolean) {
         onCheckedChange = null,
         colors = SwitchDefaults.colors(
             checkedTrackColor = RShopColors.Accent,
-            checkedThumbColor = RShopColors.TextPrimary,
+            checkedThumbColor = RShopColors.OnAccent,
             uncheckedTrackColor = RShopColors.SurfaceHighest,
             uncheckedThumbColor = RShopColors.TextSecondary,
             uncheckedBorderColor = RShopColors.Outline,

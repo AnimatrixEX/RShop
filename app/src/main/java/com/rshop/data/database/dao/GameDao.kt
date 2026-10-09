@@ -224,6 +224,16 @@ interface GameDao {
     }
 
     /**
+     * Many covers in one transaction. Every committed write to `games` makes the screens that watch
+     * it (the Store grid, its counter, the Home shelves…) run their queries again, so thousands of
+     * one-row writes in a row would keep the whole app busy; one commit per batch refreshes it once.
+     */
+    @Transaction
+    suspend fun setArtworkBatch(results: List<ArtworkResult>, checkedAt: Long) {
+        results.forEach { setArtwork(it.id, it.coverUrl, checkedAt) }
+    }
+
+    /**
      * Games whose page was never read (description, files, counter…) among the ones worth reading
      * ahead of time: favorites, then the 500 most popular. Every other game has its
      * page read when the player rests on its card or opens it.
@@ -254,12 +264,11 @@ interface GameDao {
 
     // --- Infos from outside the catalogue source (Libretro screenshots, Wikipedia description) ---
 
-    /** Games never looked up for screenshots, the ones the user cares about first. */
+    /** Games never looked up for screenshots (a local match, so no order is needed). */
     @Query(
         """
         SELECT id, title, platform, 1 AS wantsScreenshots, 0 AS wantsDescription FROM games
         WHERE screenshots_checked_at IS NULL
-        ORDER BY (id IN (SELECT game_id FROM favorites)) DESC, (id IN (SELECT game_id FROM installed_games)) DESC, popularity DESC, added_at DESC
         LIMIT :limit
         """,
     )
@@ -309,6 +318,18 @@ interface GameDao {
         setScreenshotsChecked(id, checkedAt)
     }
 
+    /** Screenshots of many games in one transaction (see [setArtworkBatch]). */
+    @Transaction
+    suspend fun setExternalScreenshotsBatch(entries: List<Pair<String, List<String>>>, checkedAt: Long) {
+        entries.forEach { (id, urls) -> setExternalScreenshots(id, urls, checkedAt) }
+    }
+
+    /** Descriptions of many games in one transaction (see [setArtworkBatch]). */
+    @Transaction
+    suspend fun setExternalDescriptionBatch(entries: List<DescriptionResult>, checkedAt: Long) {
+        entries.forEach { setExternalDescription(it.id, it.text, it.source, checkedAt) }
+    }
+
     /** Fills a description only where the source gave none; records the lookup either way. */
     @Query(
         """
@@ -347,6 +368,10 @@ data class TagGroup(val tags: String, val games: Int)
 data class MatchCandidate(val id: String, val title: String, val platform: String?, val coverUrl: String?, val version: String?)
 
 data class ArtworkCandidate(val id: String, val title: String, val platform: String? = null)
+
+data class ArtworkResult(val id: String, val coverUrl: String?)
+
+data class DescriptionResult(val id: String, val text: String?, val source: String?)
 
 /** A game to look up outside the catalogue source, and which of the two lookups it needs. */
 data class MetadataCandidate(

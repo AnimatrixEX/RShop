@@ -60,16 +60,13 @@ fun GameCard(
     val titleColor by animateColorAsState(if (focused) RShopColors.TextPrimary else RShopColors.TextSecondary, label = "cardTitle")
 
     val prefetch = LocalDetailsPrefetch.current
-    LaunchedEffect(focused) {
-        if (focused) {
-            delay(PREFETCH_DELAY_MS)
-            prefetch(game)
-        }
-    }
-
     val currentOnFocused by rememberUpdatedState(onFocused)
+    // Only the card in focus does anything (and a card holds one coroutine, not two).
     LaunchedEffect(focused) {
-        if (focused) currentOnFocused(game)
+        if (!focused) return@LaunchedEffect
+        currentOnFocused(game)
+        delay(PREFETCH_DELAY_MS)
+        prefetch(game)
     }
 
     Column(modifier) {
@@ -77,7 +74,7 @@ fun GameCard(
         val installed = game.id in LocalInstalledIds.current
         // What is on the front of the card: the cover, the installed mark, the console.
         val front: @Composable BoxScope.() -> Unit = {
-            GameCover(game = game, showTitle = game.coverUrl == null, modifier = Modifier.fillMaxSize())
+            GameCover(game = game, showTitle = game.coverUrl == null, modifier = Modifier.fillMaxSize(), thumbnail = true)
             if (installed) {
                 Icon(
                     Icons.Filled.CheckCircle,

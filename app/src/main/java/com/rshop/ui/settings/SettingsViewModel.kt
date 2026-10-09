@@ -189,6 +189,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setMinFreeSpaceMb(megabytes) }
     }
 
+    fun onReadPagesAheadChange(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setReadPagesAhead(enabled)
+            // Turned on: the background reading starts now rather than at the next sync.
+            if (enabled) syncScheduler.scheduleCounts() else syncScheduler.cancelCounts()
+        }
+    }
+
     fun onAutoCheckUpdatesChange(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setAutoCheckUpdates(enabled) }
     }

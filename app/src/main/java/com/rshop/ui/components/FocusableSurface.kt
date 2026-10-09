@@ -82,19 +82,20 @@ fun FocusableSurface(
     // headers above the first item and the notes under the last one out of reach. Asking for a
     // margin around the item scrolls them into view too (and keeps the focus ring uncut).
     val bringIntoView = remember { BringIntoViewRequester() }
-    var size by remember { mutableStateOf(IntSize.Zero) }
+    // Plain holder, not state: laying out hundreds of cards must not recompose each of them once more.
+    val measured = remember { IntArray(2) }
     val density = LocalDensity.current
-    LaunchedEffect(focused, size) {
-        if (focused && size != IntSize.Zero) {
+    LaunchedEffect(focused) {
+        if (focused && measured[0] > 0) {
             val horizontal = with(density) { FocusScrollMarginHorizontal.toPx() }
             val vertical = with(density) { FocusScrollMarginVertical.toPx() }
-            bringIntoView.bringIntoView(Rect(-horizontal, -vertical, size.width + horizontal, size.height + vertical))
+            bringIntoView.bringIntoView(Rect(-horizontal, -vertical, measured[0] + horizontal, measured[1] + vertical))
         }
     }
 
     Box(
         modifier = modifier
-            .onSizeChanged { size = it }
+            .onSizeChanged { measured[0] = it.width; measured[1] = it.height }
             .bringIntoViewRequester(bringIntoView)
             .zIndex(if (focused) 1f else 0f)
             .graphicsLayer {

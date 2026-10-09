@@ -59,6 +59,7 @@ class DataStoreSettingsRepository @Inject constructor(
                 pauseOnLowBattery = prefs[Keys.PauseOnLowBattery] ?: true,
                 minFreeSpaceMb = prefs[Keys.MinFreeSpaceMb] ?: DEFAULT_FREE_SPACE_MB,
                 autoCheckUpdates = prefs[Keys.AutoCheckUpdates] ?: true,
+                readPagesAhead = prefs[Keys.ReadPagesAhead] ?: false,
                 lastUpdateCheckAt = prefs[Keys.LastUpdateCheckAt] ?: 0L,
                 syncPaused = prefs[Keys.SyncPaused] ?: false,
                 theme = ThemeSettings(
@@ -67,6 +68,7 @@ class DataStoreSettingsRepository @Inject constructor(
                     focus = prefs[Keys.FocusStyle].toEnum(FocusStyle.White),
                     textSize = prefs[Keys.TextSize].toEnum(TextSize.Normal),
                     coverStyle = prefs[Keys.CoverStyle].toEnum(CoverStyle.Flat),
+                    animatedBackground = prefs[Keys.AnimatedBackground] ?: false,
                     dynamicBackdrop = prefs[Keys.DynamicBackdrop] ?: true,
                 ),
                 catalog = CatalogPrefs(
@@ -103,6 +105,10 @@ class DataStoreSettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.LastUpdateCheckAt] = epochMillis }
     }
 
+    override suspend fun setReadPagesAhead(enabled: Boolean) {
+        dataStore.edit { it[Keys.ReadPagesAhead] = enabled }
+    }
+
     override suspend fun setAutoCheckUpdates(enabled: Boolean) {
         dataStore.edit { it[Keys.AutoCheckUpdates] = enabled }
     }
@@ -118,6 +124,7 @@ class DataStoreSettingsRepository @Inject constructor(
             prefs[Keys.FocusStyle] = theme.focus.name
             prefs[Keys.TextSize] = theme.textSize.name
             prefs[Keys.CoverStyle] = theme.coverStyle.name
+            prefs[Keys.AnimatedBackground] = theme.animatedBackground
             prefs[Keys.DynamicBackdrop] = theme.dynamicBackdrop
         }
     }
@@ -142,12 +149,14 @@ class DataStoreSettingsRepository @Inject constructor(
         val PauseOnLowBattery = booleanPreferencesKey("pause_on_low_battery")
         val MinFreeSpaceMb = intPreferencesKey("min_free_space_mb")
         val AutoCheckUpdates = booleanPreferencesKey("auto_check_updates")
+        val ReadPagesAhead = booleanPreferencesKey("read_pages_ahead")
         val LastUpdateCheckAt = longPreferencesKey("last_update_check_at")
         val ThemeBase = stringPreferencesKey("theme_base")
         val ThemeAccent = stringPreferencesKey("theme_accent")
         val FocusStyle = stringPreferencesKey("theme_focus")
         val TextSize = stringPreferencesKey("theme_text_size")
         val CoverStyle = stringPreferencesKey("theme_cover_style")
+        val AnimatedBackground = booleanPreferencesKey("theme_animated_background")
         val DynamicBackdrop = booleanPreferencesKey("theme_dynamic_backdrop")
         val HideInstalled = booleanPreferencesKey("catalog_hide_installed")
         val HideExtras = booleanPreferencesKey("catalog_hide_extras")

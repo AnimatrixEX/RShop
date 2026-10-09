@@ -16,6 +16,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
 import com.rshop.domain.model.Game
 import com.rshop.ui.theme.RShopColors
 
@@ -24,7 +26,7 @@ import com.rshop.ui.theme.RShopColors
  * missing, loading or broken image still yields a good-looking card.
  */
 @Composable
-fun GameCover(game: Game, modifier: Modifier = Modifier, showTitle: Boolean = true) {
+fun GameCover(game: Game, modifier: Modifier = Modifier, showTitle: Boolean = true, thumbnail: Boolean = false) {
     val (start, end) = RShopColors.artworkGradient(game.id)
     Box(modifier.background(Brush.linearGradient(listOf(start, end)))) {
         Text(
@@ -48,7 +50,13 @@ fun GameCover(game: Game, modifier: Modifier = Modifier, showTitle: Boolean = tr
         }
         if (game.coverUrl != null) {
             AsyncImage(
-                model = game.coverUrl,
+                // A card is always decoded at the same size, so the picture in the memory cache is
+                // found again when the cards change shape (flat to 3D box): no reload, no flicker.
+                model = if (thumbnail) {
+                    ImageRequest.Builder(LocalPlatformContext.current).data(game.coverUrl).size(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT).build()
+                } else {
+                    game.coverUrl
+                },
                 contentDescription = game.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize(),
@@ -56,3 +64,6 @@ fun GameCover(game: Game, modifier: Modifier = Modifier, showTitle: Boolean = tr
         }
     }
 }
+
+private const val THUMBNAIL_WIDTH = 400
+private const val THUMBNAIL_HEIGHT = 534

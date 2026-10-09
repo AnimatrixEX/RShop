@@ -38,7 +38,7 @@ class DownloadCountWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val current = settings.settings.first()
-        if (current.syncPaused) return Result.success()
+        if (current.syncPaused || !current.readPagesAhead) return Result.success()
         // A long job: it follows the "Wi-Fi only" setting like downloads do. It starts again with the next sync.
         if (current.wifiOnly && applicationContext.getSystemService(ConnectivityManager::class.java).isActiveNetworkMetered) {
             return Result.success()

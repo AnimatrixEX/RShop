@@ -484,4 +484,12 @@
     <string name="settings_cover_style">Covers</string>
     <string name="cover_style_flat">Flat</string>
     <string name="cover_style_3d">3D boxes</string>
+
+    <!-- Animated background -->
+    <string name="settings_animated_background">Animated background</string>
+    <string name="settings_animated_background_desc">Slow drift of the Glass and PlayStation styles. Uses more battery</string>
+
+    <!-- Reading pages ahead -->
+    <string name="settings_read_ahead">Read game pages ahead</string>
+    <string name="settings_read_ahead_desc">Descriptions, files and counters of favorites and popular games, and of the game selected with the controller. Uses network and battery</string>
 </resources>

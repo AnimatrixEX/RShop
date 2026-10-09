@@ -43,7 +43,14 @@ class RootViewModel @Inject constructor(
         }
     }
 
-    fun prefetch(game: Game) = prefetcher.request(game)
+    /** Only when the player chose to read pages ahead (a request per card the focus rests on is not free). */
+    private val readAhead: StateFlow<Boolean> = settings.settings
+        .map { it.readPagesAhead }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun prefetch(game: Game) {
+        if (readAhead.value) prefetcher.request(game)
+    }
 
     private companion object {
         const val CHECK_EVERY_HOURS = 24L

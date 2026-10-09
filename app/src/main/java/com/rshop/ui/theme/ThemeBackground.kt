@@ -11,6 +11,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -41,12 +44,8 @@ fun ThemeBackground(modifier: Modifier = Modifier) {
 @Composable
 private fun GlassBackground(modifier: Modifier) {
     val accent = RShopColors.Accent
-    val drift by rememberInfiniteTransition(label = "glass").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(GLASS_DRIFT_MS, easing = stepped(GLASS_DRIFT_MS)), RepeatMode.Restart),
-        label = "glassDrift",
-    )
+    val driftState = rememberPhase(ActiveTheme.settings.animatedBackground, GLASS_DRIFT_MS, still = 0.12f)
+    val drift by driftState
     Canvas(modifier.fillMaxSize()) {
         drawRect(RShopColors.Background)
         val reach = size.maxDimension
@@ -69,6 +68,19 @@ private fun GlassBackground(modifier: Modifier) {
 
 private const val GLASS_DRIFT_MS = 40_000
 
+/** A phase from 0 to 1 that cycles in [periodMs]; a fixed one (nothing animates, nothing redraws) when [animated] is off. */
+@Composable
+private fun rememberPhase(animated: Boolean, periodMs: Int, still: Float): State<Float> {
+    val fixed = remember(still) { mutableFloatStateOf(still) }
+    if (!animated) return fixed
+    return rememberInfiniteTransition(label = "backgroundPhase").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(periodMs, easing = stepped(periodMs)), RepeatMode.Restart),
+        label = "backgroundPhaseValue",
+    )
+}
+
 /**
  * These backgrounds drift so slowly that 60 redraws a second would be pure waste on a handheld's
  * battery. The value only changes about 15 times a second, so the screen is only redrawn that often.
@@ -81,12 +93,8 @@ private fun stepped(periodMs: Int): Easing {
 @Composable
 private fun Ps2Background(modifier: Modifier) {
     // The Store's blue: nearly black at the top left, bright royal blue through the middle, deeper at the foot.
-    val phase by rememberInfiniteTransition(label = "ps").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(PULSE_MS, easing = stepped(PULSE_MS)), RepeatMode.Restart),
-        label = "psPhase",
-    )
+    val phaseState = rememberPhase(ActiveTheme.settings.animatedBackground, PULSE_MS, still = 0.3f)
+    val phase by phaseState
     Canvas(modifier.fillMaxSize()) {
         drawRect(Brush.linearGradient(listOf(Color(0xFF040B38), Color(0xFF0B2FC0), Color(0xFF0A3FD8), Color(0xFF05185E)), Offset.Zero, Offset(size.width, size.height)))
         // A soft bright centre.
