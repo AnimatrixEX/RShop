@@ -66,7 +66,7 @@ class CatalogSyncer @Inject constructor(
         }.collect()
 
         if (seen.isEmpty()) {
-            throw ScraperException.StructureChanged(config.baseUrl, "the sync found no game")
+            throw ScraperException.StructureChanged(config.location, "the sync found no game")
         }
         // Favorites and list entries of a restored backup whose games have just arrived.
         runCatching { pendingRestore.apply() }.onFailure { Timber.w(it, "Pending restore failed") }

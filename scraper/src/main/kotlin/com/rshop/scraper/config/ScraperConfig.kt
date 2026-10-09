@@ -17,8 +17,8 @@ import org.jsoup.select.Selector
 @Serializable
 data class ScraperConfig(
     /** Namespace for game ids: lower-case letters, digits and dashes. */
-    val id: String,
-    val name: String,
+    override val id: String,
+    override val name: String,
     val baseUrl: String,
     /**
      * First catalogue page. When it contains `{page}`, page N is built from the template;
@@ -41,13 +41,13 @@ data class ScraperConfig(
      * Pages of the consoles to read (as listed by the section index); null reads every console.
      * Only meaningful with [sections].
      */
-    val enabledSections: List<String>? = null,
+    override val enabledSections: List<String>? = null,
     val list: ListRules,
     val details: DetailRules = DetailRules(),
     /** Hosts allowed for download links (`*.example.com` accepted). Empty: same host as [baseUrl]. */
     val allowedDownloadHosts: List<String> = emptyList(),
     /** Minimum delay between two requests to the site. Never below [MIN_INTERVAL_MS]. */
-    val minRequestIntervalMs: Long = 800,
+    override val minRequestIntervalMs: Long = 800,
     /**
      * Wait imposed by the site on its download page before the file link may be used
      * (countdown pages). Honored, never skipped.
@@ -57,15 +57,21 @@ data class ScraperConfig(
     val maxDownloadHops: Int = 3,
     /** Hard cap on requests for one catalogue crawl, so a mis-detected site can never be crawled endlessly. */
     val maxRequestsPerCrawl: Int = 50_000,
-) {
+) : SourceConfig {
+    override val location: String get() = baseUrl
+
+    override fun withEnabledSections(sections: List<String>?): ScraperConfig = copy(enabledSections = sections)
+
+    override fun withInterval(intervalMs: Long): ScraperConfig = copy(minRequestIntervalMs = intervalMs)
+
     val base: HttpUrl get() = requireNotNull(baseUrl.toHttpUrlOrNull()) { "Invalid baseUrl" }
 
     val usesPageTemplate: Boolean get() = PAGE_PLACEHOLDER in listUrl
 
     /** Throws [ScraperConfigException] listing every problem found. */
-    fun validate(): ScraperConfig {
+    override fun validate(): ScraperConfig {
         val problems = mutableListOf<String>()
-        if (!ID_PATTERN.matches(id)) problems += "id must match ${ID_PATTERN.pattern}"
+        if (!SourceConfig.ID_PATTERN.matches(id)) problems += "id must match ${SourceConfig.ID_PATTERN.pattern}"
         if (name.isBlank()) problems += "name is empty"
         val parsedBase = baseUrl.toHttpUrlOrNull()
         if (parsedBase == null) problems += "baseUrl is not an http(s) URL"
@@ -163,14 +169,13 @@ data class ScraperConfig(
         add("details.updatedAt", details.updatedAt)
     }
 
-    fun toJson(): String = JSON.encodeToString(serializer(), this)
+    override fun toJson(): String = JSON.encodeToString(serializer(), this)
 
     companion object {
         const val PAGE_PLACEHOLDER = "{page}"
         const val QUERY_PLACEHOLDER = "{query}"
         const val MIN_INTERVAL_MS = 400L
         const val MAX_PAGES = 2_000
-        private val ID_PATTERN = Regex("[a-z0-9][a-z0-9-]{0,47}")
 
         val JSON = Json {
             ignoreUnknownKeys = true
@@ -303,6 +308,13 @@ data class DetailRules(
             ":is(button:matches((?i)^\\W*(download|télécharger)\\b), [role=button]:matches((?i)^\\W*(download|télécharger)\\b), " +
                 "input[type=button][value~=(?i)^\\W*(download|télécharger)\\b], input[type=submit][value~=(?i)^\\W*(download|télécharger)\\b])"
 
+        /**
+         * Any element whose class names a download button (`download-btn`, `bypass-download-btn`, `btn_download`,
+         * `dl-button`), whatever it is labelled: icon only, "Get ROM", "Obtenir"…
+         */
+        private const val BY_CLASS =
+            "[class~=(?i)(download|dl)[-_]?(btn|button|link)|(btn|button|link)[-_]?(download|dl)]"
+
         /** `location.href = '…'`, `location.assign('…')`, `window.open('…')`: the quoted URL. */
         private const val NAVIGATION_HANDLER =
             "(?:location(?:\\.href)?\\s*=|location\\.(?:assign|replace)\\s*\\(|window\\.open\\s*\\()\\s*['\"]([^'\"]+)['\"]"
@@ -340,6 +352,17 @@ data class DetailRules(
             "$BUTTON[data-link] @data-link",
             "$BUTTON[data-download] @data-download",
             "$BUTTON[onclick] @onclick ~$NAVIGATION_HANDLER",
+            // The same, recognised by the class of the button instead of its label.
+            "$BY_CLASS[href] @href",
+            "$BY_CLASS[formaction] @formaction",
+            "$BY_CLASS[data-href] @data-href",
+            "$BY_CLASS[data-url] @data-url",
+            "$BY_CLASS[data-link] @data-link",
+            "$BY_CLASS[data-download] @data-download",
+            "$BY_CLASS[onclick] @onclick ~$NAVIGATION_HANDLER",
+            // A button inside a link, or inside a plain GET form.
+            "a[href]:has($BY_CLASS) @href",
+            "form[action]:not([method~=(?i)post]):has($BY_CLASS) @action",
         )
 
         val DEFAULT_DOWNLOAD_RULE: String =

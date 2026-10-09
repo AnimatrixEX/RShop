@@ -37,6 +37,10 @@ data class ScrapedDownload(
     val viaPage: Boolean = false,
     /** What tells this file apart from the game's other files: format, disc, region ("ZIP", "Disc 2 · CHD"). */
     val label: String? = null,
+    /** A patch for the game rather than the game itself (the game's "Update" folder): offered, never forced. */
+    val isUpdate: Boolean = false,
+    /** A side file of the game's folder (picture, notes) rather than the game: listed, never the default. */
+    val isExtra: Boolean = false,
 )
 
 /**
@@ -51,6 +55,8 @@ data class DownloadInfo(
     val contentType: String?,
     /** Page the link was found on (the game page or the last download page). */
     val sourcePage: String,
+    /** Lower-case hex MD5 the server publishes for the file (Google Drive), when there is no SHA-256. */
+    val md5: String? = null,
 )
 
 data class CatalogPage(

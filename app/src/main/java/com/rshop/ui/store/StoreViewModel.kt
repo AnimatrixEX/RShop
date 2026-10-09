@@ -113,7 +113,7 @@ class StoreViewModel @Inject constructor(
             platforms = platforms,
             resultCount = count,
             isLoading = false,
-            canSearchRemote = configs.any { it.searchUrl != null },
+            canSearchRemote = configs.any { (it as? com.rshop.scraper.config.ScraperConfig)?.searchUrl != null },
             remoteSearch = remote,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StoreUiState(genre = route.genre, platform = route.platform))

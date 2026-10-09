@@ -68,6 +68,10 @@ import com.rshop.ui.components.SectionHeader
 import com.rshop.ui.theme.Dimens
 import com.rshop.ui.theme.RShopColors
 import com.rshop.ui.util.sourceErrorText
+import com.rshop.data.source.DriveKeyStatus
+import com.rshop.scraper.config.DriveConfig
+import com.rshop.scraper.config.ScraperConfig
+import com.rshop.scraper.drive.DriveLink
 
 @Composable
 fun SourceSetupScreen(
@@ -77,6 +81,7 @@ fun SourceSetupScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sources by viewModel.sources.collectAsStateWithLifecycle()
     val syncPaused by viewModel.syncPaused.collectAsStateWithLifecycle()
+    val driveKey by viewModel.driveKey.collectAsStateWithLifecycle()
     var confirmRemove by remember { mutableStateOf<SourceItem?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -154,6 +159,7 @@ fun SourceSetupScreen(
                     onRescan = { viewModel.syncSource(source.config.id, full = true) },
                     onSpeed = { viewModel.cycleSpeed(source.config.id) },
                     onConsoles = { viewModel.openConsolePicker(source.config.id) },
+                    onPlatform = { viewModel.openPlatformPicker(PlatformTarget.Source(source.config.id, (source.config as? DriveConfig)?.platform)) },
                     onStop = { viewModel.stopSync(source.config.id) },
                     onExport = {
                         viewModel.onExportRequested(source.config.id)
@@ -172,12 +178,19 @@ fun SourceSetupScreen(
                     onImport = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 )
             }
+            val showKey = driveKey.configured || state.analysis == AnalysisState.DriveKeyNeeded ||
+                DriveLink.parse(state.url) != null || sources.any { it.config is DriveConfig }
+            if (showKey) {
+                item { DriveKeyCard(driveKey, needed = state.analysis == AnalysisState.DriveKeyNeeded, onSave = viewModel::setDriveKey) }
+            }
             item {
                 AnalysisResult(
                     state.analysis,
                     busy = state.busy,
                     chosenConsoles = state.analysisConsoles?.size,
+                    drivePlatform = state.drivePlatform,
                     onChooseConsoles = viewModel::openAnalysisConsolePicker,
+                    onChoosePlatform = { viewModel.openPlatformPicker(PlatformTarget.Analysis) },
                     onUse = viewModel::useAnalyzedSource,
                 )
             }
@@ -194,6 +207,17 @@ fun SourceSetupScreen(
             onRetry = viewModel::retryConsoles,
             onApply = viewModel::applyConsoles,
             onDismiss = viewModel::dismissConsolePicker,
+        )
+    }
+
+    state.platformPicker?.let { target ->
+        PlatformPickerDialog(
+            current = when (target) {
+                PlatformTarget.Analysis -> state.drivePlatform
+                is PlatformTarget.Source -> target.current
+            },
+            onChoose = viewModel::choosePlatform,
+            onDismiss = viewModel::dismissPlatformPicker,
         )
     }
 
@@ -256,8 +280,10 @@ private fun SourceCard(
     onRescan: () -> Unit,
     onSpeed: () -> Unit,
     onConsoles: () -> Unit,
+    onPlatform: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    val config = source.config
     val sync = source.sync
     Column(
         Modifier
@@ -267,7 +293,14 @@ private fun SourceCard(
             .padding(18.dp),
     ) {
         Text(source.config.name, style = MaterialTheme.typography.titleLarge)
-        Text(source.config.baseUrl, style = MaterialTheme.typography.bodyMedium, color = RShopColors.TextSecondary)
+        Text(
+            when (config) {
+                is DriveConfig -> stringResource(R.string.drive_source_label) + (config.platform?.let { " · $it" } ?: "")
+                else -> config.location
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = RShopColors.TextSecondary,
+        )
         Spacer(Modifier.height(6.dp))
         val (line, color) = when {
             sync.running -> pluralStringResource(R.plurals.sync_progress_games, sync.games, sync.games) to RShopColors.AccentBright
@@ -312,9 +345,12 @@ private fun SourceCard(
                 onClick = onSpeed,
                 style = ConsoleButtonStyle.Secondary,
             )
-            // Only for sites organised by console.
-            if (source.config.sections != null) {
-                ConsoleButton(stringResource(R.string.source_consoles), onClick = onConsoles, style = ConsoleButtonStyle.Secondary)
+            // Only for sources organised by console; a Drive of game folders has one console to name.
+            when {
+                config is DriveConfig && config.platform != null ->
+                    ConsoleButton(stringResource(R.string.drive_platform_button), onClick = onPlatform, style = ConsoleButtonStyle.Secondary)
+                config is DriveConfig || (config as? ScraperConfig)?.sections != null ->
+                    ConsoleButton(stringResource(R.string.source_consoles), onClick = onConsoles, style = ConsoleButtonStyle.Secondary)
             }
             ConsoleButton(stringResource(R.string.source_export_short), onClick = onExport, style = ConsoleButtonStyle.Secondary)
             ConsoleButton(stringResource(R.string.source_remove_short), onClick = onRemove, style = ConsoleButtonStyle.Secondary)
@@ -378,10 +414,18 @@ private fun AnalysisResult(
     state: AnalysisState,
     busy: Boolean,
     chosenConsoles: Int?,
+    drivePlatform: String?,
     onChooseConsoles: () -> Unit,
+    onChoosePlatform: () -> Unit,
     onUse: () -> Unit,
 ) {
     when (state) {
+        AnalysisState.DriveKeyNeeded -> Text(
+            stringResource(R.string.drive_key_needed),
+            modifier = Modifier.padding(horizontal = Dimens.ScreenPadding),
+            color = RShopColors.Warning,
+        )
+        is AnalysisState.DriveDone -> DriveSummaryView(state.summary, busy, chosenConsoles, drivePlatform, onChooseConsoles, onChoosePlatform, onUse)
         AnalysisState.Idle -> Unit
         AnalysisState.Running -> Text(
             stringResource(R.string.source_analyzing),
@@ -477,5 +521,131 @@ private fun Finding(label: Int, found: Boolean) {
         )
         Spacer(Modifier.width(6.dp))
         Text(stringResource(label), style = MaterialTheme.typography.bodyMedium, color = if (found) RShopColors.TextPrimary else RShopColors.TextTertiary)
+    }
+}
+
+/**
+ * The Google Cloud API key the Drive API needs: entered once, stored encrypted, shown only by its
+ * last characters.
+ */
+@Composable
+private fun DriveKeyCard(status: DriveKeyStatus, needed: Boolean, onSave: (String) -> Unit) {
+    var key by remember { mutableStateOf("") }
+    Column(
+        Modifier
+            .padding(horizontal = Dimens.ScreenPadding)
+            .fillMaxWidth()
+            .background(RShopColors.Surface, RoundedCornerShape(16.dp))
+            .padding(18.dp),
+    ) {
+        Text(stringResource(R.string.drive_key_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            if (status.configured) stringResource(R.string.drive_key_configured, status.hint.orEmpty()) else stringResource(R.string.drive_key_missing),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (needed) RShopColors.Warning else RShopColors.TextSecondary,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(R.string.drive_key_help), style = MaterialTheme.typography.bodySmall, color = RShopColors.TextTertiary)
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ControllerTextField(shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) { fieldModifier ->
+                OutlinedTextField(
+                    value = key,
+                    onValueChange = { key = it },
+                    modifier = fieldModifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.drive_key_label)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (key.isNotBlank()) onSave(key)
+                        key = ""
+                    }),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = RShopColors.Focus,
+                        unfocusedBorderColor = RShopColors.Outline,
+                        focusedContainerColor = RShopColors.SurfaceHigh,
+                        unfocusedContainerColor = RShopColors.Surface,
+                    ),
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            ConsoleButton(stringResource(R.string.drive_key_save), onClick = {
+                if (key.isNotBlank()) onSave(key)
+                key = ""
+            })
+            if (status.configured) {
+                Spacer(Modifier.width(12.dp))
+                ConsoleButton(stringResource(R.string.drive_key_remove), onClick = { onSave("") }, style = ConsoleButtonStyle.Secondary)
+            }
+        }
+    }
+}
+
+/** What the shared Drive folder holds: its consoles, or the console to name for a Drive of games only. */
+@Composable
+private fun DriveSummaryView(
+    summary: DriveSummary,
+    busy: Boolean,
+    chosenConsoles: Int?,
+    platform: String?,
+    onChooseConsoles: () -> Unit,
+    onChoosePlatform: () -> Unit,
+    onUse: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionHeader(stringResource(R.string.source_result_title))
+        Column(Modifier.padding(horizontal = Dimens.ScreenPadding)) {
+            Text(summary.config.name, style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.drive_source_label), color = RShopColors.TextSecondary)
+            Spacer(Modifier.height(8.dp))
+            if (summary.sections.isEmpty()) {
+                Text(stringResource(R.string.drive_no_console_found), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ConsoleButton(
+                        stringResource(R.string.drive_platform_choose),
+                        onClick = onChoosePlatform,
+                        style = if (platform == null) ConsoleButtonStyle.Primary else ConsoleButtonStyle.Secondary,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        platform ?: stringResource(R.string.drive_platform_none),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (platform == null) RShopColors.Warning else RShopColors.AccentBright,
+                    )
+                }
+            } else {
+                Text(
+                    "${stringResource(R.string.source_found_consoles)} : ${summary.sections.joinToString(", ") { it.name }}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (summary.sections.size > 1) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ConsoleButton(stringResource(R.string.console_picker_choose), onClick = onChooseConsoles, style = ConsoleButtonStyle.Secondary)
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            if (chosenConsoles == null) {
+                                stringResource(R.string.console_picker_all_chosen)
+                            } else {
+                                stringResource(R.string.console_picker_count, chosenConsoles, summary.sections.size)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = RShopColors.TextSecondary,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.drive_names_only), style = MaterialTheme.typography.bodySmall, color = RShopColors.TextTertiary)
+        }
+        Box(Modifier.padding(horizontal = Dimens.ScreenPadding)) {
+            when {
+                busy -> CircularProgressIndicator()
+                summary.sections.isEmpty() && platform == null -> Unit
+                else -> ConsoleButton(stringResource(R.string.source_use), onClick = onUse)
+            }
+        }
     }
 }

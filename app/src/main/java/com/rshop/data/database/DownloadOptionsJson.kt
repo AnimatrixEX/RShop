@@ -14,17 +14,19 @@ internal object DownloadOptionsJson {
         val sizeBytes: Long? = null,
         val sha256: String? = null,
         val viaPage: Boolean = false,
+        val isUpdate: Boolean = false,
+        val isExtra: Boolean = false,
     )
 
     private val json = Json { ignoreUnknownKeys = true }
 
     fun encode(options: List<DownloadOption>): String? = options.takeIf { it.isNotEmpty() }?.let { list ->
-        json.encodeToString(list.map { Stored(it.url, it.label, it.fileName, it.sizeBytes, it.sha256, it.viaPage) })
+        json.encodeToString(list.map { Stored(it.url, it.label, it.fileName, it.sizeBytes, it.sha256, it.viaPage, it.isUpdate, it.isExtra) })
     }
 
     fun decode(text: String?): List<DownloadOption> {
         if (text.isNullOrBlank()) return emptyList()
         return runCatching { json.decodeFromString<List<Stored>>(text) }.getOrDefault(emptyList())
-            .map { DownloadOption(it.url, it.label, it.fileName, it.sizeBytes, it.sha256, it.viaPage) }
+            .map { DownloadOption(it.url, it.label, it.fileName, it.sizeBytes, it.sha256, it.viaPage, it.isUpdate, it.isExtra) }
     }
 }

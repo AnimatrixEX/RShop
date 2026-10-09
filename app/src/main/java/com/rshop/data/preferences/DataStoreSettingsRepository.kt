@@ -40,6 +40,7 @@ class DataStoreSettingsRepository @Inject constructor(
 
     private companion object {
         const val MAX_FREE_SPACE_MB = 100 * 1024
+        const val DIRECTORY_SEPARATOR = "\n"
     }
 
     override val settings: Flow<AppSettings> = dataStore.data
@@ -52,8 +53,13 @@ class DataStoreSettingsRepository @Inject constructor(
             }
         }
         .map { prefs ->
+            // Earlier versions kept a single folder under the "default" key.
+            val default = prefs[Keys.GamesDirectoryUri]
+            val listed = prefs[Keys.GamesDirectories]?.split(DIRECTORY_SEPARATOR)?.filter { it.isNotBlank() }.orEmpty()
+            val directories = if (default != null && default !in listed) listOf(default) + listed else listed
             AppSettings(
-                gamesDirectoryUri = prefs[Keys.GamesDirectoryUri],
+                gamesDirectoryUri = default?.takeIf { it in directories } ?: directories.firstOrNull(),
+                gamesDirectoryUris = directories,
                 wifiOnly = prefs[Keys.WifiOnly] ?: true,
                 deleteArchivesAfterInstall = prefs[Keys.DeleteArchives] ?: true,
                 pauseOnLowBattery = prefs[Keys.PauseOnLowBattery] ?: true,
@@ -79,9 +85,12 @@ class DataStoreSettingsRepository @Inject constructor(
             )
         }
 
-    override suspend fun setGamesDirectoryUri(uri: String?) {
+    override suspend fun setGamesDirectories(uris: List<String>, default: String?) {
         dataStore.edit { prefs ->
-            if (uri == null) prefs.remove(Keys.GamesDirectoryUri) else prefs[Keys.GamesDirectoryUri] = uri
+            val distinct = uris.distinct()
+            if (distinct.isEmpty()) prefs.remove(Keys.GamesDirectories) else prefs[Keys.GamesDirectories] = distinct.joinToString(DIRECTORY_SEPARATOR)
+            val chosen = default?.takeIf { it in distinct } ?: distinct.firstOrNull()
+            if (chosen == null) prefs.remove(Keys.GamesDirectoryUri) else prefs[Keys.GamesDirectoryUri] = chosen
         }
     }
 
@@ -143,6 +152,7 @@ class DataStoreSettingsRepository @Inject constructor(
 
     private object Keys {
         val GamesDirectoryUri = stringPreferencesKey("games_directory_uri")
+        val GamesDirectories = stringPreferencesKey("games_directories")
         val WifiOnly = booleanPreferencesKey("wifi_only")
         val DeleteArchives = booleanPreferencesKey("delete_archives_after_install")
         val SyncPaused = booleanPreferencesKey("sync_paused")

@@ -32,6 +32,9 @@ class LibraryRepository @Inject constructor(
     /** Ids of the installed games, to mark them wherever the catalogue shows them. */
     fun observeInstalledIds(): Flow<Set<String>> = dao.observeIds().map { it.toHashSet() }
 
+    /** Where the files of a game are (stored document addresses), null when it is not installed. */
+    fun observeDocumentUri(gameId: String): Flow<String?> = dao.observeWithCatalog(gameId).map { it?.installed?.documentUri }
+
     fun observeInstalled(gameId: String): Flow<InstalledGame?> = dao.observeWithCatalog(gameId).map { it?.toDomain() }
 
     /** Deletes the files, then the entry. False when the files could not be deleted. */

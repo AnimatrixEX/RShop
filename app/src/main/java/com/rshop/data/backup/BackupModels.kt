@@ -1,6 +1,8 @@
 package com.rshop.data.backup
 
+import com.rshop.scraper.config.DriveConfig
 import com.rshop.scraper.config.ScraperConfig
+import com.rshop.scraper.config.SourceConfig
 import kotlinx.serialization.Serializable
 
 /**
@@ -15,13 +17,21 @@ data class Backup(
     val appVersion: String = "",
     /** Epoch milliseconds. */
     val createdAt: Long = 0,
+    /** Website sources (the only kind of older versions). */
     val sources: List<ScraperConfig> = emptyList(),
+    /** Google Drive sources, apart so that older versions still read the website ones. */
+    val driveSources: List<DriveConfig> = emptyList(),
     val favorites: List<BackupGame> = emptyList(),
     val lists: List<BackupList> = emptyList(),
     val settings: BackupSettings = BackupSettings(),
 ) {
+    val allSources: List<SourceConfig> get() = sources + driveSources
+
     companion object {
         const val FORMAT = 1
+
+        fun sourcesOf(all: List<SourceConfig>): Pair<List<ScraperConfig>, List<DriveConfig>> =
+            all.filterIsInstance<ScraperConfig>() to all.filterIsInstance<DriveConfig>()
     }
 }
 

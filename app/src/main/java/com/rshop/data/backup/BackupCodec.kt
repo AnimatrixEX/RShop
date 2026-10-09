@@ -25,7 +25,7 @@ object BackupCodec {
         }
         if (backup.format > Backup.FORMAT) throw BackupException("This backup comes from a newer version of RShop")
         try {
-            backup.sources.forEach { it.validate() }
+            backup.allSources.forEach { it.validate() }
         } catch (e: ScraperConfigException) {
             throw BackupException("A source of the backup is invalid: ${e.problems.joinToString("; ")}", e)
         }

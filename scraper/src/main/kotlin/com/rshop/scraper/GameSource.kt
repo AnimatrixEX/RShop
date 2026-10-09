@@ -1,9 +1,11 @@
 package com.rshop.scraper
 
 import com.rshop.scraper.model.CatalogPage
+import com.rshop.scraper.model.CatalogSection
 import com.rshop.scraper.model.DownloadInfo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import okhttp3.HttpUrl
 import com.rshop.scraper.model.ScrapedGame
 import com.rshop.scraper.model.ScrapedGameDetails
 
@@ -17,6 +19,15 @@ interface GameSource {
 
     /** Display name for settings and errors. */
     val name: String
+
+    /** The consoles the source lists (one request), or empty for a source that has no console index. */
+    suspend fun sections(): List<CatalogSection> = emptyList()
+
+    /** Whether a file may be fetched from [url] for this source (its own hosts only). */
+    fun acceptsDownloadUrl(url: HttpUrl): Boolean
+
+    /** Page of the game on the source, sent as Referer with its downloads; null when it has none. */
+    fun gamePageUrl(gameId: String): String? = null
 
     /** One catalogue page (0-based) plus whether another page follows. */
     suspend fun getPage(page: Int): CatalogPage

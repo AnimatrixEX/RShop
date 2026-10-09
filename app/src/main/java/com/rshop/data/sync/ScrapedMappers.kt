@@ -35,7 +35,7 @@ fun ScrapedGameDetails.toDomain(sourceId: String): Game {
     val download = downloads.firstOrNull()
     return game.toDomain(sourceId).copy(
         downloadOptions = downloads.map {
-            DownloadOption(url = it.url, label = it.label, fileName = it.fileName, sizeBytes = it.sizeBytes, sha256 = it.sha256, viaPage = it.viaPage)
+            DownloadOption(url = it.url, label = it.label, fileName = it.fileName, sizeBytes = it.sizeBytes, sha256 = it.sha256, viaPage = it.viaPage, isUpdate = it.isUpdate, isExtra = it.isExtra)
         },
         description = description,
         tags = GenreClassifier.classify(game.genre, game.title, description, game.platform),

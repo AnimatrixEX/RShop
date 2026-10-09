@@ -58,6 +58,10 @@ class WebsiteSource(
     private val interval = config.minRequestIntervalMs.milliseconds
     private val downloadPolicy = DownloadUrlPolicy(base, config.allowedDownloadHosts)
 
+    override fun acceptsDownloadUrl(url: HttpUrl): Boolean = downloadPolicy.accepts(url)
+
+    override fun gamePageUrl(gameId: String): String? = base.resolve(gameId)?.toString()
+
     private val linkPattern = config.list.linkPattern?.let(::Regex)
 
     /** Page URLs discovered through "next" links, for sites without a {page} template. */
@@ -91,7 +95,7 @@ class WebsiteSource(
     }
 
     /** Consoles listed on the section index, for sites organised by console. */
-    suspend fun sections(): List<CatalogSection> {
+    override suspend fun sections(): List<CatalogSection> {
         val rules = config.sections ?: return emptyList()
         val url = base.resolve(rules.url) ?: throw ScraperException.StructureChanged(rules.url, "invalid sections url")
         val sections = parseSections(fetcher.fetch(url, interval), rules, base).ifEmpty {

@@ -7,7 +7,8 @@ import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
     val settings: Flow<AppSettings>
-    suspend fun setGamesDirectoryUri(uri: String?)
+    /** Saves the list of games folders and which one is the default (null when the list is empty). */
+    suspend fun setGamesDirectories(uris: List<String>, default: String?)
     suspend fun setWifiOnly(enabled: Boolean)
     suspend fun setDeleteArchivesAfterInstall(enabled: Boolean)
     suspend fun setPauseOnLowBattery(enabled: Boolean)

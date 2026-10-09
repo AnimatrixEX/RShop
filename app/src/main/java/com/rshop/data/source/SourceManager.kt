@@ -5,7 +5,11 @@ import com.rshop.data.sync.SyncStatusStore
 import com.rshop.data.sync.toDomain
 import com.rshop.domain.repository.GameRepository
 import com.rshop.scraper.analysis.SiteAnalysis
+import com.rshop.scraper.config.DriveConfig
 import com.rshop.scraper.config.ScraperConfig
+import com.rshop.scraper.config.SourceConfig
+import com.rshop.scraper.drive.DriveInspection
+import com.rshop.scraper.drive.DriveLink
 import com.rshop.scraper.model.CatalogSection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -28,8 +32,19 @@ class SourceManager @Inject constructor(
     /** Reads the site (robots.txt and rate limit apply) and proposes a configuration. */
     suspend fun analyze(url: String): SiteAnalysis = sources.analyzer().analyze(url)
 
+    /**
+     * Reads a shared Drive folder (its name and console folders) before it is added. Needs the
+     * Drive API key. Throws [IllegalArgumentException] for a link that is not a Drive folder.
+     */
+    suspend fun inspectDrive(link: String): Pair<DriveConfig, DriveInspection> {
+        val parsed = requireNotNull(DriveLink.parse(link)) { "Not a Google Drive folder link" }
+        val draft = DriveConfig(DriveConfig.idFor(parsed.folderId), "Google Drive", parsed.folderId, parsed.resourceKey)
+        val inspection = sources.createDriveSource(draft).inspect()
+        return draft.copy(name = inspection.name.ifBlank { draft.name }) to inspection
+    }
+
     /** Adds a source, or updates the one of the same site, then syncs it. */
-    suspend fun add(config: ScraperConfig) {
+    suspend fun add(config: SourceConfig) {
         val previous = sources.get(config.id)
         sources.save(config)
         if (previous == null) status.remove(config.id)
@@ -40,7 +55,7 @@ class SourceManager @Inject constructor(
     }
 
     /** Validates and adds a hand-written configuration. */
-    suspend fun importJson(json: String): ScraperConfig = ScraperConfig.fromJson(json).also { add(it) }
+    suspend fun importJson(json: String): SourceConfig = SourceConfig.fromJson(json).also { add(it) }
 
     suspend fun exportJson(sourceId: String): String? = sources.get(sourceId)?.toJson()
 
@@ -71,7 +86,7 @@ class SourceManager @Inject constructor(
         val chosen = all.filter { it.url in enabled }
         require(chosen.isNotEmpty()) { "At least one console must stay enabled" }
         val before = config.enabledSections?.toSet()
-        sources.save(config.copy(enabledSections = if (chosen.size == all.size) null else chosen.map { it.url }))
+        sources.save(config.withEnabledSections(if (chosen.size == all.size) null else chosen.map { it.url }))
 
         val left = all.filter { it.url !in enabled }
         if (left.isNotEmpty()) games.deleteGamesOfPlatforms(sourceId, left.map { it.name }.distinct())
@@ -81,10 +96,21 @@ class SourceManager @Inject constructor(
         if (added || running) scheduler.syncNow(sourceId, restart = true, full = false)
     }
 
+    /**
+     * Sets the console of every game of a Drive that has no console folders. Games already read
+     * keep their old console until the sync that follows rewrites them.
+     */
+    suspend fun setDrivePlatform(sourceId: String, platform: String) {
+        val config = sources.get(sourceId) as? DriveConfig ?: return
+        require(platform.isNotBlank()) { "Choose a console" }
+        sources.save(config.copy(platform = platform.trim(), enabledSections = null))
+        scheduler.syncNow(sourceId, restart = true, full = true)
+    }
+
     /** Switches the source to the next [SyncSpeed]; it applies from the next sync. */
     suspend fun cycleSpeed(sourceId: String) {
         val config = sources.get(sourceId) ?: return
-        sources.save(config.copy(minRequestIntervalMs = SyncSpeed.of(config.minRequestIntervalMs).next().intervalMs))
+        sources.save(config.withInterval(SyncSpeed.of(config.minRequestIntervalMs).next().intervalMs))
     }
 
     /** Stops that source's sync; games already read are kept. */
@@ -96,7 +122,7 @@ class SourceManager @Inject constructor(
      * no source has a search. A failing site does not stop the others.
      */
     suspend fun searchRemote(query: String): Int? {
-        val searchable = sources.all().filter { it.searchUrl != null }
+        val searchable = sources.all().filter { (it as? ScraperConfig)?.searchUrl != null }
         if (searchable.isEmpty()) return null
         var found = 0
         var lastError: Exception? = null

@@ -31,6 +31,20 @@ sealed class ScraperException(message: String, cause: Throwable? = null) : Excep
     class NotHtml(val url: String, val finalUrl: String, val contentType: String?) :
         ScraperException("Not a web page at $url (${contentType ?: "unknown type"})")
 
+    /** The API needs a key and none is configured. */
+    class ApiKeyMissing(val service: String) : ScraperException("$service needs an API key")
+
+    /** The API refused the key (invalid, restricted to another app, API not enabled). */
+    class ApiKeyRejected(val service: String, val detail: String?) :
+        ScraperException("$service refused the API key" + (detail?.let { ": $it" } ?: ""))
+
+    /**
+     * The API's quota is spent (too many downloads of a file, daily limit of the key). Never worked
+     * around: the only remedy is to wait.
+     */
+    class QuotaExceeded(val url: String, val detail: String?) :
+        ScraperException("Quota exceeded for $url" + (detail?.let { ": $it" } ?: ""))
+
     /** A CAPTCHA or anti-bot challenge stands in the way. Never bypassed: the user must use a browser. */
     class Captcha(val url: String) : ScraperException("CAPTCHA or anti-bot check at $url: open it in a browser")
 }

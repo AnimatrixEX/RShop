@@ -94,7 +94,7 @@
     <string name="source_setup_title">Catalogue sources</string>
     <string name="source_url_label">Site address</string>
     <string name="source_url_hint">https://example.org/roms</string>
-    <string name="source_url_help">A page listing games, or a page listing consoles.</string>
+    <string name="source_url_help">A page listing games, a page listing consoles, or the share link of a Google Drive folder.</string>
     <string name="source_analyze">Analyze</string>
     <string name="source_analyzing">Analyzing the site…</string>
     <string name="source_analysis_failed">Analysis failed: %1$s</string>
@@ -492,4 +492,37 @@
     <!-- Reading pages ahead -->
     <string name="settings_read_ahead">Read game pages ahead</string>
     <string name="settings_read_ahead_desc">Descriptions, files and counters of favorites and popular games, and of the game selected with the controller. Uses network and battery</string>
+    <string name="drive_source_label">Google Drive</string>
+    <string name="drive_key_title">Google Drive API key</string>
+    <string name="drive_key_configured">Key saved (…%1$s)</string>
+    <string name="drive_key_missing">No key saved</string>
+    <string name="drive_key_help">Google Cloud Console → new project → enable \"Google Drive API\" → Credentials → Create API key. The folder must be shared with \"Anyone with the link\". The key is stored encrypted on the device.</string>
+    <string name="drive_key_label">API key</string>
+    <string name="drive_key_save">Save</string>
+    <string name="drive_key_remove">Clear</string>
+    <string name="drive_key_needed">This Google Drive link needs an API key: enter it above and the analysis will resume.</string>
+    <string name="drive_no_console_found">No console folder found: this Drive only holds games. Choose their console.</string>
+    <string name="drive_platform_choose">Choose the console</string>
+    <string name="drive_platform_none">No console chosen</string>
+    <string name="drive_platform_button">Console</string>
+    <string name="drive_platform_title">Console of these games</string>
+    <string name="drive_platform_body">Every game of this Drive will be filed under this console.</string>
+    <string name="drive_platform_other">Other console</string>
+    <string name="drive_platform_use">Use</string>
+    <string name="drive_names_only">Google Drive only gives game names: covers, screenshots and descriptions come from SteamGridDB, Libretro and Wikipedia.</string>
+    <string name="error_drive_key">Google Drive API key missing or refused</string>
+    <string name="error_quota">Google Drive download quota exceeded, try again later</string>
+    <string name="error_drive_no_console">no console folder: choose the console of this Drive</string>
+    <string name="folder_choose_title">Install into which folder?</string>
+    <string name="folder_holds_game">already holds this game</string>
+    <string name="folder_default">default</string>
+    <string name="folder_free">%1$s free</string>
+    <string name="settings_tab_catalog">Catalogue</string>
+    <string name="settings_tab_app">App</string>
+    <string name="settings_games_dirs">Games folders</string>
+    <string name="settings_games_dirs_help">Several folders are possible (internal storage, SD card…): each install asks which one the game goes to.</string>
+    <string name="settings_games_dir_add">Add a folder</string>
+    <string name="folder_make_default">Make default folder</string>
+    <string name="folder_remove">Remove this folder</string>
+    <string name="folder_remove_note">Removing a folder deletes no file. Games in it stay in the library, but RShop cannot reach them until the folder is added again.</string>
 </resources>

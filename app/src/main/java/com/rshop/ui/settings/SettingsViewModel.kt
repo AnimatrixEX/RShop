@@ -23,8 +23,12 @@ import com.rshop.data.update.AppUpdater
 import com.rshop.data.update.UpdateState
 import com.rshop.data.sync.SyncScheduler
 import com.rshop.data.sync.SyncState
-import com.rshop.scraper.config.ScraperConfig
-import com.rshop.data.storage.GamesDirectoryState
+import com.rshop.scraper.config.SourceConfig
+import com.rshop.data.storage.GamesFolder
+import com.rshop.installation.SafGameStorage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.map
 import com.rshop.domain.model.AppSettings
 import com.rshop.domain.model.ThemeSettings
 import com.rshop.ui.theme.ActiveTheme
@@ -55,9 +59,9 @@ private const val MAX_BACKUP_BYTES = 8 * 1024 * 1024
 
 data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
-    val directory: GamesDirectoryState = GamesDirectoryState.NotSelected,
+    val folders: List<GamesFolder> = emptyList(),
     val language: AppLanguage = AppLanguage.System,
-    val sources: List<ScraperConfig> = emptyList(),
+    val sources: List<SourceConfig> = emptyList(),
     val sync: SyncState = SyncState(),
     val artwork: ArtworkStatus = ArtworkStatus(),
     /** Games SteamGridDB has not been asked about yet. */
@@ -77,6 +81,7 @@ class SettingsViewModel @Inject constructor(
     private val appUpdater: AppUpdater,
     private val backupManager: BackupManager,
     private val documents: TextDocuments,
+    private val storage: SafGameStorage,
 ) : ViewModel() {
 
     private val _backup = MutableStateFlow(BackupUiState())
@@ -155,7 +160,7 @@ class SettingsViewModel @Inject constructor(
 
     val uiState: StateFlow<SettingsUiState> = combine(
         settingsRepository.settings,
-        directoryManager.state,
+        directoryManager.folders,
         language,
         sourceRepository.configs,
         syncScheduler.state,
@@ -164,8 +169,23 @@ class SettingsViewModel @Inject constructor(
         state.copy(artwork = artwork, pendingArtwork = pending)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState(language = language.value))
 
-    fun onDirectorySelected(uri: Uri) {
-        viewModelScope.launch { directoryManager.select(uri) }
+    /** Free bytes on the volume of each usable games folder, by folder address. */
+    val folderSpace: StateFlow<Map<String, Long>> = directoryManager.folders.map { folders ->
+        withContext(Dispatchers.IO) {
+            folders.filter { it.available }.mapNotNull { f -> storage.volumeSpace(f.location)?.let { f.uri.toString() to it.freeBytes } }.toMap()
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    fun onFolderAdded(uri: Uri) {
+        viewModelScope.launch { directoryManager.add(uri) }
+    }
+
+    fun onFolderDefault(uri: Uri) {
+        viewModelScope.launch { directoryManager.setDefault(uri) }
+    }
+
+    fun onFolderRemoved(uri: Uri) {
+        viewModelScope.launch { directoryManager.remove(uri) }
     }
 
     fun onSyncNow() {

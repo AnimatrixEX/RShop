@@ -25,6 +25,7 @@ Made for Retroid, Ayn, Anbernic and similar devices (16:9, gamepad), and works o
 - **Screenshots and descriptions without the source**: when a source gives none, screenshots (and the title screen) come from the free Libretro thumbnails and the description from the game's Wikipedia article (credited, CC BY-SA). Both can be switched off in *Settings → Covers*.
 - **Complete game pages**: descriptions, files and download counters are read in the background for your favorites and the most popular games (Wi-Fi only if you chose so), and for the game you rest on with the controller.
 - **Controller first**: visible focus, L1/R1 tabs, Y for a game menu, X for search, button hints.
+- **Several games folders** (internal storage, SD card…): add as many as you like in *Settings → Storage*, pick a default; each install asks which folder the game goes to. The settings are split into tabs (Catalogue, Storage, Downloads, Cover art, Appearance, App).
 - **Backup**: save and restore sources, favorites, lists and settings as one JSON file.
 - **Customisation**: screen styles (dark, OLED, slate, twilight, **Glass** frosted surfaces, a **PlayStation Store** blue, a light **eShop** with red bands), accent colors, text size, flat covers or **3D game boxes** (turned on the shelf, facing you when selected), French / English.
 - **In-app update**: *Settings → About → Check for updates* downloads the latest GitHub release (SHA-256 checked) and hands it to Android's installer. The app also looks once a day (can be turned off) and shows a dot on Settings when a version is available.
@@ -45,6 +46,8 @@ With [Obtainium](https://github.com/ImranR98/Obtainium): [add RShop](obtainium:/
 Requires Android 13+ and an **arm64** CPU. About 200 MB, mostly GeckoView.
 
 **Adding a source**: paste the address of a page listing games (or consoles). RShop analyses the site and proposes a configuration with a preview; you can also import/export the JSON config (`ScraperConfig`) for tricky sites.
+
+**Google Drive folder as a source**: paste the share link of a folder shared with *Anyone with the link*. RShop reads it through the Drive API, which needs your own free API key (Google Cloud Console → new project → enable *Google Drive API* → *Credentials* → *Create API key*), entered once in the sources screen and stored encrypted. Sub-folders named after a console (`GBA`, `PlayStation 2`, `Mega Drive`…) become consoles, even below container folders such as `Roms/`. Files are games, files of one title (discs, cue + bin) are grouped, and a folder of one game's files is one game. For a Drive that only holds game folders, RShop asks which console they belong to. Drive gives only names, so covers, screenshots and descriptions come from SteamGridDB, Libretro and Wikipedia. Installing a game lists every file of its folder, whatever the type (the files of an `Update`/`Patch` sub-folder included); pick one or several, they are installed like any other download. Downloads are checked against Drive's MD5. When Drive's download quota for a file is exceeded, the download fails with a clear message: wait and try again.
 
 **Covers** come from the free [Libretro thumbnails](https://thumbnails.libretro.com/) for the consoles it knows, and from [SteamGridDB](https://www.steamgriddb.com/) if you add your own free API key (*Settings → Covers*, stored encrypted on the device). Other games get a generated thumbnail.
 
@@ -67,7 +70,7 @@ A local fictional site for testing: `python tools/testsite/server.py --rate 4`, 
 ```
 app/       Kotlin · Compose · Material 3 · Hilt · Room · WorkManager · Coil · GeckoView
  ├─ data/ domain/ download/ installation/ ui/
-scraper/   pure JVM (Jsoup, OkHttp): GameSource, WebsiteSource, SiteAnalyzer, ScraperConfig
+scraper/   pure JVM (Jsoup, OkHttp): GameSource, WebsiteSource, SiteAnalyzer, ScraperConfig, DriveSource (Drive API v3)
 tools/testsite/   local test site
 ```
 
@@ -75,4 +78,4 @@ MVVM, repositories, coroutines/Flow. HTML parsing never touches the UI: `Scraper
 
 ## Status
 
-Version 0.1.9, personal project, tested on a Retroid Pocket 6. See [`CLAUDE.md`](CLAUDE.md) for the development plan (the game launcher is deliberately out of scope).
+Version 0.2.0, personal project, tested on a Retroid Pocket 6. See [`CLAUDE.md`](CLAUDE.md) for the development plan (the game launcher is deliberately out of scope).

@@ -15,8 +15,8 @@ android {
         applicationId = "com.rshop"
         minSdk = 33
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.1.9"
+        versionCode = 11
+        versionName = "0.2.0"
         // GitHub project whose latest release the "Check for updates" button reads.
         buildConfigField("String", "UPDATE_REPOSITORY", "\"AnimatrixEX/RShop\"")
 

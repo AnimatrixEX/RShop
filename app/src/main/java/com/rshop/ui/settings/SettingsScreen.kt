@@ -9,6 +9,7 @@ import com.rshop.data.update.AppRelease
 import com.rshop.data.update.UpdateErrorKind
 import com.rshop.data.update.UpdateState
 import com.rshop.ui.util.formatSize
+import com.rshop.ui.util.folderLabel
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import com.rshop.ui.components.ControllerTextField
@@ -79,7 +80,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rshop.BuildConfig
 import com.rshop.R
 import com.rshop.data.preferences.AppLanguage
-import com.rshop.data.storage.GamesDirectoryState
+import com.rshop.data.storage.GamesFolder
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.ExperimentalFoundationApi
 import com.rshop.data.sync.SyncState
 import com.rshop.ui.util.relativeTime
 import com.rshop.ui.util.sourceErrorText
@@ -95,8 +98,13 @@ fun SettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        uri?.let(viewModel::onDirectorySelected)
+        uri?.let(viewModel::onFolderAdded)
     }
+    val folderSpace by viewModel.folderSpace.collectAsStateWithLifecycle()
+    var folderActions by remember { mutableStateOf<GamesFolder?>(null) }
+    // The last tab is remembered across rotation and navigation.
+    var tabIndex by rememberSaveable { mutableStateOf(0) }
+    val tab = SettingsTab.entries[tabIndex.coerceIn(0, SettingsTab.entries.lastIndex)]
     val firstRowFocus = rememberInitialFocusRequester()
     val backup by viewModel.backup.collectAsStateWithLifecycle()
     val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -115,254 +123,301 @@ fun SettingsScreen(
     BackupDialogs(backup, viewModel)
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(Modifier.fillMaxSize().widthIn(max = 760.dp)) {
+        SettingsTabs(selected = tab, onSelect = { tabIndex = it.ordinal }, firstFocus = firstRowFocus)
         LazyColumn(
-            modifier = Modifier.widthIn(max = 760.dp),
+            modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = Dimens.ScreenPadding, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item { GroupTitle(stringResource(R.string.settings_source)) }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_source),
-                    subtitle = when (state.sources.size) {
-                        0 -> stringResource(R.string.settings_source_none)
-                        1 -> state.sources.first().let { "${it.name} · ${it.baseUrl}" }
-                        else -> pluralStringResource(R.plurals.settings_sources_count, state.sources.size, state.sources.size) +
-                            " · " + state.sources.joinToString(", ") { it.name }
-                    },
-                    onClick = onOpenSourceSetup,
-                    modifier = Modifier.focusRequester(firstRowFocus),
-                )
-            }
-            if (state.sources.isNotEmpty()) {
-                item {
-                    val (subtitle, color) = syncSubtitle(state.sync)
-                    SettingsRow(
-                        // While running, the same row pauses (stops) the sync; games already read are kept.
-                        title = stringResource(if (state.sync.running) R.string.settings_sync_pause else R.string.settings_sync_now),
-                        subtitle = subtitle,
-                        subtitleColor = color,
-                        onClick = if (state.sync.running) viewModel::onPauseSync else viewModel::onSyncNow,
-                        trailing = if (state.sync.running) {
-                            { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp) }
-                        } else {
-                            null
+            when (tab) {
+                SettingsTab.Catalog -> {
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_source),
+                            subtitle = when (state.sources.size) {
+                                0 -> stringResource(R.string.settings_source_none)
+                                1 -> state.sources.first().let { "${it.name} · ${it.location}" }
+                                else -> pluralStringResource(R.plurals.settings_sources_count, state.sources.size, state.sources.size) +
+                                    " · " + state.sources.joinToString(", ") { it.name }
+                            },
+                            onClick = onOpenSourceSetup,
+                        )
+                    }
+                    if (state.sources.isNotEmpty()) {
+                        item {
+                            val (subtitle, color) = syncSubtitle(state.sync)
+                            SettingsRow(
+                                // While running, the same row pauses (stops) the sync; games already read are kept.
+                                title = stringResource(if (state.sync.running) R.string.settings_sync_pause else R.string.settings_sync_now),
+                                subtitle = subtitle,
+                                subtitleColor = color,
+                                onClick = if (state.sync.running) viewModel::onPauseSync else viewModel::onSyncNow,
+                                trailing = if (state.sync.running) {
+                                    { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp) }
+                                } else {
+                                    null
+                                },
+                            )
+                        }
+                    }
+
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_read_ahead),
+                            subtitle = stringResource(R.string.settings_read_ahead_desc),
+                            onClick = { viewModel.onReadPagesAheadChange(!state.settings.readPagesAhead) },
+                            trailing = { RShopSwitch(state.settings.readPagesAhead) },
+                        )
+                    }
+
+                }
+                SettingsTab.Storage -> {
+                    item { GroupTitle(stringResource(R.string.settings_games_dirs)) }
+                    if (state.folders.isEmpty()) {
+                        item {
+                            SettingsRow(
+                                title = stringResource(R.string.settings_games_dir_none),
+                                subtitle = stringResource(R.string.settings_games_dirs_help),
+                                icon = painterResource(R.drawable.ic_folder),
+                                onClick = { pickFolder.launch(null) },
+                            )
+                        }
+                    } else {
+                        items(state.folders, key = { it.uri.toString() }) { folder ->
+                            FolderRow(
+                                folder = folder,
+                                freeBytes = folderSpace[folder.uri.toString()],
+                                onClick = { folderActions = folder },
+                            )
+                        }
+                        item {
+                            Text(
+                                stringResource(R.string.settings_games_dirs_help),
+                                modifier = Modifier.padding(horizontal = 4.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = RShopColors.TextTertiary,
+                            )
+                        }
+                    }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_games_dir_add),
+                            subtitle = null,
+                            icon = painterResource(R.drawable.ic_folder),
+                            onClick = { pickFolder.launch(null) },
+                        )
+                    }
+                    item {
+                        ChoiceRow(
+                            title = stringResource(R.string.settings_free_space),
+                            options = (FREE_SPACE_CHOICES_MB + state.settings.minFreeSpaceMb).distinct().sorted(),
+                            selected = state.settings.minFreeSpaceMb,
+                            label = { megabytes -> if (megabytes >= 1024) "${megabytes / 1024} ${stringResource(R.string.unit_gb)}" else "$megabytes ${stringResource(R.string.unit_mb)}" },
+                            swatch = null,
+                            onSelect = viewModel::onMinFreeSpaceChange,
+                        )
+                    }
+                }
+                SettingsTab.Downloads -> {
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_wifi_only),
+                            subtitle = stringResource(R.string.settings_wifi_only_desc),
+                            onClick = { viewModel.onWifiOnlyChange(!state.settings.wifiOnly) },
+                            trailing = { RShopSwitch(state.settings.wifiOnly) },
+                        )
+                    }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_low_battery),
+                            subtitle = stringResource(R.string.settings_low_battery_desc),
+                            onClick = { viewModel.onPauseOnLowBatteryChange(!state.settings.pauseOnLowBattery) },
+                            trailing = { RShopSwitch(state.settings.pauseOnLowBattery) },
+                        )
+                    }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_delete_archives),
+                            subtitle = stringResource(R.string.settings_delete_archives_desc),
+                            onClick = { viewModel.onDeleteArchivesChange(!state.settings.deleteArchivesAfterInstall) },
+                            trailing = { RShopSwitch(state.settings.deleteArchivesAfterInstall) },
+                        )
+                    }
+
+                }
+                SettingsTab.Images -> {
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_libretro),
+                            subtitle = stringResource(R.string.settings_libretro_desc),
+                            onClick = { viewModel.onLibretroChange(!state.artwork.libretroEnabled) },
+                            trailing = { RShopSwitch(state.artwork.libretroEnabled) },
+                        )
+                    }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_wikipedia),
+                            subtitle = stringResource(R.string.settings_wikipedia_desc),
+                            onClick = { viewModel.onMetadataChange(!state.artwork.metadataEnabled) },
+                            trailing = { RShopSwitch(state.artwork.metadataEnabled) },
+                        )
+                    }
+                    item {
+                        SteamGridDbKeyForm(
+                            status = state.artwork,
+                            pending = state.pendingArtwork,
+                            onSave = viewModel::onSaveSteamGridDbKey,
+                        )
+                    }
+
+                }
+                SettingsTab.Appearance -> {
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_language),
+                            subtitle = stringResource(state.language.labelRes()),
+                            onClick = viewModel::onCycleLanguage,
+                        )
+                    }
+                    val theme = state.settings.theme
+                    item {
+                        ChoiceRow(
+                            title = stringResource(R.string.settings_theme_base),
+                            options = ThemeBase.entries,
+                            selected = theme.base,
+                            label = { stringResource(it.labelRes()) },
+                            swatch = { ThemePalettes.swatch(it) },
+                            // A style comes with the accent that suits it (red eShop, blue PS2); the accent can still be changed.
+                            onSelect = { base -> viewModel.onThemeChange { t -> t.copy(base = base, accent = ThemePalettes.recommendedAccent(base) ?: t.accent) } },
+                        )
+                    }
+                    item {
+                        ChoiceRow(
+                            title = stringResource(R.string.settings_theme_accent),
+                            options = ThemeAccent.entries,
+                            selected = theme.accent,
+                            label = { stringResource(it.labelRes()) },
+                            swatch = { ThemePalettes.accent(it).first },
+                            onSelect = { accent -> viewModel.onThemeChange { t -> t.copy(accent = accent) } },
+                        )
+                    }
+                    item {
+                        ChoiceRow(
+                            title = stringResource(R.string.settings_theme_focus),
+                            options = FocusStyle.entries,
+                            selected = theme.focus,
+                            label = { stringResource(if (it == FocusStyle.White) R.string.theme_focus_white else R.string.theme_focus_accent) },
+                            swatch = { if (it == FocusStyle.White) Color.White else RShopColors.AccentBright },
+                            onSelect = { focus -> viewModel.onThemeChange { t -> t.copy(focus = focus) } },
+                        )
+                    }
+                    item {
+                        ChoiceRow(
+                            title = stringResource(R.string.settings_text_size),
+                            options = TextSize.entries,
+                            selected = theme.textSize,
+                            label = { stringResource(if (it == TextSize.Normal) R.string.text_size_normal else R.string.text_size_large) },
+                            swatch = null,
+                            onSelect = { size -> viewModel.onThemeChange { t -> t.copy(textSize = size) } },
+                        )
+                    }
+                    item {
+                        ChoiceRow(
+                            title = stringResource(R.string.settings_cover_style),
+                            options = CoverStyle.entries,
+                            selected = theme.coverStyle,
+                            label = { stringResource(if (it == CoverStyle.Flat) R.string.cover_style_flat else R.string.cover_style_3d) },
+                            swatch = null,
+                            onSelect = { style -> viewModel.onThemeChange { t -> t.copy(coverStyle = style) } },
+                        )
+                    }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_animated_background),
+                            subtitle = stringResource(R.string.settings_animated_background_desc),
+                            onClick = { viewModel.onThemeChange { t -> t.copy(animatedBackground = !t.animatedBackground) } },
+                            trailing = { RShopSwitch(theme.animatedBackground) },
+                        )
+                    }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_dynamic_backdrop),
+                            subtitle = stringResource(R.string.settings_dynamic_backdrop_desc),
+                            onClick = { viewModel.onThemeChange { t -> t.copy(dynamicBackdrop = !t.dynamicBackdrop) } },
+                            trailing = { RShopSwitch(theme.dynamicBackdrop) },
+                        )
+                    }
+
+                }
+                SettingsTab.App -> {
+                    item { GroupTitle(stringResource(R.string.settings_backup)) }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_backup_export),
+                            subtitle = stringResource(R.string.settings_backup_export_desc),
+                            onClick = { exportBackup.launch(backupFileName()) },
+                        )
+                    }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_backup_restore),
+                            subtitle = stringResource(R.string.settings_backup_restore_desc),
+                            onClick = { restoreBackup.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                            trailing = if (backup.restoring) {
+                                { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp) }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+
+                    item { GroupTitle(stringResource(R.string.settings_about)) }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_version),
+                            subtitle = BuildConfig.VERSION_NAME,
+                            onClick = null,
+                        )
+                    }
+                    item {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_auto_update),
+                            subtitle = stringResource(R.string.settings_auto_update_desc),
+                            onClick = { viewModel.onAutoCheckUpdatesChange(!state.settings.autoCheckUpdates) },
+                            trailing = { RShopSwitch(state.settings.autoCheckUpdates) },
+                        )
+                    }
+                    updateItems(
+                        state = update,
+                        onCheck = viewModel::onCheckUpdate,
+                        onInstall = viewModel::onInstallUpdate,
+                        onCancel = viewModel::onCancelUpdate,
+                        onAllowInstall = {
+                            allowInstall.launch(
+                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")),
+                            )
                         },
                     )
                 }
             }
-
-            item { GroupTitle(stringResource(R.string.settings_storage)) }
-            item {
-                val (subtitle, color) = directorySubtitle(state.directory)
-                SettingsRow(
-                    title = stringResource(R.string.settings_games_dir),
-                    subtitle = subtitle,
-                    subtitleColor = color,
-                    icon = painterResource(R.drawable.ic_folder),
-                    onClick = {
-                        val current = (state.directory as? GamesDirectoryState.Available)?.uri
-                        pickFolder.launch(current)
-                    },
-                )
-            }
-
-            item { GroupTitle(stringResource(R.string.settings_downloads)) }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_wifi_only),
-                    subtitle = stringResource(R.string.settings_wifi_only_desc),
-                    onClick = { viewModel.onWifiOnlyChange(!state.settings.wifiOnly) },
-                    trailing = { RShopSwitch(state.settings.wifiOnly) },
-                )
-            }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_low_battery),
-                    subtitle = stringResource(R.string.settings_low_battery_desc),
-                    onClick = { viewModel.onPauseOnLowBatteryChange(!state.settings.pauseOnLowBattery) },
-                    trailing = { RShopSwitch(state.settings.pauseOnLowBattery) },
-                )
-            }
-            item {
-                ChoiceRow(
-                    title = stringResource(R.string.settings_free_space),
-                    options = (FREE_SPACE_CHOICES_MB + state.settings.minFreeSpaceMb).distinct().sorted(),
-                    selected = state.settings.minFreeSpaceMb,
-                    label = { megabytes -> if (megabytes >= 1024) "${megabytes / 1024} ${stringResource(R.string.unit_gb)}" else "$megabytes ${stringResource(R.string.unit_mb)}" },
-                    swatch = null,
-                    onSelect = viewModel::onMinFreeSpaceChange,
-                )
-            }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_delete_archives),
-                    subtitle = stringResource(R.string.settings_delete_archives_desc),
-                    onClick = { viewModel.onDeleteArchivesChange(!state.settings.deleteArchivesAfterInstall) },
-                    trailing = { RShopSwitch(state.settings.deleteArchivesAfterInstall) },
-                )
-            }
-
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_read_ahead),
-                    subtitle = stringResource(R.string.settings_read_ahead_desc),
-                    onClick = { viewModel.onReadPagesAheadChange(!state.settings.readPagesAhead) },
-                    trailing = { RShopSwitch(state.settings.readPagesAhead) },
-                )
-            }
-
-            item { GroupTitle(stringResource(R.string.settings_artwork)) }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_libretro),
-                    subtitle = stringResource(R.string.settings_libretro_desc),
-                    onClick = { viewModel.onLibretroChange(!state.artwork.libretroEnabled) },
-                    trailing = { RShopSwitch(state.artwork.libretroEnabled) },
-                )
-            }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_wikipedia),
-                    subtitle = stringResource(R.string.settings_wikipedia_desc),
-                    onClick = { viewModel.onMetadataChange(!state.artwork.metadataEnabled) },
-                    trailing = { RShopSwitch(state.artwork.metadataEnabled) },
-                )
-            }
-            item {
-                SteamGridDbKeyForm(
-                    status = state.artwork,
-                    pending = state.pendingArtwork,
-                    onSave = viewModel::onSaveSteamGridDbKey,
-                )
-            }
-
-            item { GroupTitle(stringResource(R.string.settings_appearance)) }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_language),
-                    subtitle = stringResource(state.language.labelRes()),
-                    onClick = viewModel::onCycleLanguage,
-                )
-            }
-            val theme = state.settings.theme
-            item {
-                ChoiceRow(
-                    title = stringResource(R.string.settings_theme_base),
-                    options = ThemeBase.entries,
-                    selected = theme.base,
-                    label = { stringResource(it.labelRes()) },
-                    swatch = { ThemePalettes.swatch(it) },
-                    // A style comes with the accent that suits it (red eShop, blue PS2); the accent can still be changed.
-                    onSelect = { base -> viewModel.onThemeChange { t -> t.copy(base = base, accent = ThemePalettes.recommendedAccent(base) ?: t.accent) } },
-                )
-            }
-            item {
-                ChoiceRow(
-                    title = stringResource(R.string.settings_theme_accent),
-                    options = ThemeAccent.entries,
-                    selected = theme.accent,
-                    label = { stringResource(it.labelRes()) },
-                    swatch = { ThemePalettes.accent(it).first },
-                    onSelect = { accent -> viewModel.onThemeChange { t -> t.copy(accent = accent) } },
-                )
-            }
-            item {
-                ChoiceRow(
-                    title = stringResource(R.string.settings_theme_focus),
-                    options = FocusStyle.entries,
-                    selected = theme.focus,
-                    label = { stringResource(if (it == FocusStyle.White) R.string.theme_focus_white else R.string.theme_focus_accent) },
-                    swatch = { if (it == FocusStyle.White) Color.White else RShopColors.AccentBright },
-                    onSelect = { focus -> viewModel.onThemeChange { t -> t.copy(focus = focus) } },
-                )
-            }
-            item {
-                ChoiceRow(
-                    title = stringResource(R.string.settings_text_size),
-                    options = TextSize.entries,
-                    selected = theme.textSize,
-                    label = { stringResource(if (it == TextSize.Normal) R.string.text_size_normal else R.string.text_size_large) },
-                    swatch = null,
-                    onSelect = { size -> viewModel.onThemeChange { t -> t.copy(textSize = size) } },
-                )
-            }
-            item {
-                ChoiceRow(
-                    title = stringResource(R.string.settings_cover_style),
-                    options = CoverStyle.entries,
-                    selected = theme.coverStyle,
-                    label = { stringResource(if (it == CoverStyle.Flat) R.string.cover_style_flat else R.string.cover_style_3d) },
-                    swatch = null,
-                    onSelect = { style -> viewModel.onThemeChange { t -> t.copy(coverStyle = style) } },
-                )
-            }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_animated_background),
-                    subtitle = stringResource(R.string.settings_animated_background_desc),
-                    onClick = { viewModel.onThemeChange { t -> t.copy(animatedBackground = !t.animatedBackground) } },
-                    trailing = { RShopSwitch(theme.animatedBackground) },
-                )
-            }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_dynamic_backdrop),
-                    subtitle = stringResource(R.string.settings_dynamic_backdrop_desc),
-                    onClick = { viewModel.onThemeChange { t -> t.copy(dynamicBackdrop = !t.dynamicBackdrop) } },
-                    trailing = { RShopSwitch(theme.dynamicBackdrop) },
-                )
-            }
-
-            item { GroupTitle(stringResource(R.string.settings_backup)) }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_backup_export),
-                    subtitle = stringResource(R.string.settings_backup_export_desc),
-                    onClick = { exportBackup.launch(backupFileName()) },
-                )
-            }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_backup_restore),
-                    subtitle = stringResource(R.string.settings_backup_restore_desc),
-                    onClick = { restoreBackup.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
-                    trailing = if (backup.restoring) {
-                        { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp) }
-                    } else {
-                        null
-                    },
-                )
-            }
-
-            item { GroupTitle(stringResource(R.string.settings_about)) }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_version),
-                    subtitle = BuildConfig.VERSION_NAME,
-                    onClick = null,
-                )
-            }
-            item {
-                SettingsRow(
-                    title = stringResource(R.string.settings_auto_update),
-                    subtitle = stringResource(R.string.settings_auto_update_desc),
-                    onClick = { viewModel.onAutoCheckUpdatesChange(!state.settings.autoCheckUpdates) },
-                    trailing = { RShopSwitch(state.settings.autoCheckUpdates) },
-                )
-            }
-            updateItems(
-                state = update,
-                onCheck = viewModel::onCheckUpdate,
-                onInstall = viewModel::onInstallUpdate,
-                onCancel = viewModel::onCancelUpdate,
-                onAllowInstall = {
-                    allowInstall.launch(
-                        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")),
-                    )
-                },
-            )
         }
+        }
+    }
+
+    folderActions?.let { folder ->
+        FolderActionsDialog(
+            folder = folder,
+            onDefault = {
+                viewModel.onFolderDefault(folder.uri)
+                folderActions = null
+            },
+            onRemove = {
+                viewModel.onFolderRemoved(folder.uri)
+                folderActions = null
+            },
+            onDismiss = { folderActions = null },
+        )
     }
 }
 
@@ -530,21 +585,6 @@ private fun updateErrorText(state: UpdateState.Failed): String {
         UpdateErrorKind.NotRShop -> stringResource(R.string.update_error_not_rshop)
         UpdateErrorKind.InstallPermission -> stringResource(R.string.update_permission_desc)
         UpdateErrorKind.InstallFailed -> stringResource(R.string.update_error_install) + detail
-    }
-}
-
-@Composable
-private fun directorySubtitle(state: GamesDirectoryState): Pair<String, Color> = when (state) {
-    GamesDirectoryState.NotSelected -> stringResource(R.string.settings_games_dir_none) to RShopColors.TextSecondary
-    GamesDirectoryState.AccessLost -> stringResource(R.string.settings_games_dir_lost) to RShopColors.Warning
-    is GamesDirectoryState.Available -> {
-        val location = state.location
-        val text = when {
-            location == null -> state.uri.toString()
-            location.isPrimary -> "${stringResource(R.string.storage_internal)}/${location.relativePath}"
-            else -> "${location.volume}/${location.relativePath}"
-        }
-        text.trimEnd('/') to RShopColors.TextSecondary
     }
 }
 
@@ -783,5 +823,22 @@ private fun RShopSwitch(checked: Boolean) {
             uncheckedThumbColor = RShopColors.TextSecondary,
             uncheckedBorderColor = RShopColors.Outline,
         ),
+    )
+}
+
+/** One games folder: where it is, whether it is the default one, and how much room is left. */
+@Composable
+private fun FolderRow(folder: GamesFolder, freeBytes: Long?, onClick: () -> Unit) {
+    val notes = listOfNotNull(
+        stringResource(R.string.folder_default).takeIf { folder.isDefault },
+        stringResource(R.string.settings_games_dir_lost).takeIf { !folder.available },
+        freeBytes?.let { stringResource(R.string.folder_free, formatSize(it)) },
+    )
+    SettingsRow(
+        title = folderLabel(folder),
+        subtitle = notes.joinToString(" - ").ifEmpty { null },
+        subtitleColor = if (folder.available) RShopColors.TextSecondary else RShopColors.Warning,
+        icon = painterResource(R.drawable.ic_folder),
+        onClick = onClick,
     )
 }

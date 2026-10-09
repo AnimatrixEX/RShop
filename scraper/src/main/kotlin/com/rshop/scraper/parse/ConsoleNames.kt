@@ -18,12 +18,19 @@ object ConsoleNames {
     private const val BRANDS = "nintendo|sega|sony|atari|snk|nec|microsoft|bandai|commodore|magnavox|philips|panasonic|sinclair"
     private const val SUFFIXES =
         "\\d+|[ivx]{1,3}|advance|colou?r|pocket|portable|classic|mini|xl|sp|micro|plus|go|cd|32x|one|series [xs]|u|" +
-            "entertainment system|\\d+-?bit|handheld|console"
+            "entertainment system|\\d+-?bit|handheld|console|lite|oled"
 
-    /** The whole label is a console: "Nintendo GameCube", "Game Boy Advance ROMs", "PS2 (4 512)". */
+    /** What sites add after the name: the kind of content ("ROMs") or of file ("NSP / XCI"). */
+    private const val CONTENT = "roms?|games?|jeux|isos?|nsp|xci|nsz|digital|eshop"
+    private const val CONTENT_LIST = "(?:$CONTENT)(?:\\s*[&/+,-]?\\s*(?:$CONTENT))*"
+
+    /** A game counter: "(4 512)", "[120]", "- 1234 games", "1234". */
+    private const val COUNTER = "(?:\\s*[(\\[]\\s*(?:[\\d\\s,.]+|$CONTENT_LIST)\\s*[)\\]]|\\s*[-–:]\\s*\\d[\\d\\s,.]*(?:\\s*(?:$CONTENT))?|\\s+\\d[\\d,. ]{2,})"
+
+    /** The whole label is a console: "Nintendo GameCube", "Game Boy Advance ROMs", "PS2 (4 512)", "Switch NSP / XCI". */
     private val WHOLE = Regex(
         "(?i)^\\W*(?:($BRANDS)\\s+)?($MORE_CONSOLES)(?:\\s+($SUFFIXES))*" +
-            "(?:\\s+(?:roms?|games?|jeux|isos?))?(?:\\s*[(\\[]\\s*[\\d\\s,.]+[)\\]])?\\W*$",
+            "(?:\\s+$CONTENT_LIST)?(?:$COUNTER)*\\W*$",
     )
 
     fun isConsoleName(text: String): Boolean = text.length <= 40 && WHOLE.matches(text.trim())

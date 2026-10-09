@@ -91,11 +91,18 @@ fun GameDetailsScreen(
     }
     // Asked once, on the first install; downloads work without it (no progress notification).
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val install = { optionUrl: String?, moreUrls: List<String> ->
+    val folderChoices by viewModel.folderChoices.collectAsStateWithLifecycle()
+    // Set while the player picks the games folder of a game, once the files are chosen.
+    var folderQuestion by remember { mutableStateOf<Pair<String?, List<String>>?>(null) }
+    val startInstall = { optionUrl: String?, moreUrls: List<String>, folder: String? ->
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        viewModel.onInstall(optionUrl, moreUrls)
+        viewModel.onInstall(optionUrl, moreUrls, folder)
+    }
+    // With several games folders the player says which one; with one, it just goes there.
+    val install = { optionUrl: String?, moreUrls: List<String> ->
+        if (folderChoices.size > 1) folderQuestion = optionUrl to moreUrls else startInstall(optionUrl, moreUrls, null)
     }
     // Picks a file the user downloaded themselves (e.g. in the device browser) and installs it.
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -192,6 +199,17 @@ fun GameDetailsScreen(
                 onDismiss = { newListName = false },
             )
         }
+    }
+    folderQuestion?.let { (optionUrl, moreUrls) ->
+        FolderChooserDialog(
+            title = (state as? GameDetailsUiState.Loaded)?.game?.title.orEmpty(),
+            choices = folderChoices,
+            onPick = { folder ->
+                folderQuestion = null
+                startInstall(optionUrl, moreUrls, folder.uri.toString())
+            },
+            onDismiss = { folderQuestion = null },
+        )
     }
     chooser?.let { game ->
         FormatChooserDialog(

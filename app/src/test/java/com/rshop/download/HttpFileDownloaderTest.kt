@@ -33,6 +33,7 @@ class HttpFileDownloaderTest {
     private var etag = "\"v1\""
     private var cutAfter: Int? = null
     private var contentType = "application/zip"
+    private var refusal: String? = null
 
     private val downloader = HttpFileDownloader(OkHttpClient(), "RShop-Test")
 
@@ -40,6 +41,7 @@ class HttpFileDownloaderTest {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 requests += request
+                refusal?.let { return MockResponse.Builder().code(403).setHeader("Content-Type", "application/json").body(it).build() }
                 val range = request.headers["Range"]?.removePrefix("bytes=")?.removeSuffix("-")?.toIntOrNull()
                 val ifRange = request.headers["If-Range"]
                 val builder = MockResponse.Builder().setHeader("Content-Type", contentType).setHeader("ETag", etag)
@@ -155,6 +157,9 @@ class HttpFileDownloaderTest {
     @Test
     fun `sha256 verification`() = runTest {
         downloader.download(url, target(), null)
+        val md5 = IntegrityVerifier.md5(target())
+        IntegrityVerifier.verifyMd5(target(), md5.uppercase())
+        assertTrue(runCatching { IntegrityVerifier.verifyMd5(target(), "0".repeat(32)) }.exceptionOrNull() is DownloadException.ChecksumMismatch)
         val good = IntegrityVerifier.sha256(target())
         IntegrityVerifier.verify(target(), good.uppercase())
         val error = runCatching { IntegrityVerifier.verify(target(), "0".repeat(64)) }.exceptionOrNull()
@@ -169,5 +174,13 @@ class HttpFileDownloaderTest {
         assertTrue(runCatching { DownloadPolicy.check("https://evil.example/a.zip".toHttpUrl(), "a.zip", sameHost) }.exceptionOrNull() is DownloadException.Rejected)
         assertEquals("Neon Drift.zip", DownloadPolicy.fileName("https://x.org/files/Neon%20Drift.zip".toHttpUrl(), "game"))
         assertNull(null)
+    }
+
+    @Test
+    fun `a spent Drive quota is told apart from a refusal`() = runTest {
+        refusal = """{"error":{"errors":[{"reason":"downloadQuotaExceeded"}],"code":403}}"""
+        assertTrue(runCatching { downloader.download(url, target(), null) }.exceptionOrNull() is DownloadException.QuotaExceeded)
+        refusal = """{"error":{"errors":[{"reason":"forbidden"}],"code":403}}"""
+        assertTrue(runCatching { downloader.download(url, target(), null) }.exceptionOrNull() is DownloadException.AccessDenied)
     }
 }

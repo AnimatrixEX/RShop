@@ -55,6 +55,7 @@ class BackupTest {
             appVersion = "0.1.6",
             createdAt = 1_700_000_000_000,
             sources = listOf(source),
+            driveSources = listOf(com.rshop.scraper.config.DriveConfig("gdrive-0123456789", "Drive", "1AbCdEfGhIjKlMnOp", platform = "Wii")),
             favorites = listOf(BackupGame("demo:/a", "Alpha", "NES")),
             lists = listOf(BackupList("To finish", listOf(BackupGame("demo:/b", "Beta")))),
             settings = BackupSettings(wifiOnly = false, themeAccent = "Orange", language = "fr"),
@@ -63,6 +64,7 @@ class BackupTest {
         val read = BackupCodec.decode(BackupCodec.encode(backup))
 
         assertEquals(backup, read)
+        assertEquals(listOf("Demo", "Drive"), read.allSources.map { it.name })
     }
 
     @Test

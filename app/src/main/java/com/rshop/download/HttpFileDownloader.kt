@@ -42,11 +42,14 @@ sealed class DownloadException(message: String, cause: Throwable? = null) : IOEx
         DownloadException("Not enough space: $needed bytes needed, $available available")
     class TooLarge(val size: Long) : DownloadException("File too large: $size bytes")
     class ChecksumMismatch(val expected: String, val actual: String) :
-        DownloadException("SHA-256 mismatch: expected $expected, got $actual")
+        DownloadException("Checksum mismatch: expected $expected, got $actual")
     class Rejected(reason: String) : DownloadException(reason)
 
     /** A file handed over by the in-app browser can no longer be read (app restarted, cut off). */
     class StreamLost : DownloadException("The browser transfer was interrupted")
+
+    /** The server's download quota for this file or this key is spent (Google Drive): only waiting helps. */
+    class QuotaExceeded : DownloadException("Download quota exceeded, try again later")
 }
 
 /**
@@ -126,7 +129,12 @@ class HttpFileDownloader(
                     if (resumeFrom > 0) return downloadOnIo(url, target, null, onStarted, onProgress, referer, session, spaceMargin)
                     throw DownloadException.Http(416)
                 }
-                401, 403 -> throw DownloadException.AccessDenied(response.code)
+                401, 403 -> {
+                    // Google APIs explain a refusal in a small JSON body; a spent quota is not a denial.
+                    val reason = runCatching { response.peekBody(4096).string() }.getOrDefault("")
+                    if (QUOTA_REASONS.containsMatchIn(reason)) throw DownloadException.QuotaExceeded()
+                    throw DownloadException.AccessDenied(response.code)
+                }
                 404, 410 -> throw DownloadException.NotFound()
                 429, 503 -> throw DownloadException.Busy(response.code)
                 408, in 500..599 -> throw DownloadException.Transient("HTTP ${response.code}")
@@ -204,5 +212,6 @@ class HttpFileDownloader(
         const val BUFFER_SIZE = 64 * 1024
         const val SPACE_MARGIN = 50L * 1024 * 1024
         val CONTENT_RANGE = Regex("""bytes (\d+)-(\d+)/(\d+|\*)""")
+        val QUOTA_REASONS = Regex("downloadQuotaExceeded|dailyLimitExceeded|quotaExceeded")
     }
 }

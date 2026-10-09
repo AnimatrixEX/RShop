@@ -37,7 +37,7 @@ import com.rshop.data.database.entity.ScreenshotEntity
         GameListEntity::class,
         GameListEntryEntity::class,
     ],
-    version = 13,
+    version = 15,
     exportSchema = true,
     autoMigrations = [
         // v2: games.details_synced_at + downloads table.
@@ -64,6 +64,10 @@ import com.rshop.data.database.entity.ScreenshotEntity
         AutoMigration(from = 11, to = 12, spec = AppDatabase.DropRegionFlags::class),
         // v13: games.description_source / description_checked_at / screenshots_checked_at (infos from outside the catalogue source).
         AutoMigration(from = 12, to = 13),
+        // v14: downloads.expected_md5 (Google Drive publishes MD5, not SHA-256).
+        AutoMigration(from = 13, to = 14),
+        // v15: downloads.target_directory (which games folder the player chose for a game).
+        AutoMigration(from = 14, to = 15),
     ],
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -16,7 +16,6 @@ import com.rshop.data.work.AppNotifications
 import com.rshop.domain.model.DownloadStatus
 import com.rshop.domain.repository.SettingsRepository
 import com.rshop.installation.GameInstaller
-import com.rshop.scraper.website.DownloadUrlPolicy
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
@@ -119,7 +118,7 @@ class DownloadWorker @AssistedInject constructor(
             row = slots.semaphore.withPermit { download(row, file) }
             file = File(row.tempPath)
         }
-        if (row.expectedSha256 != null && !row.verified) {
+        if ((row.expectedSha256 != null || row.expectedMd5 != null) && !row.verified) {
             row = verify(row, file)
         }
         install(row, file)
@@ -140,6 +139,7 @@ class DownloadWorker @AssistedInject constructor(
             fileName = fileName,
             tempPath = File(File(row.tempPath).parentFile, fileName).absolutePath,
             expectedSha256 = next.sha256,
+            expectedMd5 = null,
             totalBytes = next.sizeBytes,
             downloadedBytes = 0,
             etag = null,
@@ -176,13 +176,13 @@ class DownloadWorker @AssistedInject constructor(
         // a URL answers with a file, read from its headers only. It never passes a CAPTCHA or login.
         if (row.viaPage) {
             val config = sources.get(sourceIdOf(row.gameId)) ?: throw DownloadException.Rejected("The game's source was removed")
+            val source = sources.createSource(config)
             // The game page is where the first link was clicked.
-            val gamePage = config.base.resolve(row.gameId.substringAfter(':'))?.toString()
-            val info = sources.createSource(config).resolveDownload(row.url, referer = gamePage)
+            val gamePage = source.gamePageUrl(row.gameId.substringAfter(':'))
+            val info = source.resolveDownload(row.url, referer = gamePage)
             val url = info.url.toHttpUrl()
             val fileName = DownloadPolicy.fileName(info.fileName, url, row.title, info.contentType)
-            val policy = DownloadUrlPolicy(config.base, config.allowedDownloadHosts)
-            DownloadPolicy.check(url, fileName) { policy.accepts(it) }
+            DownloadPolicy.check(url, fileName) { source.acceptsDownloadUrl(it) }
             DownloadPolicy.checkContentType(info.contentType)
             val target = File(file.parentFile, fileName)
             row = row.copy(
@@ -192,6 +192,7 @@ class DownloadWorker @AssistedInject constructor(
                 tempPath = target.absolutePath,
                 totalBytes = info.sizeBytes ?: row.totalBytes,
                 referer = info.sourcePage,
+                expectedMd5 = info.md5 ?: row.expectedMd5,
             )
             dao.upsert(row)
             return download(row, target)
@@ -230,7 +231,7 @@ class DownloadWorker @AssistedInject constructor(
      */
     private suspend fun checkGamesFolderSpace(row: DownloadEntity, margin: Long) {
         val total = row.totalBytes ?: return
-        val free = installer.deviceSpace()?.freeBytes ?: return
+        val free = installer.deviceSpace(row)?.freeBytes ?: return
         if (total + margin > free) throw DownloadException.InsufficientStorage(total + margin, free)
     }
 
@@ -313,10 +314,12 @@ class DownloadWorker @AssistedInject constructor(
         dao.updateState(gameId, DownloadStatus.Verifying.name, null, clock.millis())
         runCatching { setForeground(foreground(row.title, null, verifying = true)) }
         try {
-            IntegrityVerifier.verify(file, row.expectedSha256!!)
+            // The SHA-256 published by the source when there is one, else the server's MD5.
+            val sha256 = row.expectedSha256
+            if (sha256 != null) IntegrityVerifier.verify(file, sha256) else IntegrityVerifier.verifyMd5(file, row.expectedMd5!!)
         } catch (e: DownloadException.ChecksumMismatch) {
             // Corrupted or changed file: delete it and download again once from scratch.
-            Timber.w("SHA-256 mismatch for %s (retried=%s)", gameId, retried)
+            Timber.w("Checksum mismatch for %s (retried=%s)", gameId, retried)
             file.delete()
             val reset = row.copy(downloadedBytes = 0, etag = null, lastModified = null, verified = false)
             dao.upsert(reset)
@@ -325,7 +328,7 @@ class DownloadWorker @AssistedInject constructor(
         }
         val verified = (dao.get(gameId) ?: row).copy(verified = true, state = DownloadStatus.Verifying.name)
         dao.upsert(verified)
-        Timber.i("SHA-256 verified for %s", gameId)
+        Timber.i("Checksum verified for %s", gameId)
         return verified
     }
 

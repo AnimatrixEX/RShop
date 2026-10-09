@@ -22,6 +22,9 @@ fun Context.sourceErrorText(error: SourceError): String = when (error.kind) {
     SourceErrorKind.Http -> getString(R.string.error_http, error.detail.orEmpty())
     SourceErrorKind.InvalidContent -> getString(R.string.error_invalid_content)
     SourceErrorKind.NoSource -> getString(R.string.error_no_source)
+    SourceErrorKind.ApiKey -> getString(R.string.error_drive_key) + (error.detail?.let { " ($it)" } ?: "")
+    SourceErrorKind.Quota -> getString(R.string.error_quota)
+    SourceErrorKind.NoConsole -> getString(R.string.error_drive_no_console)
     SourceErrorKind.Unknown -> getString(R.string.error_unknown)
 }
 

@@ -12,10 +12,16 @@ import java.security.MessageDigest
 object IntegrityVerifier {
 
     /** Streaming SHA-256, lower-case hex. */
-    suspend fun sha256(file: File, onProgress: (Long) -> Unit = {}): String = withContext(Dispatchers.IO) { sha256OnIo(file, onProgress) }
+    suspend fun sha256(file: File, onProgress: (Long) -> Unit = {}): String = digest(file, "SHA-256", onProgress)
 
-    private suspend fun sha256OnIo(file: File, onProgress: (Long) -> Unit): String {
-        val digest = MessageDigest.getInstance("SHA-256")
+    /** Streaming MD5, lower-case hex: only to detect a corrupted transfer when the server gives nothing better. */
+    suspend fun md5(file: File, onProgress: (Long) -> Unit = {}): String = digest(file, "MD5", onProgress)
+
+    private suspend fun digest(file: File, algorithm: String, onProgress: (Long) -> Unit): String =
+        withContext(Dispatchers.IO) { digestOnIo(file, algorithm, onProgress) }
+
+    private suspend fun digestOnIo(file: File, algorithm: String, onProgress: (Long) -> Unit): String {
+        val digest = MessageDigest.getInstance(algorithm)
         val buffer = ByteArray(256 * 1024)
         var read = 0L
         FileInputStream(file).use { input ->
@@ -34,6 +40,14 @@ object IntegrityVerifier {
     /** Throws [DownloadException.ChecksumMismatch] when the file does not match [expected]. */
     suspend fun verify(file: File, expected: String, onProgress: (Long) -> Unit = {}) {
         val actual = sha256(file, onProgress)
+        if (!actual.equals(expected.trim(), ignoreCase = true)) {
+            throw DownloadException.ChecksumMismatch(expected.lowercase(), actual)
+        }
+    }
+
+    /** Throws [DownloadException.ChecksumMismatch] when the file's MD5 is not [expected]. */
+    suspend fun verifyMd5(file: File, expected: String, onProgress: (Long) -> Unit = {}) {
+        val actual = md5(file, onProgress)
         if (!actual.equals(expected.trim(), ignoreCase = true)) {
             throw DownloadException.ChecksumMismatch(expected.lowercase(), actual)
         }

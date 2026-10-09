@@ -14,18 +14,18 @@ import javax.inject.Singleton
  * The app never assumes direct file-path access to shared storage.
  */
 @Singleton
-class GamesDirectoryAccess @Inject constructor(
+open class GamesDirectoryAccess @Inject constructor(
     @ApplicationContext context: Context,
 ) {
     private val resolver = context.contentResolver
 
     /** Persists read/write access so it survives reboots. Throws [SecurityException] if the grant is not persistable. */
-    fun takePermission(treeUri: Uri) {
+    open fun takePermission(treeUri: Uri) {
         resolver.takePersistableUriPermission(treeUri, RW_FLAGS)
         Timber.i("Persisted access to games folder %s", treeUri)
     }
 
-    fun releasePermission(treeUri: Uri) {
+    open fun releasePermission(treeUri: Uri) {
         try {
             resolver.releasePersistableUriPermission(treeUri, RW_FLAGS)
         } catch (e: SecurityException) {
@@ -34,7 +34,7 @@ class GamesDirectoryAccess @Inject constructor(
     }
 
     /** False when the user revoked access or the volume (e.g. an SD card) is gone. */
-    fun hasPermission(treeUri: Uri): Boolean =
+    open fun hasPermission(treeUri: Uri): Boolean =
         resolver.persistedUriPermissions.any { it.uri == treeUri && it.isReadPermission && it.isWritePermission }
 
     fun describe(treeUri: Uri): DirectoryLocation? {

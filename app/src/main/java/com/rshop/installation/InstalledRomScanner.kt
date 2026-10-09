@@ -6,9 +6,7 @@ import com.rshop.data.database.dao.InstalledGameDao
 import com.rshop.data.database.dao.MatchCandidate
 import com.rshop.data.database.entity.InstalledGameEntity
 import com.rshop.data.storage.GamesDirectoryManager
-import com.rshop.data.storage.GamesDirectoryState
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -40,15 +38,17 @@ class InstalledRomScanner @Inject constructor(
     /** Number of games newly added to the library. */
     suspend fun scan(): Int = lock.withLock {
         val found = withContext(Dispatchers.IO) {
-            val tree = (directoryManager.state.first() as? GamesDirectoryState.Available)?.uri ?: return@withContext 0
-            try {
-                detect(tree)
-            } catch (e: InstallException) {
-                Timber.w(e, "Scan of the games folder failed")
-                0
-            } catch (e: SecurityException) {
-                Timber.w(e, "Scan of the games folder refused")
-                0
+            // Every games folder the user added is looked through.
+            directoryManager.availableFolders().sumOf { folder ->
+                try {
+                    detect(folder.uri)
+                } catch (e: InstallException) {
+                    Timber.w(e, "Scan of the games folder failed")
+                    0
+                } catch (e: SecurityException) {
+                    Timber.w(e, "Scan of the games folder refused")
+                    0
+                }
             }
         }
         lastScanAt = clock.millis()

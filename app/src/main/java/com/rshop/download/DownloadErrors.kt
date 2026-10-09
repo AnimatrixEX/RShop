@@ -25,6 +25,8 @@ fun Throwable.toDownloadError(): DownloadError = when (this) {
     is InstallException.UnsupportedFormat -> DownloadError(DownloadErrorKind.Unsupported, format)
     is InstallException.Corrupt, is InstallException.Empty -> DownloadError(DownloadErrorKind.Corrupt, message)
     is InstallException.Storage -> DownloadError(DownloadErrorKind.Storage, message)
+    is DownloadException.QuotaExceeded, is ScraperException.QuotaExceeded -> DownloadError(DownloadErrorKind.Quota)
+    is ScraperException.ApiKeyMissing, is ScraperException.ApiKeyRejected -> DownloadError(DownloadErrorKind.ApiKey, message)
     is ScraperException.Network -> DownloadError(DownloadErrorKind.Network, message)
     is ScraperException.AccessDenied -> DownloadError(DownloadErrorKind.AccessDenied, "HTTP $code")
     is ScraperException -> DownloadError(DownloadErrorKind.NoLink, message)

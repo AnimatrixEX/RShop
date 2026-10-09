@@ -42,6 +42,10 @@ data class DownloadOption(
     val sha256: String? = null,
     /** [url] must be resolved by the source (download page, redirect) before downloading. */
     val viaPage: Boolean = false,
+    /** A patch for the game (its "Update" folder), offered next to the game and installed after it. */
+    val isUpdate: Boolean = false,
+    /** A side file of the game's folder (picture, notes): listed, never the default. */
+    val isExtra: Boolean = false,
 )
 
 /** Source id is the namespace before the first ':' of a game id (e.g. "homebrew-hub:/game/x"). */

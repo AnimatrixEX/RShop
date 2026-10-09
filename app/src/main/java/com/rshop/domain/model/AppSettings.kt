@@ -2,8 +2,10 @@ package com.rshop.domain.model
 
 
 data class AppSettings(
-    /** Persisted SAF tree URI of the games folder, as a string. */
+    /** Persisted SAF tree URI of the folder games are installed into when none is chosen, as a string. */
     val gamesDirectoryUri: String? = null,
+    /** Every games folder the user added (the default one included), in the order they were added. */
+    val gamesDirectoryUris: List<String> = emptyList(),
     val wifiOnly: Boolean = true,
     val deleteArchivesAfterInstall: Boolean = true,
     /** Downloads wait while the battery is low (Android's own "battery low" state). */

@@ -100,7 +100,7 @@
     <string name="source_setup_title">Sources du catalogue</string>
     <string name="source_url_label">Adresse du site</string>
     <string name="source_url_hint">https://exemple.org/roms</string>
-    <string name="source_url_help">Page listant les jeux, ou page listant les consoles.</string>
+    <string name="source_url_help">Page listant les jeux, page listant les consoles, ou lien de partage d’un dossier Google Drive.</string>
     <string name="source_analyze">Analyser</string>
     <string name="source_analyzing">Analyse du site…</string>
     <string name="source_analysis_failed">Analyse impossible : %1$s</string>
@@ -502,4 +502,37 @@
     <!-- Lecture des fiches à l\'avance -->
     <string name="settings_read_ahead">Lire les fiches à l\'avance</string>
     <string name="settings_read_ahead_desc">Descriptions, fichiers et compteurs des favoris et des jeux populaires, et du jeu sélectionné à la manette. Utilise le réseau et la batterie</string>
+    <string name="drive_source_label">Google Drive</string>
+    <string name="drive_key_title">Clé API Google Drive</string>
+    <string name="drive_key_configured">Clé enregistrée (…%1$s)</string>
+    <string name="drive_key_missing">Aucune clé enregistrée</string>
+    <string name="drive_key_help">Google Cloud Console → nouveau projet → activer « Google Drive API » → Identifiants → Créer une clé API. Le dossier doit être partagé « Tous les utilisateurs disposant du lien ». La clé est stockée chiffrée sur l’appareil.</string>
+    <string name="drive_key_label">Clé API</string>
+    <string name="drive_key_save">Enregistrer</string>
+    <string name="drive_key_remove">Effacer</string>
+    <string name="drive_key_needed">Ce lien Google Drive demande une clé API : saisissez-la ci-dessus, l’analyse reprendra.</string>
+    <string name="drive_no_console_found">Aucun dossier de console trouvé : ce Drive ne contient que des jeux. Choisissez leur console.</string>
+    <string name="drive_platform_choose">Choisir la console</string>
+    <string name="drive_platform_none">Console non choisie</string>
+    <string name="drive_platform_button">Console</string>
+    <string name="drive_platform_title">Console de ces jeux</string>
+    <string name="drive_platform_body">Tous les jeux de ce Drive seront rangés dans cette console.</string>
+    <string name="drive_platform_other">Autre console</string>
+    <string name="drive_platform_use">Valider</string>
+    <string name="drive_names_only">Google Drive ne fournit que les noms des jeux : jaquettes, captures et descriptions viennent de SteamGridDB, Libretro et Wikipédia.</string>
+    <string name="error_drive_key">clé API Google Drive absente ou refusée</string>
+    <string name="error_quota">quota de téléchargement Google Drive dépassé, réessayez plus tard</string>
+    <string name="error_drive_no_console">aucun dossier de console : choisissez la console de ce Drive</string>
+    <string name="folder_choose_title">Installer dans quel dossier ?</string>
+    <string name="folder_holds_game">contient déjà ce jeu</string>
+    <string name="folder_default">par défaut</string>
+    <string name="folder_free">%1$s libres</string>
+    <string name="settings_tab_catalog">Catalogue</string>
+    <string name="settings_tab_app">Application</string>
+    <string name="settings_games_dirs">Dossiers des jeux</string>
+    <string name="settings_games_dirs_help">Plusieurs dossiers possibles (stockage interne, carte SD…) : à chaque installation, RShop demande dans lequel mettre le jeu.</string>
+    <string name="settings_games_dir_add">Ajouter un dossier</string>
+    <string name="folder_make_default">Dossier par défaut</string>
+    <string name="folder_remove">Retirer ce dossier</string>
+    <string name="folder_remove_note">Retirer un dossier ne supprime aucun fichier. Les jeux qu’il contient restent dans la bibliothèque mais RShop ne peut plus y accéder tant qu’il n’est pas ajouté à nouveau.</string>
 </resources>

@@ -16,7 +16,7 @@ import com.rshop.domain.model.ThemeSettings
 import com.rshop.domain.repository.GameRepository
 import com.rshop.domain.repository.SettingsRepository
 import com.rshop.scraper.ScraperConfigException
-import com.rshop.scraper.config.ScraperConfig
+import com.rshop.scraper.config.SourceConfig
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -41,7 +41,8 @@ class BackupManager @Inject constructor(
         val backup = Backup(
             appVersion = BuildConfig.VERSION_NAME,
             createdAt = clock.millis(),
-            sources = sourceRepository.all(),
+            sources = Backup.sourcesOf(sourceRepository.all()).first,
+            driveSources = Backup.sourcesOf(sourceRepository.all()).second,
             favorites = games.observeFavorites().first().map { BackupGame(it.id, it.title, it.platform) },
             lists = lists.snapshot().map { list -> BackupList(list.name, list.games.map { BackupGame(it.id, it.title, it.platform) }) },
             settings = BackupSettings(
@@ -72,7 +73,7 @@ class BackupManager @Inject constructor(
     fun summarize(backup: Backup) = BackupSummary(
         createdAt = backup.createdAt,
         appVersion = backup.appVersion,
-        sources = backup.sources.map(ScraperConfig::name),
+        sources = backup.allSources.map(SourceConfig::name),
         favorites = backup.favorites.size,
         lists = backup.lists.size,
     )
@@ -80,7 +81,7 @@ class BackupManager @Inject constructor(
     suspend fun restore(backup: Backup): RestoreReport {
         applySettings(backup.settings)
         // Sources first: they bring the games that favorites and lists point at.
-        backup.sources.forEach { sourceManager.add(it) }
+        backup.allSources.forEach { sourceManager.add(it) }
 
         val wanted = (backup.favorites.map { it.id } + backup.lists.flatMap { list -> list.games.map { it.id } }).distinct()
         val present = games.existingIds(wanted)
@@ -101,7 +102,7 @@ class BackupManager @Inject constructor(
         // Applied last: a language change restarts the activity.
         applyLanguage(backup.settings.language)
         return RestoreReport(
-            sources = backup.sources.size,
+            sources = backup.allSources.size,
             favorites = backup.favorites.size - favoritesLater.size,
             lists = restoredLists,
             waiting = favoritesLater.size + waiting.values.sumOf { it.size },

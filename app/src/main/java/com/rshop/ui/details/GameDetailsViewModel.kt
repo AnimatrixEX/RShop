@@ -12,6 +12,10 @@ import com.rshop.data.artwork.ArtworkResolver
 import com.rshop.data.metadata.GameMetadata
 import com.rshop.data.repository.LibraryRepository
 import com.rshop.data.storage.GamesDirectoryManager
+import com.rshop.data.storage.GamesFolder
+import com.rshop.installation.SafGameStorage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.rshop.data.sync.CatalogSyncer
 import com.rshop.data.sync.SourceError
 import com.rshop.data.sync.toSourceError
@@ -68,6 +72,9 @@ sealed interface DetailsEvent {
     data class DeleteFailed(val title: String) : DetailsEvent
 }
 
+/** A games folder the install can go to; [holdsGame] when the game is already installed there. */
+data class FolderChoice(val folder: GamesFolder, val holdsGame: Boolean, val freeBytes: Long?)
+
 @HiltViewModel
 class GameDetailsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -80,7 +87,24 @@ class GameDetailsViewModel @Inject constructor(
     private val artwork: ArtworkResolver,
     private val sources: SourceRepository,
     private val metadata: GameMetadata,
+    private val storage: SafGameStorage,
 ) : ViewModel() {
+
+    /**
+     * The games folders a game can go to, with room left on each. The one that already holds the game
+     * comes first (an update stays beside the installed game), then the default.
+     */
+    // Lazy: [gameId] is read from the saved state further down.
+    val folderChoices: StateFlow<List<FolderChoice>> by lazy { folderChoiceFlow() }
+
+    private fun folderChoiceFlow(): StateFlow<List<FolderChoice>> = combine(directoryManager.folders, library.observeDocumentUri(gameId)) { folders, documentUri ->
+        val holder = documentUri?.let { directoryManager.folderOf(it) }
+        withContext(Dispatchers.IO) {
+            folders.filter { it.available }
+                .sortedWith(compareByDescending<GamesFolder> { it.uri == holder?.uri }.thenByDescending { it.isDefault })
+                .map { FolderChoice(it, holdsGame = it.uri == holder?.uri, freeBytes = storage.volumeSpace(it.location)?.freeBytes) }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val gameId = savedStateHandle.toRoute<GameDetailsRoute>().gameId
     private val refreshing = MutableStateFlow(false)
@@ -145,13 +169,18 @@ class GameDetailsViewModel @Inject constructor(
     /** Files chosen when the games folder had to be picked first, to continue with the same ones. */
     private var pendingOption: String? = null
     private var pendingMore: List<String> = emptyList()
+    private var pendingFolder: String? = null
 
-    /** [moreUrls]: further files of the game (other discs, bin + cue) installed after [optionUrl]. */
-    fun onInstall(optionUrl: String? = null, moreUrls: List<String> = emptyList()) {
+    /**
+     * [moreUrls]: further files of the game (other discs, bin + cue) installed after [optionUrl].
+     * [folder]: the games folder the player chose; null keeps the game where it is, else the default.
+     */
+    fun onInstall(optionUrl: String? = null, moreUrls: List<String> = emptyList(), folder: String? = null) {
         pendingOption = optionUrl
         pendingMore = moreUrls
+        pendingFolder = folder
         viewModelScope.launch {
-            when (val result = downloads.start(gameId, optionUrl, moreUrls)) {
+            when (val result = downloads.start(gameId, optionUrl, moreUrls, folder)) {
                 StartResult.Started -> Unit
                 StartResult.NoGamesDirectory -> _events.value = DetailsEvent.PickFolder
                 is StartResult.Failed -> _events.value = DetailsEvent.StartFailed(result.error)
@@ -181,7 +210,7 @@ class GameDetailsViewModel @Inject constructor(
                 pendingLocalFile?.let { (file, name, size) ->
                     pendingLocalFile = null
                     onInstallLocalFile(file, name, size)
-                } ?: onInstall(pendingOption, pendingMore)
+                } ?: onInstall(pendingOption, pendingMore, pendingFolder)
             }
         }
     }

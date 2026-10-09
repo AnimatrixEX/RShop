@@ -97,7 +97,7 @@ class AppNavigationTest {
         composeRule.onNodeWithText(text(R.string.library_empty_title)).assertIsDisplayed()
 
         composeRule.onNodeWithTag("tab_Settings").performClick()
-        composeRule.onNodeWithText(text(R.string.settings_games_dir)).assertIsDisplayed()
+        composeRule.onNodeWithText(text(R.string.settings_tab_catalog)).assertIsDisplayed()
     }
 
     @Test
@@ -118,7 +118,7 @@ class AppNavigationTest {
 
         // Wraps around from Home to Settings.
         pressKey(KeyEvent.KEYCODE_BUTTON_L1)
-        composeRule.onNodeWithText(text(R.string.settings_games_dir)).assertIsDisplayed()
+        composeRule.onNodeWithText(text(R.string.settings_tab_catalog)).assertIsDisplayed()
     }
 
     @Test

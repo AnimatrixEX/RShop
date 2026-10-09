@@ -46,7 +46,9 @@ class GameInstaller @Inject constructor(
 
     suspend fun install(download: DownloadEntity, file: File, onProgress: (Long) -> Unit): InstalledGameEntity =
         withContext(Dispatchers.IO) {
-            val tree = when (val state = directoryManager.state.first()) {
+            // The folder the player chose, else the one the game already lives in, else the default.
+            val previousInstall = installedDao.get(download.gameId)
+            val tree = when (val state = directoryManager.stateFor(download.targetDirectory, previousInstall?.documentUri)) {
                 is GamesDirectoryState.Available -> state.uri
                 GamesDirectoryState.AccessLost -> throw InstallException.DirectoryLost()
                 GamesDirectoryState.NotSelected -> throw InstallException.NoGamesDirectory()
@@ -126,7 +128,7 @@ class GameInstaller @Inject constructor(
 
     /** Reads the format from the files of an install that predates the stored format. */
     suspend fun detectFormat(installed: InstalledGameEntity): String? {
-        val tree = (directoryManager.state.first() as? GamesDirectoryState.Available)?.uri ?: return null
+        val tree = directoryManager.folderOf(installed.documentUri)?.takeIf { it.available }?.uri ?: return null
         val names = ArrayList<String>()
         fun walk(folder: Uri, depth: Int) {
             for ((childName, child) in storage.children(tree, folder)) {
@@ -143,9 +145,10 @@ class GameInstaller @Inject constructor(
         return FileFormats.summary(names)
     }
 
-    /** Free and total bytes of the volume holding the games folder. */
-    suspend fun deviceSpace(): DeviceSpace? {
-        val tree = (directoryManager.state.first() as? GamesDirectoryState.Available)?.uri ?: return null
+    /** Free and total bytes of the volume holding the games folder a download goes to (the default folder when none is given). */
+    suspend fun deviceSpace(download: DownloadEntity? = null): DeviceSpace? {
+        val state = directoryManager.stateFor(download?.targetDirectory, download?.let { installedDao.get(it.gameId)?.documentUri })
+        val tree = (state as? GamesDirectoryState.Available)?.uri ?: return null
         return storage.volumeSpace(directoryAccess.describe(tree))
     }
 

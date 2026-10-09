@@ -61,7 +61,10 @@ fun FormatChooserDialog(
     onDismiss: () -> Unit,
 ) {
     val first = remember { FocusRequester() }
-    val allAreParts = remember(options) { GameParts.looksLikeParts(options) }
+    // Every file of the game is listed, whatever its type. "Download all" only concerns the files
+    // that look like parts of the game itself (discs, bin + cue), not pictures or updates.
+    val mains = remember(options) { options.filterNot { it.isUpdate || it.isExtra } }
+    val allAreParts = remember(mains) { GameParts.looksLikeParts(mains) }
     var several by remember { mutableStateOf(false) }
     var chosen by remember { mutableStateOf(emptySet<String>()) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -83,8 +86,8 @@ fun FormatChooserDialog(
                 Text(stringResource(R.string.details_parts_hint), style = MaterialTheme.typography.bodySmall, color = RShopColors.TextSecondary)
                 Spacer(Modifier.height(10.dp))
                 ConsoleButton(
-                    pluralStringResource(R.plurals.details_download_all, options.size, options.size),
-                    onClick = { onPickMany(options) },
+                    pluralStringResource(R.plurals.details_download_all, mains.size, mains.size),
+                    onClick = { onPickMany(mains) },
                     modifier = Modifier.focusRequester(first),
                 )
             }
@@ -108,6 +111,7 @@ fun FormatChooserDialog(
                         modifier = Modifier.fillMaxWidth().let { if (index == 0 && !(allAreParts && !several)) it.focusRequester(first) else it },
                     )
                 }
+
             }
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -123,7 +127,7 @@ fun FormatChooserDialog(
                     ConsoleButton(
                         pluralStringResource(R.plurals.details_download_selected, chosen.size, chosen.size),
                         onClick = {
-                            // Installed in the order the page lists them.
+                            // Installed in the order the files are listed.
                             onPickMany(options.filter { it.url in chosen })
                         },
                     )

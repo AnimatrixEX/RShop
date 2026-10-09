@@ -173,6 +173,10 @@ data class DownloadEntity(
     /** Absolute path of the partial/complete file in app-specific storage. */
     @ColumnInfo(name = "temp_path") val tempPath: String,
     @ColumnInfo(name = "expected_sha256") val expectedSha256: String?,
+    /** MD5 published by the server (Google Drive), checked when there is no SHA-256. */
+    @ColumnInfo(name = "expected_md5") val expectedMd5: String? = null,
+    /** Games folder (tree address) the player chose for this game; null installs into the game's current folder or the default. */
+    @ColumnInfo(name = "target_directory") val targetDirectory: String? = null,
     @ColumnInfo(name = "total_bytes") val totalBytes: Long?,
     @ColumnInfo(name = "downloaded_bytes") val downloadedBytes: Long,
     /** Validators sent back with Range requests so a changed file is never resumed. */

@@ -65,7 +65,7 @@ class StoreViewModelTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val clock = fixedClock()
         val status = SyncStatusStore(context, clock)
-        val sources = SourceRepository(context, OkHttpClient(), backgroundScope)
+        val sources = SourceRepository(context, OkHttpClient(), backgroundScope, com.rshop.data.source.DriveSettings(context, com.rshop.data.artwork.SecretCipher(), backgroundScope))
         val sourceManager = SourceManager(
             sources = sources,
             games = db.repository(),

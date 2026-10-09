@@ -41,6 +41,8 @@ fun Context.downloadErrorMessage(error: DownloadError): String = when (error.kin
     DownloadErrorKind.Unsupported -> getString(R.string.dl_error_unsupported, error.detail.orEmpty())
     DownloadErrorKind.NoLink -> getString(R.string.dl_error_no_link)
     DownloadErrorKind.StreamLost -> getString(R.string.dl_error_stream_lost)
+    DownloadErrorKind.Quota -> getString(R.string.error_quota)
+    DownloadErrorKind.ApiKey -> getString(R.string.error_drive_key)
     DownloadErrorKind.Unknown -> getString(R.string.dl_error_unknown)
 }
 

@@ -25,7 +25,6 @@ import com.rshop.domain.model.Game
 import com.rshop.domain.model.sourceId
 import com.rshop.domain.repository.GameRepository
 import com.rshop.domain.repository.SettingsRepository
-import com.rshop.scraper.website.DownloadUrlPolicy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -80,6 +79,12 @@ class DownloadManager @Inject constructor(
 ) {
     private val workManager by lazy { WorkManager.getInstance(context) }
 
+    /**
+     * Folder the player chose for a game, kept while its file comes through the in-app browser or a
+     * picked file, which create the download later than [start] does.
+     */
+    private val chosenFolders = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     /** App-specific storage: large, no permission needed, cleaned on uninstall. */
     val downloadsDir: File
         get() = File(context.getExternalFilesDir(null) ?: context.filesDir, "downloads")
@@ -95,7 +100,14 @@ class DownloadManager @Inject constructor(
      * null takes the first one. [moreUrls] are further files of the same game (other discs, bin +
      * cue), fetched and installed one after the other into the same game.
      */
-    suspend fun start(gameId: String, optionUrl: String? = null, moreUrls: List<String> = emptyList()): StartResult {
+    suspend fun start(
+        gameId: String,
+        optionUrl: String? = null,
+        moreUrls: List<String> = emptyList(),
+        /** Games folder chosen by the player; null keeps the game where it is installed, else the default folder. */
+        targetDirectory: String? = null,
+    ): StartResult {
+        if (targetDirectory != null) chosenFolders[gameId] = targetDirectory
         dao.get(gameId)?.let { existing ->
             if (DownloadStatus.valueOf(existing.state).isActive) return StartResult.Started
         }
@@ -122,15 +134,15 @@ class DownloadManager @Inject constructor(
         extras.firstOrNull { it.viaPage }?.let { return StartResult.OpenInBrowser(it.url) }
         val config = sources.get(game.sourceId)
             ?: return StartResult.Failed(DownloadError(DownloadErrorKind.Rejected, "game does not belong to a configured source"))
-        val policy = DownloadUrlPolicy(config.base, config.allowedDownloadHosts)
+        val source = sources.createSource(config)
         val fileName = DownloadPolicy.fileName(url, game.title)
         try {
             // Every link is resolved by the worker first (download pages, redirects, real file
             // name); the resolved URL and name are checked again there.
-            DownloadPolicy.check(url, if (option.viaPage) "$fileName.page" else fileName) { policy.accepts(it) || option.viaPage }
+            DownloadPolicy.check(url, if (option.viaPage) "$fileName.page" else fileName) { source.acceptsDownloadUrl(it) || option.viaPage }
             for (extra in extras) {
                 val extraUrl = extra.url.toHttpUrlOrNull() ?: throw DownloadException.Rejected("invalid link ${extra.url}")
-                DownloadPolicy.check(extraUrl, DownloadPolicy.fileName(extraUrl, game.title)) { policy.accepts(it) }
+                DownloadPolicy.check(extraUrl, DownloadPolicy.fileName(extraUrl, game.title)) { source.acceptsDownloadUrl(it) }
             }
         } catch (e: DownloadException) {
             return StartResult.Failed(e.toDownloadError())
@@ -150,6 +162,7 @@ class DownloadManager @Inject constructor(
                 fileName = fileName,
                 tempPath = File(File(downloadsDir, folderFor(game.id)), fileName).absolutePath,
                 expectedSha256 = option.sha256,
+                targetDirectory = targetDirectory,
                 totalBytes = option.sizeBytes ?: game.sizeBytes.takeIf { game.downloadOptions.size <= 1 },
                 downloadedBytes = 0,
                 etag = null,
@@ -199,6 +212,7 @@ class DownloadManager @Inject constructor(
                 fileName = fileName,
                 tempPath = File(File(downloadsDir, folderFor(game.id)), fileName).absolutePath,
                 expectedSha256 = null,
+                targetDirectory = chosenFolders[game.id],
                 totalBytes = file.sizeBytes,
                 downloadedBytes = 0,
                 etag = null,
@@ -244,6 +258,7 @@ class DownloadManager @Inject constructor(
                 fileName = fileName,
                 tempPath = File(File(downloadsDir, folderFor(game.id)), fileName).absolutePath,
                 expectedSha256 = null,
+                targetDirectory = chosenFolders[game.id],
                 totalBytes = sizeBytes,
                 downloadedBytes = 0,
                 etag = null,
@@ -303,6 +318,7 @@ class DownloadManager @Inject constructor(
                 fileName = name,
                 tempPath = File(folder, name).absolutePath,
                 expectedSha256 = null,
+                targetDirectory = chosenFolders[game.id],
                 totalBytes = totalBytes,
                 downloadedBytes = 0,
                 etag = null,
