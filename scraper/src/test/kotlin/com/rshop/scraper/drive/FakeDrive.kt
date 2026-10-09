@@ -68,7 +68,8 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
                 failure?.let { (code, reason) -> return error(code, reason) }
                 val url = request.url
                 val segments = url.pathSegments
-                if (url.queryParameter("key") != KEY) return error(400, "keyInvalid")
+                val signedIn = request.headers["Authorization"] == "Bearer $TOKEN"
+                if (!signedIn && url.queryParameter("key") != KEY) return error(400, "keyInvalid")
                 return when {
                     segments == listOf("drive", "v3", "files") -> list(url.queryParameter("q").orEmpty(), url.queryParameter("pageToken"))
                     segments.size == 4 && segments[2] == "files" -> {
@@ -114,8 +115,8 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
 
     val apiBase get() = server.url("/drive/v3/")
 
-    fun api(key: String? = KEY): DriveApi {
-        val creds = key?.let { DriveCredentials(it, "com.rshop", "AB12") }
+    fun api(key: String? = KEY, bearer: String? = null): DriveApi {
+        val creds = if (bearer != null) DriveCredentials(bearerToken = bearer) else key?.let { DriveCredentials(it, "com.rshop", "AB12") }
         val client = OkHttpClient.Builder()
             .addInterceptor(DriveAuthInterceptor({ creds }, appliesTo = { it.encodedPath.startsWith("/drive/v3/") }))
             .build()
@@ -126,5 +127,6 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
 
     companion object {
         const val KEY = "test-key"
+        const val TOKEN = "google-access-token"
     }
 }

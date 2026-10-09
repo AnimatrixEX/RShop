@@ -82,6 +82,7 @@ fun SourceSetupScreen(
     val sources by viewModel.sources.collectAsStateWithLifecycle()
     val syncPaused by viewModel.syncPaused.collectAsStateWithLifecycle()
     val driveKey by viewModel.driveKey.collectAsStateWithLifecycle()
+    val signIn by viewModel.signIn.collectAsStateWithLifecycle()
     var confirmRemove by remember { mutableStateOf<SourceItem?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -178,10 +179,21 @@ fun SourceSetupScreen(
                     onImport = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 )
             }
-            val showKey = driveKey.configured || state.analysis == AnalysisState.DriveKeyNeeded ||
-                DriveLink.parse(state.url) != null || sources.any { it.config is DriveConfig }
+            val showKey = driveKey.configured || driveKey.clientConfigured || driveKey.signedIn ||
+                state.analysis == AnalysisState.DriveKeyNeeded || DriveLink.parse(state.url) != null || sources.any { it.config is DriveConfig }
             if (showKey) {
-                item { DriveKeyCard(driveKey, needed = state.analysis == AnalysisState.DriveKeyNeeded, onSave = viewModel::setDriveKey) }
+                item {
+                    DriveAccessCard(
+                        status = driveKey,
+                        signIn = signIn,
+                        needed = state.analysis == AnalysisState.DriveKeyNeeded,
+                        onSignIn = { viewModel.beginSignIn { url -> com.rshop.ui.browser.CustomTabLauncher.open(context, url) } },
+                        onCancelSignIn = viewModel::cancelSignIn,
+                        onSignOut = viewModel::signOut,
+                        onSaveClient = viewModel::saveOAuthClient,
+                        onSaveKey = viewModel::setDriveKey,
+                    )
+                }
             }
             item {
                 AnalysisResult(
@@ -521,64 +533,6 @@ private fun Finding(label: Int, found: Boolean) {
         )
         Spacer(Modifier.width(6.dp))
         Text(stringResource(label), style = MaterialTheme.typography.bodyMedium, color = if (found) RShopColors.TextPrimary else RShopColors.TextTertiary)
-    }
-}
-
-/**
- * The Google Cloud API key the Drive API needs: entered once, stored encrypted, shown only by its
- * last characters.
- */
-@Composable
-private fun DriveKeyCard(status: DriveKeyStatus, needed: Boolean, onSave: (String) -> Unit) {
-    var key by remember { mutableStateOf("") }
-    Column(
-        Modifier
-            .padding(horizontal = Dimens.ScreenPadding)
-            .fillMaxWidth()
-            .background(RShopColors.Surface, RoundedCornerShape(16.dp))
-            .padding(18.dp),
-    ) {
-        Text(stringResource(R.string.drive_key_title), style = MaterialTheme.typography.titleMedium)
-        Text(
-            if (status.configured) stringResource(R.string.drive_key_configured, status.hint.orEmpty()) else stringResource(R.string.drive_key_missing),
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (needed) RShopColors.Warning else RShopColors.TextSecondary,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(stringResource(R.string.drive_key_help), style = MaterialTheme.typography.bodySmall, color = RShopColors.TextTertiary)
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ControllerTextField(shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) { fieldModifier ->
-                OutlinedTextField(
-                    value = key,
-                    onValueChange = { key = it },
-                    modifier = fieldModifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.drive_key_label)) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = {
-                        if (key.isNotBlank()) onSave(key)
-                        key = ""
-                    }),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = RShopColors.Focus,
-                        unfocusedBorderColor = RShopColors.Outline,
-                        focusedContainerColor = RShopColors.SurfaceHigh,
-                        unfocusedContainerColor = RShopColors.Surface,
-                    ),
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            ConsoleButton(stringResource(R.string.drive_key_save), onClick = {
-                if (key.isNotBlank()) onSave(key)
-                key = ""
-            })
-            if (status.configured) {
-                Spacer(Modifier.width(12.dp))
-                ConsoleButton(stringResource(R.string.drive_key_remove), onClick = { onSave("") }, style = ConsoleButtonStyle.Secondary)
-            }
-        }
     }
 }
 

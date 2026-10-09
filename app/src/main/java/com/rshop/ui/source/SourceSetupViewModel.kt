@@ -1,6 +1,8 @@
 package com.rshop.ui.source
 
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import com.rshop.domain.repository.GameRepository
 import com.rshop.data.sync.SyncState
 import com.rshop.data.sync.SyncScheduler
@@ -18,6 +20,8 @@ import com.rshop.scraper.analysis.PaginationKind
 import com.rshop.scraper.analysis.SiteAnalysis
 import com.rshop.data.source.DriveKeyStatus
 import com.rshop.data.source.DriveSettings
+import com.rshop.data.source.GoogleSignIn
+import com.rshop.data.source.SignInState
 import com.rshop.scraper.config.DriveConfig
 import com.rshop.scraper.config.ScraperConfig
 import com.rshop.scraper.config.SourceConfig
@@ -115,6 +119,7 @@ class SourceSetupViewModel @Inject constructor(
     private val documents: TextDocuments,
     private val scheduler: SyncScheduler,
     private val driveSettings: DriveSettings,
+    private val googleSignIn: GoogleSignIn,
     games: GameRepository,
 ) : ViewModel() {
 
@@ -124,10 +129,39 @@ class SourceSetupViewModel @Inject constructor(
     fun setDriveKey(key: String) {
         viewModelScope.launch {
             driveSettings.setApiKey(key)
-            val waiting = _state.value.analysis == AnalysisState.DriveKeyNeeded ||
-                (_state.value.analysis as? AnalysisState.Failed)?.error?.kind == com.rshop.data.sync.SourceErrorKind.ApiKey
-            if (key.isNotBlank() && waiting) analyze()
+            if (key.isNotBlank()) retryIfWaiting()
         }
+    }
+
+    /** A Drive link that could not be read for want of credentials is read again now that there are some. */
+    private fun retryIfWaiting() {
+        val waiting = _state.value.analysis == AnalysisState.DriveKeyNeeded ||
+            (_state.value.analysis as? AnalysisState.Failed)?.error?.kind == com.rshop.data.sync.SourceErrorKind.ApiKey
+        if (waiting) analyze()
+    }
+
+    // --- Google account ---------------------------------------------------------------------
+
+    val signIn: StateFlow<SignInState> = googleSignIn.state
+
+    /** Opens Google's sign-in page with [open] (the device's browser); the answer comes back by itself. */
+    fun beginSignIn(open: (String) -> Boolean) {
+        viewModelScope.launch {
+            val url = googleSignIn.begin() ?: return@launch
+            if (!open(url)) googleSignIn.cancel()
+        }
+    }
+
+    fun cancelSignIn() = googleSignIn.cancel()
+
+    fun signOut() {
+        viewModelScope.launch { driveSettings.signOut() }
+    }
+
+    /** The OAuth client (id and secret) of the player's Google Cloud project; blank removes it. */
+    fun saveOAuthClient(id: String, secret: String) {
+        googleSignIn.dismissError()
+        viewModelScope.launch { driveSettings.setOAuthClient(id, secret) }
     }
 
     val syncPaused: StateFlow<Boolean> = scheduler.paused.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -367,6 +401,13 @@ class SourceSetupViewModel @Inject constructor(
             } finally {
                 _state.update { it.copy(busy = false) }
             }
+        }
+    }
+
+    init {
+        // Signed in: a Drive link that was waiting for credentials is read again.
+        viewModelScope.launch {
+            driveSettings.status.map { it.signedIn }.distinctUntilChanged().collect { if (it) retryIfWaiting() }
         }
     }
 

@@ -5,18 +5,21 @@ import okhttp3.Interceptor
 import okhttp3.Response
 
 /**
- * The key of the user's own Google Cloud project. [androidPackage] and [androidCert] (SHA-1 of the
- * signing certificate, hex) are sent so that a key restricted to this Android app is accepted.
+ * How requests to Drive are authorised: the Google account the user signed in with ([bearerToken],
+ * for private and shared-with-me folders) or, for a folder anyone with the link can read, the API
+ * key of the user's own Google Cloud project. [androidPackage] and [androidCert] (SHA-1 of the
+ * signing certificate, hex) go with the key so that a key restricted to this Android app is accepted.
  */
 data class DriveCredentials(
-    val apiKey: String,
+    val apiKey: String? = null,
     val androidPackage: String? = null,
     val androidCert: String? = null,
+    val bearerToken: String? = null,
 )
 
 /**
- * Adds the API key to Drive API requests, and only to them. The key never appears in a stored URL
- * (downloads keep a key-free link; the key is added at the moment of the request), and a resource
+ * Authorises Drive API requests, and only them. The credentials never appear in a stored URL
+ * (downloads keep a link without them; they are added at the moment of the request), and a resource
  * key carried by [RESOURCE_KEY_PARAM] becomes the header Drive expects.
  */
 class DriveAuthInterceptor(
@@ -28,14 +31,18 @@ class DriveAuthInterceptor(
         val request = chain.request()
         if (!appliesTo(request.url)) return chain.proceed(request)
         val resourceKey = request.url.queryParameter(RESOURCE_KEY_PARAM)
+        val creds = credentials()
         val builder = request.newBuilder()
         val url = request.url.newBuilder().removeAllQueryParameters(RESOURCE_KEY_PARAM).apply {
-            credentials()?.let { setQueryParameter("key", it.apiKey) }
+            if (creds?.bearerToken == null) creds?.apiKey?.let { setQueryParameter("key", it) }
         }.build()
         builder.url(url)
-        credentials()?.let { creds ->
-            creds.androidPackage?.let { builder.header("X-Android-Package", it) }
-            creds.androidCert?.let { builder.header("X-Android-Cert", it) }
+        when {
+            creds?.bearerToken != null -> builder.header("Authorization", "Bearer ${creds.bearerToken}")
+            creds != null -> {
+                creds.androidPackage?.let { builder.header("X-Android-Package", it) }
+                creds.androidCert?.let { builder.header("X-Android-Cert", it) }
+            }
         }
         if (resourceKey != null && request.header(RESOURCE_KEYS_HEADER) == null) {
             val fileId = request.url.pathSegments.getOrNull(3)

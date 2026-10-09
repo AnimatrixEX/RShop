@@ -173,6 +173,22 @@ class DriveSourceTest {
     }
 
     @Test
+    fun `a signed-in Google account reads the Drive with a bearer token and no API key`() = runTest {
+        val (tree, root) = sample
+        FakeDrive(tree).use { drive ->
+            val config = DriveConfig(DriveConfig.idFor(root), "Drive", root)
+            val source = DriveSource(config, drive.api(key = null, bearer = FakeDrive.TOKEN))
+            val games = source.crawl().toList().flatMap { it.games }
+            assertEquals(3, games.size)
+            assertTrue(drive.requests.all { it.headers["Authorization"] == "Bearer ${FakeDrive.TOKEN}" })
+            // The token never travels in the URL, and the app's key restriction headers stay out of it.
+            assertTrue(drive.requests.all { it.url.queryParameter("key") == null && it.headers["X-Android-Package"] == null })
+            // A wrong token is refused like a wrong key.
+            expect<ScraperException.ApiKeyRejected> { DriveSource(config, drive.api(key = null, bearer = "stale")).inspect() }
+        }
+    }
+
+    @Test
     fun `a download resolves to the media link with its real name`() = runTest {
         val (tree, root) = sample
         FakeDrive(tree).use { drive ->
