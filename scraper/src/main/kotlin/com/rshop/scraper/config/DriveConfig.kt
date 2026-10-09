@@ -55,7 +55,8 @@ data class DriveConfig(
     companion object {
         const val TYPE = "drive"
         const val MIN_INTERVAL_MS = 100L
-        const val DEFAULT_INTERVAL_MS = 400L
+        /** The Drive API allows about ten requests a second; the walker keeps a few in flight. */
+        const val DEFAULT_INTERVAL_MS = 100L
         const val DEFAULT_DEPTH = 6
 
         /** Drive ids are URL-safe base64-ish strings of 20 characters or more. */

@@ -31,7 +31,7 @@ class SourceRepositoryTest {
     }
 
     private fun kotlinx.coroutines.test.TestScope.repository() =
-        SourceRepository(context, OkHttpClient(), backgroundScope, DriveSettings(context, SecretCipher(), backgroundScope))
+        SourceRepository(context, OkHttpClient(), backgroundScope, DriveSettings(context, SecretCipher(), backgroundScope, com.rshop.data.source.SystemAccountAuth(context)))
 
     private fun config(id: String, name: String) = ScraperConfig(
         id = id,

@@ -45,8 +45,7 @@ class DriveSource(
     private var truncated = false
 
     /** Folders refused to us during the crawl (a shortcut to someone else's folder, a restricted sub-folder). */
-    @Volatile
-    private var skipped = 0
+    private val skipped = java.util.concurrent.atomic.AtomicInteger()
     override val crawlTruncated: Boolean get() = truncated
 
     /** Reads the shared folder's name and its console folders. */
@@ -75,7 +74,7 @@ class DriveSource(
     override fun crawl(isKnown: (String) -> Boolean): Flow<CatalogPage> = flow {
         truncated = false
         val budget = Budget(config.maxRequestsPerCrawl)
-        skipped = 0
+        skipped.set(0)
         val walker = walker(budget)
         val consoles = if (config.platform != null) {
             listOf(DriveConsole(config.platform, root))
@@ -98,7 +97,7 @@ class DriveSource(
             truncated = true
         }
         // Folders that could not be read were left out: the scan is not complete, nothing may be deleted from it.
-        if (skipped > 0) truncated = true
+        if (skipped.get() > 0) truncated = true
     }
 
     /** Pages only exist through [crawl]; this reads the whole tree, kept for the interface. */
@@ -111,13 +110,13 @@ class DriveSource(
         val file = api.getFile(id).resolved()
         val game = when {
             file.isFolder -> {
-                val children = api.listChildren(listOf(file))[file.id].orEmpty().map { it.resolved() }
+                val children = api.listChildren(listOf(file), full = true)[file.id].orEmpty().map { it.resolved() }
                 val offered = children.filter { !it.isFolder && !it.isGoogleDocument && GameFiles.isOffered(it.name) }
                 val files = offered.filter { GameFiles.isGameFile(it.name) }.sortedBy { it.name }
                 val others = offered.filterNot { GameFiles.isGameFile(it.name) }.sortedBy { it.name }
                 val updateFolders = children.filter { it.isFolder && GameFiles.isUpdateFolderName(it.name) }
                 val updates = if (updateFolders.isEmpty()) emptyList() else {
-                    val listed = api.listChildren(updateFolders)
+                    val listed = api.listChildren(updateFolders, full = true)
                     updateFolders.flatMap { DriveCatalogWalker.updateFiles(listed[it.id].orEmpty()) }
                 }
                 DriveGame(file.id, file.name.trim(), config.platform, files, updates, others)
@@ -126,7 +125,7 @@ class DriveSource(
             else -> {
                 // The other files of the same title (cue + bin, discs) live next to it.
                 val parent = file.parents.firstOrNull()?.let { DriveFile(it, "", DriveFile.FOLDER_MIME) }
-                val siblings = parent?.let { api.listChildren(listOf(it))[it.id] }.orEmpty().map { it.resolved() }
+                val siblings = parent?.let { api.listChildren(listOf(it), full = true)[it.id] }.orEmpty().map { it.resolved() }
                     .filter { !it.isFolder && GameFiles.isGameFile(it.name) }
                 val key = GameFiles.groupKey(file.name)
                 val group = siblings.filter { GameFiles.groupKey(it.name) == key }.ifEmpty { listOf(file) }
@@ -220,7 +219,7 @@ class DriveSource(
     }
 
     private fun skip(folder: DriveFile, cause: ScraperException.AccessDenied): Map<String, List<DriveFile>> {
-        skipped++
+        skipped.incrementAndGet()
         log.warn("Skipping folder '${folder.name}': ${cause.message}")
         return mapOf(folder.id to emptyList())
     }

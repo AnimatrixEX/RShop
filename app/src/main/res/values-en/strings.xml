@@ -543,4 +543,10 @@
     <string name="drive_client_save">Save</string>
     <string name="drive_client_remove">Change client</string>
     <string name="drive_client_help">Once, in Google Cloud Console: enable "Google Drive API", set up the OAuth consent screen (External, add your Google address as a test user), then Credentials → Create credentials → OAuth client ID → type "Desktop app". Paste the ID and the secret here. A private folder, or one shared with your account, can then be read. While the app is in Testing the sign-in expires after 7 days: set the app to "In production" to avoid that.</string>
+    <string name="drive_sign_in_device">Sign in with the device\'s Google account</string>
+    <string name="drive_account_device">device Google account</string>
+    <string name="drive_browser_way">Other way: Google sign-in page in the browser</string>
+    <string name="drive_device_help">Google uses the account already on the device and asks for your agreement. Once, in Google Cloud Console: enable \"Google Drive API\", set up the consent screen (External, your Google address as a test user) and create an OAuth client ID of type \"Android\" with package name %1$s and SHA-1 fingerprint %2$s.</string>
+    <string name="drive_device_not_registered">Google does not recognise this app: create the \"Android\" OAuth client ID (package and SHA-1 fingerprint shown below) in Google Cloud Console.</string>
+    <string name="source_speed_turbo">Turbo</string>
 </resources>

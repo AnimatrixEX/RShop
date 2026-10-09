@@ -121,8 +121,12 @@ class SourceRepository @Inject constructor(
     private fun readAll(): List<SourceConfig> {
         migrateLegacy()
         val files = dir.listFiles { file -> file.isFile && file.name.endsWith(".json") }.orEmpty()
-        return files.mapNotNull(::read).distinctBy { it.id }.sortedBy { it.name.lowercase() }
+        return files.mapNotNull(::read).map(::faster).distinctBy { it.id }.sortedBy { it.name.lowercase() }
     }
+
+    /** Drive sources were first saved with the 400 ms interval a website needs: the Drive API takes far more. */
+    private fun faster(config: SourceConfig): SourceConfig =
+        if (config is DriveConfig && config.minRequestIntervalMs == 400L) config.withInterval(DriveConfig.DEFAULT_INTERVAL_MS) else config
 
     private fun migrateLegacy() {
         if (!legacyFile.exists()) return

@@ -104,7 +104,7 @@ class DriveApi(
      * The direct children (folders and files, not trashed) of every folder in [folders], grouped by
      * parent. One request covers up to [BATCH] folders; pages are followed to the end.
      */
-    suspend fun listChildren(folders: List<DriveFile>): Map<String, List<DriveFile>> {
+    suspend fun listChildren(folders: List<DriveFile>, full: Boolean = false): Map<String, List<DriveFile>> {
         val result = LinkedHashMap<String, MutableList<DriveFile>>()
         folders.forEach { result[it.id] = mutableListOf() }
         for (batch in folders.chunked(BATCH)) {
@@ -115,7 +115,7 @@ class DriveApi(
             do {
                 val url = baseUrl.newBuilder().addPathSegment("files")
                     .addQueryParameter("q", query)
-                    .addQueryParameter("fields", "nextPageToken,files($FILE_FIELDS)")
+                    .addQueryParameter("fields", "nextPageToken,files(${if (full) FILE_FIELDS else LIST_FIELDS})")
                     .addQueryParameter("pageSize", "1000")
                     .addQueryParameter("orderBy", "name")
                     .addQueryParameter("supportsAllDrives", "true")
@@ -136,7 +136,7 @@ class DriveApi(
             // Without the parent of each file a batch cannot be told apart: ask folder by folder.
             if (unmapped) {
                 for (folder in batch) {
-                    val own = listChildren(listOf(folder))[folder.id].orEmpty()
+                    val own = listChildren(listOf(folder), full)[folder.id].orEmpty()
                     result.getValue(folder.id).apply { clear(); addAll(own) }
                 }
             }
@@ -187,8 +187,11 @@ class DriveApi(
 
     companion object {
         const val SERVICE = "Google Drive"
-        const val BATCH = 20
+        const val BATCH = 40
         private const val MAX_ATTEMPTS = 4
+        /** What a catalogue listing needs: names, sizes, where each file sits. Checksums and dates come with the details. */
+        private const val LIST_FIELDS =
+            "id,name,mimeType,size,resourceKey,parents,shortcutDetails(targetId,targetMimeType,targetResourceKey)"
         private const val FILE_FIELDS =
             "id,name,mimeType,size,modifiedTime,md5Checksum,resourceKey,parents,shortcutDetails(targetId,targetMimeType,targetResourceKey)"
 

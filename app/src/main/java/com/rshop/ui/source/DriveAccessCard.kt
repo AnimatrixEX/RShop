@@ -49,6 +49,8 @@ fun DriveAccessCard(
     status: DriveKeyStatus,
     signIn: SignInState,
     needed: Boolean,
+    device: SourceSetupViewModel.DeviceSignIn,
+    onDeviceSignIn: () -> Unit,
     onSignIn: () -> Unit,
     onCancelSignIn: () -> Unit,
     onSignOut: () -> Unit,
@@ -68,7 +70,7 @@ fun DriveAccessCard(
             Text(stringResource(R.string.drive_key_needed), style = MaterialTheme.typography.bodyMedium, color = RShopColors.Warning)
         }
         Spacer(Modifier.height(14.dp))
-        AccountSection(status, signIn, onSignIn, onCancelSignIn, onSignOut, onSaveClient)
+        AccountSection(status, signIn, device, onDeviceSignIn, onSignIn, onCancelSignIn, onSignOut, onSaveClient)
         Spacer(Modifier.height(18.dp))
         ApiKeySection(status, onSaveKey)
     }
@@ -78,6 +80,8 @@ fun DriveAccessCard(
 private fun AccountSection(
     status: DriveKeyStatus,
     signIn: SignInState,
+    device: SourceSetupViewModel.DeviceSignIn,
+    onDeviceSignIn: () -> Unit,
     onSignIn: () -> Unit,
     onCancelSignIn: () -> Unit,
     onSignOut: () -> Unit,
@@ -86,7 +90,11 @@ private fun AccountSection(
     Text(stringResource(R.string.drive_account_title), style = MaterialTheme.typography.titleMedium)
     when {
         status.signedIn -> {
-            Text(stringResource(R.string.drive_account_signed_in, status.email.orEmpty()), style = MaterialTheme.typography.bodyMedium, color = RShopColors.Success)
+            Text(
+                stringResource(R.string.drive_account_signed_in, status.email ?: stringResource(R.string.drive_account_device)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = RShopColors.Success,
+            )
             Spacer(Modifier.height(10.dp))
             ConsoleButton(stringResource(R.string.drive_sign_out), onClick = onSignOut, style = ConsoleButtonStyle.Secondary)
         }
@@ -104,6 +112,8 @@ private fun AccountSection(
             Spacer(Modifier.width(14.dp))
             Text(stringResource(R.string.drive_sign_in_finishing), style = MaterialTheme.typography.bodyMedium, color = RShopColors.AccentBright)
         }
+        // The account already on the device: one tap, Google's own account picker and consent screen.
+        device.available && !status.clientConfigured -> DeviceSection(status, signIn, device, onDeviceSignIn, onSaveClient)
         status.clientConfigured -> {
             val message = when {
                 signIn is SignInState.Failed && signIn.kind == OAuthException.Kind.Denied -> stringResource(R.string.drive_sign_in_denied) to true
@@ -198,5 +208,35 @@ private fun TextField(
                 unfocusedContainerColor = RShopColors.Surface,
             ),
         )
+    }
+}
+
+/** Sign in with the Google account of the device; the browser way stays one line below for those who prefer it. */
+@Composable
+private fun DeviceSection(
+    status: DriveKeyStatus,
+    signIn: SignInState,
+    device: SourceSetupViewModel.DeviceSignIn,
+    onDeviceSignIn: () -> Unit,
+    onSaveClient: (String, String) -> Unit,
+) {
+    var browserWay by remember { mutableStateOf(false) }
+    val problem = when {
+        signIn is SignInState.Failed && signIn.detail == com.rshop.data.source.GoogleSignIn.DEVICE_NOT_REGISTERED ->
+            stringResource(R.string.drive_device_not_registered)
+        signIn is SignInState.Failed -> stringResource(R.string.drive_sign_in_failed, signIn.detail.orEmpty())
+        status.signInExpired -> stringResource(R.string.drive_account_expired)
+        else -> null
+    }
+    Text(problem ?: stringResource(R.string.drive_account_signed_out), style = MaterialTheme.typography.bodyMedium, color = if (problem != null) RShopColors.Warning else RShopColors.TextSecondary)
+    Spacer(Modifier.height(10.dp))
+    ConsoleButton(stringResource(R.string.drive_sign_in_device), onClick = onDeviceSignIn)
+    Spacer(Modifier.height(8.dp))
+    Text(stringResource(R.string.drive_device_help, device.packageName, device.sha1 ?: "?"), style = MaterialTheme.typography.bodySmall, color = RShopColors.TextTertiary)
+    Spacer(Modifier.height(10.dp))
+    if (!browserWay) {
+        ConsoleButton(stringResource(R.string.drive_browser_way), onClick = { browserWay = true }, style = ConsoleButtonStyle.Secondary)
+    } else {
+        ClientForm(onSaveClient)
     }
 }

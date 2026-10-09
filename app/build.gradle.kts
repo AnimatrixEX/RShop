@@ -87,6 +87,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.browser)
+    // Optional path: reads Drive with the Google account already on the device (needs Play Services).
+    implementation(libs.play.services.auth)
     implementation(libs.geckoview)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

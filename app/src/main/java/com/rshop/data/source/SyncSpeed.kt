@@ -8,9 +8,15 @@ enum class SyncSpeed(val intervalMs: Long) {
     Careful(1_500),
     Normal(800),
     Fast(400),
+
+    /** Only for sources behind an API that allows it (Google Drive); a website is never asked this often. */
+    Turbo(100),
     ;
 
-    fun next(): SyncSpeed = entries[(ordinal + 1) % entries.size]
+    fun next(allowTurbo: Boolean = false): SyncSpeed {
+        val usable = if (allowTurbo) entries else entries - Turbo
+        return usable[(usable.indexOf(this) + 1) % usable.size]
+    }
 
     companion object {
         /** The profile closest to a stored interval. */

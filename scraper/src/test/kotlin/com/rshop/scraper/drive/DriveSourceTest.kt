@@ -162,12 +162,12 @@ class DriveSourceTest {
     @Test
     fun `a big level is handed on batch by batch`() = runTest {
         val (tree, root) = tree("Mes jeux") { r ->
-            repeat(45) { n -> folder("Game %02d".format(n), r) { g -> file("g$n.iso", g) } }
+            repeat(85) { n -> folder("Game %02d".format(n), r) { g -> file("g$n.iso", g) } }
         }
         FakeDrive(tree).use { drive ->
             val pages = source(drive, root, platform = "PS2").crawl().toList()
-            assertEquals(45, pages.sumOf { it.games.size })
-            // Folders are read 20 at a time and each batch is emitted at once: three groups, not one.
+            assertEquals(85, pages.sumOf { it.games.size })
+            // Folders are read 40 at a time and each batch is emitted at once: three groups, not one.
             assertTrue(pages.size >= 3)
         }
     }

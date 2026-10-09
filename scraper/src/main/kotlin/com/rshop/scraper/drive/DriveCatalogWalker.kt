@@ -1,6 +1,9 @@
 package com.rshop.scraper.drive
 
 import com.rshop.scraper.parse.ConsoleNames
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.time.Instant
 
 /** One game found in the Drive: a file, a few files of one title (disc 1/2, cue + bin), or a game folder. */
@@ -70,15 +73,27 @@ class DriveCatalogWalker(
      * Every game under [console], all of them on [platform]. [onGames] receives them level by level,
      * so a big console fills the catalogue progressively.
      */
-    suspend fun scanGames(console: DriveFile, platform: String?, onGames: suspend (List<DriveGame>) -> Unit) {
+    suspend fun scanGames(console: DriveFile, platform: String?, onGames: suspend (List<DriveGame>) -> Unit) = coroutineScope {
         val visited = hashSetOf(console.id)
         var level = listOf(console)
         var depth = 0
         while (level.isNotEmpty()) {
             val next = mutableListOf<DriveFile>()
-            // A level can hold thousands of folders: each batch is handed on as soon as it is read.
-            for (chunk in level.chunked(DriveApi.BATCH)) {
-            val children = list(chunk)
+            // A level can hold thousands of folders: they are read a batch at a time, a few batches ahead
+            // of the one being handled, and each batch is handed on as soon as it is read.
+            val chunks = level.chunked(DriveApi.BATCH).iterator()
+            val inFlight = ArrayDeque<Pair<List<DriveFile>, Deferred<Map<String, List<DriveFile>>>>>()
+            fun fill() {
+                while (inFlight.size < LOOKAHEAD && chunks.hasNext()) {
+                    val next = chunks.next()
+                    inFlight.addLast(next to async { list(next) })
+                }
+            }
+            fill()
+            while (inFlight.isNotEmpty()) {
+            val (chunk, pending) = inFlight.removeFirst()
+            val children = pending.await()
+            fill()
             val games = mutableListOf<DriveGame>()
             val withUpdates = mutableListOf<Pair<DriveGame, List<DriveFile>>>()
             for (folder in chunk) {
@@ -118,6 +133,9 @@ class DriveCatalogWalker(
     companion object {
         const val DISCOVERY_DEPTH = 3
         const val MAX_CONTAINER_FOLDERS = 40
+
+        /** Batches of folders being read at the same time. */
+        const val LOOKAHEAD = 4
 
         /** The patch files of an update folder's listing, in name order. */
         fun updateFiles(entries: List<DriveFile>): List<DriveFile> =

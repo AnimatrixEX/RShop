@@ -144,6 +144,24 @@ class SourceSetupViewModel @Inject constructor(
 
     val signIn: StateFlow<SignInState> = googleSignIn.state
 
+    /** What the card needs to offer the sign-in with the account of the device. */
+    data class DeviceSignIn(val available: Boolean, val packageName: String, val sha1: String?)
+
+    val deviceSignIn = DeviceSignIn(googleSignIn.deviceAccountAvailable, driveSettings.appIdentity().first, driveSettings.appIdentity().second)
+
+    private val _deviceConsent = kotlinx.coroutines.flow.MutableSharedFlow<android.app.PendingIntent>(extraBufferCapacity = 1)
+
+    /** Google's consent screen, to launch from the screen (it needs an activity). */
+    val deviceConsent: kotlinx.coroutines.flow.SharedFlow<android.app.PendingIntent> = _deviceConsent
+
+    fun beginDeviceSignIn() {
+        viewModelScope.launch { googleSignIn.beginDevice()?.let { _deviceConsent.emit(it) } }
+    }
+
+    fun finishDeviceSignIn(data: android.content.Intent?) {
+        viewModelScope.launch { googleSignIn.finishDevice(data) }
+    }
+
     /** Opens Google's sign-in page with [open] (the device's browser); the answer comes back by itself. */
     fun beginSignIn(open: (String) -> Boolean) {
         viewModelScope.launch {

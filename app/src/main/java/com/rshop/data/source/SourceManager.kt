@@ -110,7 +110,7 @@ class SourceManager @Inject constructor(
     /** Switches the source to the next [SyncSpeed]; it applies from the next sync. */
     suspend fun cycleSpeed(sourceId: String) {
         val config = sources.get(sourceId) ?: return
-        sources.save(config.withInterval(SyncSpeed.of(config.minRequestIntervalMs).next().intervalMs))
+        sources.save(config.withInterval(SyncSpeed.of(config.minRequestIntervalMs).next(allowTurbo = config is DriveConfig).intervalMs))
     }
 
     /** Stops that source's sync; games already read are kept. */

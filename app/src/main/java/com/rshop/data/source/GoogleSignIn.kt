@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.IOException
 import javax.inject.Inject
@@ -38,6 +39,7 @@ sealed interface SignInState {
 @Singleton
 class GoogleSignIn @Inject constructor(
     private val settings: DriveSettings,
+    private val systemAuth: SystemAccountAuth,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow<SignInState>(SignInState.Idle)
@@ -87,6 +89,46 @@ class GoogleSignIn @Inject constructor(
         return session.authUrl
     }
 
+    /** Whether the Google account of the device can be used (Google Play Services is there). */
+    val deviceAccountAvailable: Boolean get() = systemAuth.available
+
+    /**
+     * Signs in with the account already on the device. Returns Google's consent screen to launch when the
+     * player still has to agree, null when it is done (or failed: see [state]).
+     */
+    suspend fun beginDevice(): android.app.PendingIntent? {
+        cancel()
+        _state.value = SignInState.Finishing
+        return handle(systemAuth.authorize())
+    }
+
+    /** The answer of the consent screen launched after [beginDevice]. */
+    suspend fun finishDevice(data: android.content.Intent?) {
+        _state.value = SignInState.Finishing
+        handle(withContext(Dispatchers.IO) { systemAuth.fromIntent(data) })
+    }
+
+    private suspend fun handle(result: SystemAccountAuth.Result): android.app.PendingIntent? = when (result) {
+        is SystemAccountAuth.Result.Token -> {
+            settings.saveDeviceSignIn(result.accessToken, result.email)
+            _state.value = SignInState.Idle
+            null
+        }
+        is SystemAccountAuth.Result.Consent -> {
+            _state.value = SignInState.Waiting
+            result.intent
+        }
+        is SystemAccountAuth.Result.Failed -> {
+            _state.value = when (result.reason) {
+                SystemAccountAuth.Reason.Cancelled -> SignInState.Idle
+                SystemAccountAuth.Reason.NotRegistered -> SignInState.Failed(OAuthException.Kind.InvalidClient, DEVICE_NOT_REGISTERED)
+                SystemAccountAuth.Reason.Network -> SignInState.Failed(OAuthException.Kind.Network, result.message)
+                SystemAccountAuth.Reason.Other -> SignInState.Failed(OAuthException.Kind.Other, result.message)
+            }
+            null
+        }
+    }
+
     /** Gives up the sign-in in progress (the player closed the browser page and went back). */
     fun cancel() {
         job?.cancel()
@@ -101,7 +143,9 @@ class GoogleSignIn @Inject constructor(
         if (_state.value is SignInState.Failed) _state.value = SignInState.Idle
     }
 
-    private companion object {
-        const val TIMEOUT_MS = 5 * 60_000L
+    companion object {
+        /** [SignInState.Failed.detail] when Google does not know this build of the app. */
+        const val DEVICE_NOT_REGISTERED = "device_not_registered"
+        private const val TIMEOUT_MS = 5 * 60_000L
     }
 }

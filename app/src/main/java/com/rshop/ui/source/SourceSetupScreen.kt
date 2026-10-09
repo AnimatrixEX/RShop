@@ -83,6 +83,13 @@ fun SourceSetupScreen(
     val syncPaused by viewModel.syncPaused.collectAsStateWithLifecycle()
     val driveKey by viewModel.driveKey.collectAsStateWithLifecycle()
     val signIn by viewModel.signIn.collectAsStateWithLifecycle()
+    // Google's consent screen for the account of the device needs an activity to run in.
+    val consentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        viewModel.finishDeviceSignIn(result.data)
+    }
+    LaunchedEffect(Unit) {
+        viewModel.deviceConsent.collect { consentLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(it.intentSender).build()) }
+    }
     var confirmRemove by remember { mutableStateOf<SourceItem?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -187,6 +194,8 @@ fun SourceSetupScreen(
                         status = driveKey,
                         signIn = signIn,
                         needed = state.analysis == AnalysisState.DriveKeyNeeded,
+                        device = viewModel.deviceSignIn,
+                        onDeviceSignIn = viewModel::beginDeviceSignIn,
                         onSignIn = { viewModel.beginSignIn { url -> com.rshop.ui.browser.CustomTabLauncher.open(context, url) } },
                         onCancelSignIn = viewModel::cancelSignIn,
                         onSignOut = viewModel::signOut,
@@ -351,6 +360,7 @@ private fun SourceCard(
                             SyncSpeed.Careful -> R.string.source_speed_careful
                             SyncSpeed.Normal -> R.string.source_speed_normal
                             SyncSpeed.Fast -> R.string.source_speed_fast
+                            SyncSpeed.Turbo -> R.string.source_speed_turbo
                         },
                     ),
                 ),

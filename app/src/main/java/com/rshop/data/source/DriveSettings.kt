@@ -45,8 +45,10 @@ data class DriveKeyStatus(
     val email: String? = null,
     /** The sign-in stopped working (revoked, or expired after 7 days for an app in testing): sign in again. */
     val signInExpired: Boolean = false,
+    /** Signed in with the Google account of the device (through Google Play Services). */
+    val deviceAccount: Boolean = false,
 ) {
-    val signedIn: Boolean get() = email != null
+    val signedIn: Boolean get() = email != null || deviceAccount
 }
 
 /**
@@ -60,6 +62,7 @@ class DriveSettings @Inject constructor(
     @ApplicationContext private val context: Context,
     private val cipher: SecretCipher,
     @ApplicationScope private val scope: CoroutineScope,
+    private val systemAuth: SystemAccountAuth,
 ) {
     private val dataStore = context.driveDataStore
 
@@ -71,6 +74,7 @@ class DriveSettings @Inject constructor(
     @Volatile private var keyCredentials: DriveCredentials? = null
     @Volatile private var client: OAuthClient? = null
     @Volatile private var refreshToken: String? = null
+    @Volatile private var deviceAccount = false
     @Volatile private var accessToken: String? = null
     @Volatile private var accessExpiresAt = 0L
     private val refreshLock = Any()
@@ -84,8 +88,9 @@ class DriveSettings @Inject constructor(
             configured = key != null,
             hint = key?.takeLast(4),
             clientConfigured = prefs[ClientId] != null && prefs[ClientSecret]?.let(cipher::decrypt) != null,
-            email = prefs[Email]?.takeIf { prefs[RefreshToken] != null },
+            email = prefs[Email]?.takeIf { prefs[RefreshToken] != null || prefs[DeviceAccount] == true },
             signInExpired = prefs[Expired] == true,
+            deviceAccount = prefs[DeviceAccount] == true,
         )
     }
 
@@ -99,8 +104,10 @@ class DriveSettings @Inject constructor(
                 val secret = prefs[ClientSecret]?.let(cipher::decrypt)
                 client = if (id != null && secret != null) OAuthClient(id, secret) else null
                 val stored = prefs[RefreshToken]?.let(cipher::decrypt)
-                if (stored != refreshToken) accessToken = null
+                val device = prefs[DeviceAccount] == true
+                if (stored != refreshToken || device != deviceAccount) accessToken = null
                 refreshToken = stored
+                deviceAccount = device
                 loaded.complete(Unit)
             }
         }
@@ -123,6 +130,7 @@ class DriveSettings @Inject constructor(
     }
 
     private fun bearerToken(): String? {
+        if (deviceAccount) return deviceToken()
         val now = System.currentTimeMillis()
         accessToken?.takeIf { accessExpiresAt - now > RENEW_MARGIN_MS }?.let { return it }
         val token = refreshToken ?: return null
@@ -149,6 +157,51 @@ class DriveSettings @Inject constructor(
             }
         }
     }
+
+    /** A token from Play Services, asked again (silently) when it ends: Google gives no refresh token on this path. */
+    private fun deviceToken(): String? {
+        accessToken?.takeIf { accessExpiresAt - System.currentTimeMillis() > RENEW_MARGIN_MS }?.let { return it }
+        synchronized(refreshLock) {
+            accessToken?.takeIf { accessExpiresAt - System.currentTimeMillis() > RENEW_MARGIN_MS }?.let { return it }
+            return when (val result = systemAuth.authorizeBlocking()) {
+                is SystemAccountAuth.Result.Token -> {
+                    accessToken = result.accessToken
+                    accessExpiresAt = System.currentTimeMillis() + DEVICE_TOKEN_MS
+                    result.accessToken
+                }
+                is SystemAccountAuth.Result.Consent -> {
+                    // The player took the access back: they have to agree again.
+                    Timber.w("Google asks for the consent again")
+                    deviceAccount = false
+                    accessToken = null
+                    scope.launch { markExpired() }
+                    null
+                }
+                is SystemAccountAuth.Result.Failed -> {
+                    Timber.w("Cannot renew the device account token: %s", result.message)
+                    accessToken?.takeIf { accessExpiresAt > System.currentTimeMillis() }
+                }
+            }
+        }
+    }
+
+    /** Keeps that the player agreed to use the account of the device; the token itself stays in memory. */
+    suspend fun saveDeviceSignIn(token: String, email: String?) {
+        dataStore.edit { prefs ->
+            prefs[DeviceAccount] = true
+            prefs.remove(RefreshToken)
+            if (email != null) prefs[Email] = email else prefs.remove(Email)
+            prefs.remove(Expired)
+        }
+        deviceAccount = true
+        refreshToken = null
+        accessToken = token
+        accessExpiresAt = System.currentTimeMillis() + DEVICE_TOKEN_MS
+    }
+
+    /** The package name and certificate SHA-1 Google identifies this build by, as shown in Google Cloud Console. */
+    fun appIdentity(): Pair<String, String?> =
+        context.packageName to certificate?.chunked(2)?.joinToString(":")
 
     /** Blank removes the key. */
     suspend fun setApiKey(key: String) {
@@ -198,14 +251,17 @@ class DriveSettings @Inject constructor(
             prefs.remove(RefreshToken)
             prefs.remove(Email)
             prefs.remove(Expired)
+            prefs.remove(DeviceAccount)
         }
         refreshToken = null
+        deviceAccount = false
         accessToken = null
     }
 
     private suspend fun markExpired() {
         dataStore.edit { prefs ->
             prefs.remove(RefreshToken)
+            prefs.remove(DeviceAccount)
             prefs[Expired] = true
         }
     }
@@ -222,11 +278,15 @@ class DriveSettings @Inject constructor(
     private companion object {
         /** An access token is renewed a minute before it ends. */
         const val RENEW_MARGIN_MS = 60_000L
+
+        /** Play Services access tokens last an hour; one is taken for a little less. */
+        const val DEVICE_TOKEN_MS = 50 * 60_000L
         val ApiKey = stringPreferencesKey("drive_api_key")
         val ClientId = stringPreferencesKey("google_client_id")
         val ClientSecret = stringPreferencesKey("google_client_secret")
         val RefreshToken = stringPreferencesKey("google_refresh_token")
         val Email = stringPreferencesKey("google_email")
         val Expired = booleanPreferencesKey("google_sign_in_expired")
+        val DeviceAccount = booleanPreferencesKey("google_device_account")
     }
 }

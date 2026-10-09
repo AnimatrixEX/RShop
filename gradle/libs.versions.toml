@@ -13,6 +13,7 @@ lifecycle = "2.11.0"
 navigation = "2.10.2"
 datastore = "1.2.1"
 browser = "1.8.0"
+playServicesAuth = "21.3.0"
 geckoview = "150.0.20260511200624"
 room = "2.8.5"
 work = "2.12.0"
@@ -54,6 +55,7 @@ xz = { module = "org.tukaani:xz", version.ref = "xz" }
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version.ref = "okhttp" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "browser" }
+play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 geckoview = { module = "org.mozilla.geckoview:geckoview", version.ref = "geckoview" }
 
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
