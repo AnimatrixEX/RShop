@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearEasing
@@ -177,6 +178,7 @@ private fun PageDot(selected: Boolean, progress: () -> Float) {
         Modifier
             .width(width)
             .height(8.dp)
+            .graphicsLayer()
             .clip(CircleShape)
             .background(RShopColors.Outline)
             .drawBehind {

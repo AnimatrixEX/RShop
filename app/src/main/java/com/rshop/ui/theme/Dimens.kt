@@ -15,8 +15,12 @@ object Dimens {
 
     /** The corner of the theme in use: glass is soft, the PS2 menu almost square. */
     val CardCorner get() = ActiveTheme.look.corner
-    val CardShape: Shape get() = RoundedCornerShape(CardCorner)
-    val PillShape: Shape get() = if (ActiveTheme.look.squareControls) RoundedCornerShape(6.dp) else RoundedCornerShape(50)
+    val CardShape: Shape get() = shapes.getOrPut(CardCorner.value) { RoundedCornerShape(CardCorner) }
+    val PillShape: Shape get() = if (ActiveTheme.look.squareControls) SquarePill else RoundPill
+
+    private val shapes = HashMap<Float, Shape>()
+    private val SquarePill: Shape = RoundedCornerShape(6.dp)
+    private val RoundPill: Shape = RoundedCornerShape(50)
 
     val FocusBorder get() = ActiveTheme.look.focusBorder
     val FocusScale: Float get() = ActiveTheme.look.focusScale

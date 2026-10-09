@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -32,6 +33,7 @@ fun Backdrop(highlighted: Game?, modifier: Modifier = Modifier) {
     Box(
         modifier
             .fillMaxSize()
+            .graphicsLayer()
             .drawBehind {
                 // Glass and PS2 draw their own page behind the screens: keep it.
                 if (ActiveTheme.look.backdrop == BackdropStyle.Plain) drawRect(RShopColors.Background)
