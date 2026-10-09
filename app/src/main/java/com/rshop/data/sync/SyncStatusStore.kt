@@ -32,7 +32,7 @@ fun Throwable.toSourceError(): SourceError = when (this) {
     is ScraperException.ApiKeyRejected -> SourceError(SourceErrorKind.ApiKey, detail)
     is ScraperException.QuotaExceeded -> SourceError(SourceErrorKind.Quota, detail)
     is ScraperException.StructureChanged if message.orEmpty().contains("no console folder") -> SourceError(SourceErrorKind.NoConsole, null)
-    is ScraperException.AccessDenied -> SourceError(SourceErrorKind.AccessDenied, "HTTP $code")
+    is ScraperException.AccessDenied -> SourceError(SourceErrorKind.AccessDenied, listOfNotNull("HTTP $code", detail).joinToString(" - "))
     is ScraperException.BlockedByRobots -> SourceError(SourceErrorKind.Robots, url)
     is ScraperException.StructureChanged -> SourceError(SourceErrorKind.Structure, message)
     is ScraperException.Http -> SourceError(SourceErrorKind.Http, "HTTP $code")

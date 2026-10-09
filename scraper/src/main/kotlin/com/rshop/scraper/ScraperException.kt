@@ -13,7 +13,8 @@ sealed class ScraperException(message: String, cause: Throwable? = null) : Excep
     class Busy(val url: String) : ScraperException("Server busy at $url, try again later")
 
     /** 401/403: the site requires authentication or refuses automated access. Never bypassed. */
-    class AccessDenied(val url: String, val code: Int) : ScraperException("Access denied (HTTP $code) for $url")
+    class AccessDenied(val url: String, val code: Int, val detail: String? = null) :
+        ScraperException("Access denied (HTTP $code) for $url" + (detail?.let { ": $it" } ?: ""))
 
     /** robots.txt forbids this URL for our user agent. */
     class BlockedByRobots(val url: String) : ScraperException("robots.txt disallows $url")

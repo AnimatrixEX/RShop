@@ -16,7 +16,7 @@ fun sourceErrorText(error: SourceError): String = LocalContext.current.sourceErr
 
 fun Context.sourceErrorText(error: SourceError): String = when (error.kind) {
     SourceErrorKind.Network -> getString(R.string.error_network)
-    SourceErrorKind.AccessDenied -> getString(R.string.error_access_denied)
+    SourceErrorKind.AccessDenied -> getString(R.string.error_access_denied) + (error.detail?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "")
     SourceErrorKind.Robots -> getString(R.string.error_robots)
     SourceErrorKind.Structure -> getString(R.string.error_structure)
     SourceErrorKind.Http -> getString(R.string.error_http, error.detail.orEmpty())

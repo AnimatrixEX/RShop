@@ -191,7 +191,8 @@ internal class DriveError(val code: Int, val kind: Kind, val reason: String?, va
         Kind.RateLimited -> ScraperException.Busy(url)
         Kind.Quota -> ScraperException.QuotaExceeded(url, reason)
         Kind.KeyRejected -> ScraperException.ApiKeyRejected(DriveApi.SERVICE, reason ?: message)
-        Kind.Forbidden -> ScraperException.AccessDenied(url, code)
+        // Google's own words say why (folder not shared with the link, domain policy…).
+        Kind.Forbidden -> ScraperException.AccessDenied(url, code, message ?: reason)
         Kind.NotFound -> ScraperException.Http(url, 404)
         Kind.Other -> ScraperException.Http(url, code)
     }
@@ -202,6 +203,8 @@ internal class DriveError(val code: Int, val kind: Kind, val reason: String?, va
         private val KEY = setOf(
             "keyInvalid", "API_KEY_INVALID", "API_KEY_ANDROID_APP_BLOCKED", "API_KEY_HTTP_REFERRER_BLOCKED",
             "API_KEY_IP_ADDRESS_BLOCKED", "API_KEY_SERVICE_BLOCKED", "accessNotConfigured", "SERVICE_DISABLED", "ipRefererBlocked",
+            // Drive does not see a valid key at all.
+            "dailyLimitExceededUnreg", "keyExpired",
         )
 
         fun parse(code: Int, body: String): DriveError {

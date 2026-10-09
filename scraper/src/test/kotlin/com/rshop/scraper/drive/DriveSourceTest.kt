@@ -150,6 +150,12 @@ class DriveSourceTest {
             expect<ScraperException.ApiKeyRejected> { source(drive, root, key = "wrong").inspect() }
             drive.failure = 403 to "downloadQuotaExceeded"
             expect<ScraperException.QuotaExceeded> { source(drive, root).inspect() }
+            drive.failure = 403 to "forbidden"
+            val denied = runCatching { source(drive, root).inspect() }.exceptionOrNull() as ScraperException.AccessDenied
+            assertEquals(403, denied.code)
+            assertTrue(denied.detail!!.contains("failure forbidden"))
+            drive.failure = 403 to "dailyLimitExceededUnreg"
+            expect<ScraperException.ApiKeyRejected> { source(drive, root).inspect() }
             drive.failure = 404 to "notFound"
             expect<ScraperException.Http> { source(drive, root).inspect() }
             drive.failure = 403 to "userRateLimitExceeded"
