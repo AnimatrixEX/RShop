@@ -95,6 +95,7 @@ fun SourceSetupScreen(
                 SourceMessage.Saved -> context.getString(R.string.source_saved)
                 is SourceMessage.Removed -> context.getString(R.string.source_removed, message.name)
                 SourceMessage.Exported -> context.getString(R.string.source_exported)
+                SourceMessage.ConsolesSaved -> context.getString(R.string.console_picker_saved)
                 is SourceMessage.ImportFailed -> context.getString(R.string.source_import_error, message.detail)
             },
         )
@@ -152,6 +153,7 @@ fun SourceSetupScreen(
                     onSync = { viewModel.syncSource(source.config.id) },
                     onRescan = { viewModel.syncSource(source.config.id, full = true) },
                     onSpeed = { viewModel.cycleSpeed(source.config.id) },
+                    onConsoles = { viewModel.openConsolePicker(source.config.id) },
                     onStop = { viewModel.stopSync(source.config.id) },
                     onExport = {
                         viewModel.onExportRequested(source.config.id)
@@ -170,9 +172,29 @@ fun SourceSetupScreen(
                     onImport = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 )
             }
-            item { AnalysisResult(state.analysis, busy = state.busy, onUse = viewModel::useAnalyzedSource) }
+            item {
+                AnalysisResult(
+                    state.analysis,
+                    busy = state.busy,
+                    chosenConsoles = state.analysisConsoles?.size,
+                    onChooseConsoles = viewModel::openAnalysisConsolePicker,
+                    onUse = viewModel::useAnalyzedSource,
+                )
+            }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(24.dp))
+    }
+
+    state.picker?.let { picker ->
+        ConsolePickerDialog(
+            state = picker,
+            onToggle = viewModel::toggleConsole,
+            onSelectAll = viewModel::selectAllConsoles,
+            onSelectNone = viewModel::selectNoConsole,
+            onRetry = viewModel::retryConsoles,
+            onApply = viewModel::applyConsoles,
+            onDismiss = viewModel::dismissConsolePicker,
+        )
     }
 
     confirmRemove?.let { source ->
@@ -233,6 +255,7 @@ private fun SourceCard(
     onExport: () -> Unit,
     onRescan: () -> Unit,
     onSpeed: () -> Unit,
+    onConsoles: () -> Unit,
     onRemove: () -> Unit,
 ) {
     val sync = source.sync
@@ -259,6 +282,13 @@ private fun SourceCard(
             }
             Text(line, style = MaterialTheme.typography.bodyMedium, color = color)
         }
+        source.config.enabledSections?.let { enabled ->
+            Text(
+                pluralStringResource(R.plurals.source_consoles_chosen, enabled.size, enabled.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = RShopColors.AccentBright,
+            )
+        }
         Spacer(Modifier.height(12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (sync.running) {
@@ -282,6 +312,10 @@ private fun SourceCard(
                 onClick = onSpeed,
                 style = ConsoleButtonStyle.Secondary,
             )
+            // Only for sites organised by console.
+            if (source.config.sections != null) {
+                ConsoleButton(stringResource(R.string.source_consoles), onClick = onConsoles, style = ConsoleButtonStyle.Secondary)
+            }
             ConsoleButton(stringResource(R.string.source_export_short), onClick = onExport, style = ConsoleButtonStyle.Secondary)
             ConsoleButton(stringResource(R.string.source_remove_short), onClick = onRemove, style = ConsoleButtonStyle.Secondary)
         }
@@ -340,7 +374,13 @@ private fun UrlForm(
 }
 
 @Composable
-private fun AnalysisResult(state: AnalysisState, busy: Boolean, onUse: () -> Unit) {
+private fun AnalysisResult(
+    state: AnalysisState,
+    busy: Boolean,
+    chosenConsoles: Int?,
+    onChooseConsoles: () -> Unit,
+    onUse: () -> Unit,
+) {
     when (state) {
         AnalysisState.Idle -> Unit
         AnalysisState.Running -> Text(
@@ -358,12 +398,12 @@ private fun AnalysisResult(state: AnalysisState, busy: Boolean, onUse: () -> Uni
             modifier = Modifier.padding(horizontal = Dimens.ScreenPadding),
             color = RShopColors.Warning,
         )
-        is AnalysisState.Done -> Summary(state.summary, busy, onUse)
+        is AnalysisState.Done -> Summary(state.summary, busy, chosenConsoles, onChooseConsoles, onUse)
     }
 }
 
 @Composable
-private fun Summary(summary: AnalysisSummary, busy: Boolean, onUse: () -> Unit) {
+private fun Summary(summary: AnalysisSummary, busy: Boolean, chosenConsoles: Int?, onChooseConsoles: () -> Unit, onUse: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionHeader(stringResource(R.string.source_result_title))
         Column(Modifier.padding(horizontal = Dimens.ScreenPadding)) {
@@ -378,6 +418,22 @@ private fun Summary(summary: AnalysisSummary, busy: Boolean, onUse: () -> Unit) 
                     "${stringResource(R.string.source_found_consoles)} : ${summary.consoles.joinToString(", ")}",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                if (summary.sections.size > 1) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ConsoleButton(stringResource(R.string.console_picker_choose), onClick = onChooseConsoles, style = ConsoleButtonStyle.Secondary)
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            if (chosenConsoles == null) {
+                                stringResource(R.string.console_picker_all_chosen)
+                            } else {
+                                stringResource(R.string.console_picker_count, chosenConsoles, summary.sections.size)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = RShopColors.TextSecondary,
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

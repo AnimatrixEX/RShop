@@ -116,6 +116,9 @@ class RoomGameRepository @Inject constructor(
 
     override suspend fun deleteGamesFrom(sourceId: String): Int = gameDao.deleteSource(sourceId)
 
+    override suspend fun deleteGamesOfPlatforms(sourceId: String, platforms: List<String>): Int =
+        if (platforms.isEmpty()) 0 else gameDao.deletePlatforms(sourceId, platforms)
+
     override suspend fun deleteGamesNotFrom(sourceIds: List<String>): Int = gameDao.deleteOtherSources(sourceIds)
 
     override suspend fun knownGameIds(sourceId: String): Set<String> = gameDao.idsOfSource(sourceId).toHashSet()

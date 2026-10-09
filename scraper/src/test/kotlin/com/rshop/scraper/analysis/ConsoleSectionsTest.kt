@@ -43,6 +43,40 @@ class ConsoleSectionsTest {
     }
 
     @Test
+    fun `the analysis lists the consoles with their pages`() = runTest {
+        val analysis = SiteAnalyzer(site.fetcher()).analyze(site.baseUrl + "consoles")
+
+        assertEquals(listOf("NES", "Game Boy", "Mega Drive"), analysis.sections.map { it.name })
+        assertEquals(true, analysis.sections.all { it.url.startsWith(site.baseUrl) })
+    }
+
+    @Test
+    fun `only the chosen consoles are crawled`() = runTest {
+        val analysis = SiteAnalyzer(site.fetcher()).analyze(site.baseUrl + "consoles")
+        val chosen = analysis.sections.filter { it.name != "Game Boy" }.map { it.url }
+        site.requests.clear()
+
+        val config = analysis.config.copy(enabledSections = chosen)
+        val pages = WebsiteSource(config, site.fetcher()).crawl().toList()
+
+        assertEquals(listOf("NES", "Mega Drive", "NES"), pages.map { it.section })
+        assertEquals(false, site.requests.any { it.startsWith("/console/gb") })
+    }
+
+    @Test
+    fun `no restriction reads every console and an empty choice is refused`() = runTest {
+        val analysis = SiteAnalyzer(site.fetcher()).analyze(site.baseUrl + "consoles")
+        assertEquals(null, analysis.config.enabledSections)
+
+        val problems = runCatching { analysis.config.copy(enabledSections = emptyList()).validate() }.exceptionOrNull()
+        assertEquals(true, problems is com.rshop.scraper.ScraperConfigException)
+        // The choice survives a save and reload.
+        val chosen = listOf(analysis.sections.first().url)
+        val restored = com.rshop.scraper.config.ScraperConfig.fromJson(analysis.config.copy(enabledSections = chosen).toJson())
+        assertEquals(chosen, restored.enabledSections)
+    }
+
+    @Test
     fun `search form is detected and usable`() = runTest {
         val analysis = SiteAnalyzer(site.fetcher()).analyze(site.baseUrl + "consoles")
         assertEquals("/search?type=roms&q={query}", analysis.config.searchUrl)

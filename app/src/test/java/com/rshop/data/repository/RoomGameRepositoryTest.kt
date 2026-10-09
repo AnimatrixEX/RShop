@@ -224,4 +224,23 @@ class RoomGameRepositoryTest {
         repository.deleteGamesNotFrom(listOf("test"))
         assertEquals(listOf("mine"), titles(CatalogFilter()))
     }
+
+    @Test
+    fun `games of an unticked console go, favorites stay`() = runTest {
+        repository.saveGames(
+            listOf(
+                testGame("a", platform = "NES"),
+                testGame("b", platform = "NES"),
+                testGame("c", platform = "SNES"),
+                testGame("d", platform = "Game Boy").copy(id = "other:d"),
+            ),
+        )
+        repository.setFavorite("test:b", true)
+
+        assertEquals(1, repository.deleteGamesOfPlatforms("test", listOf("NES")))
+
+        // "a" is gone, the favorite "b" is kept, other consoles and other sources are untouched.
+        assertEquals(listOf("b", "c", "d"), titles(CatalogFilter()))
+        assertEquals(0, repository.deleteGamesOfPlatforms("test", emptyList()))
+    }
 }

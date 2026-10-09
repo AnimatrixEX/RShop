@@ -50,6 +50,12 @@ interface GameRepository {
     /** Deletes every game of [sourceId] (a removed source). */
     suspend fun deleteGamesFrom(sourceId: String): Int
 
+    /**
+     * Deletes the catalogue entries of [sourceId] filed under the given console names, except
+     * favorites, listed and installed games.
+     */
+    suspend fun deleteGamesOfPlatforms(sourceId: String, platforms: List<String>): Int
+
     /** Deletes games of any source not in [sourceIds] (demo catalogue, removed sites). */
     suspend fun deleteGamesNotFrom(sourceIds: List<String>): Int
 

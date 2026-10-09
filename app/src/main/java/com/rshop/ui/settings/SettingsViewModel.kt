@@ -11,6 +11,9 @@ import com.rshop.data.preferences.AppLanguage
 import com.rshop.data.preferences.AppLanguageController
 import com.rshop.data.source.SourceRepository
 import com.rshop.data.storage.GamesDirectoryManager
+import com.rshop.data.update.AppRelease
+import com.rshop.data.update.AppUpdater
+import com.rshop.data.update.UpdateState
 import com.rshop.data.sync.SyncScheduler
 import com.rshop.data.sync.SyncState
 import com.rshop.scraper.config.ScraperConfig
@@ -49,7 +52,23 @@ class SettingsViewModel @Inject constructor(
     private val artworkSettings: ArtworkSettings,
     private val artworkResolver: ArtworkResolver,
     private val artworkScheduler: ArtworkScheduler,
+    private val appUpdater: AppUpdater,
 ) : ViewModel() {
+
+    val update: StateFlow<UpdateState> = appUpdater.state
+
+    fun onCheckUpdate() = appUpdater.check()
+
+    fun onInstallUpdate(release: AppRelease) = appUpdater.install(release)
+
+    fun onCancelUpdate() = appUpdater.cancel()
+
+    fun onDismissUpdate() = appUpdater.dismiss()
+
+    /** Back from the "install unknown apps" screen: continue the update if it is allowed now. */
+    fun onInstallPermissionResult() {
+        (appUpdater.state.value as? UpdateState.Failed)?.release?.let(appUpdater::install)
+    }
 
     private val language = MutableStateFlow(languageController.current())
 

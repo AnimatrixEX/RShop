@@ -1,5 +1,14 @@
 package com.rshop.ui.settings
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.ui.platform.LocalContext
+import com.rshop.data.update.AppRelease
+import com.rshop.data.update.UpdateErrorKind
+import com.rshop.data.update.UpdateState
+import com.rshop.ui.util.formatSize
 import com.rshop.ui.components.ControllerTextField
 import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyRow
@@ -85,6 +94,12 @@ fun SettingsScreen(
         uri?.let(viewModel::onDirectorySelected)
     }
     val firstRowFocus = rememberInitialFocusRequester()
+    val update by viewModel.update.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    // "Install unknown apps" is a system screen; coming back continues the update if it was allowed.
+    val allowInstall = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        viewModel.onInstallPermissionResult()
+    }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
@@ -232,7 +247,126 @@ fun SettingsScreen(
                     onClick = null,
                 )
             }
+            updateItems(
+                state = update,
+                onCheck = viewModel::onCheckUpdate,
+                onInstall = viewModel::onInstallUpdate,
+                onCancel = viewModel::onCancelUpdate,
+                onAllowInstall = {
+                    allowInstall.launch(
+                        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")),
+                    )
+                },
+            )
         }
+    }
+}
+
+/** The "check for updates" row and, depending on where the update is, what it offers. */
+private fun LazyListScope.updateItems(
+    state: UpdateState,
+    onCheck: () -> Unit,
+    onInstall: (AppRelease) -> Unit,
+    onCancel: () -> Unit,
+    onAllowInstall: () -> Unit,
+) {
+    item {
+        val spinner: @Composable () -> Unit = { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp) }
+        when (state) {
+            UpdateState.Idle -> SettingsRow(
+                title = stringResource(R.string.update_check),
+                subtitle = stringResource(R.string.update_check_desc),
+                onClick = onCheck,
+            )
+            UpdateState.Checking -> SettingsRow(
+                title = stringResource(R.string.update_checking),
+                subtitle = null,
+                onClick = null,
+                trailing = spinner,
+            )
+            is UpdateState.UpToDate -> SettingsRow(
+                title = stringResource(R.string.update_check),
+                subtitle = stringResource(R.string.update_up_to_date, state.version),
+                subtitleColor = RShopColors.Success,
+                onClick = onCheck,
+            )
+            is UpdateState.Available -> SettingsRow(
+                title = stringResource(R.string.update_available, state.release.version),
+                subtitle = stringResource(R.string.update_install_desc, formatSize(state.release.sizeBytes)),
+                subtitleColor = RShopColors.AccentBright,
+                onClick = { onInstall(state.release) },
+            )
+            is UpdateState.Downloading -> {
+                val total = state.release.sizeBytes
+                val percent = (state.bytes * 100 / total).toInt().coerceIn(0, 100)
+                SettingsRow(
+                    title = stringResource(R.string.update_downloading, state.release.version, percent),
+                    subtitle = stringResource(R.string.update_downloading_desc, formatSize(state.bytes), formatSize(total)),
+                    subtitleColor = RShopColors.AccentBright,
+                    onClick = onCancel,
+                    trailing = {
+                        CircularProgressIndicator(progress = { state.bytes.toFloat() / total }, modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
+                    },
+                )
+            }
+            is UpdateState.Verifying -> SettingsRow(
+                title = stringResource(R.string.update_verifying),
+                subtitle = null,
+                onClick = null,
+                trailing = spinner,
+            )
+            is UpdateState.Installing -> SettingsRow(
+                title = stringResource(R.string.update_installing, state.release.version),
+                subtitle = stringResource(R.string.update_installing_desc),
+                subtitleColor = RShopColors.AccentBright,
+                onClick = { onInstall(state.release) },
+                trailing = spinner,
+            )
+            is UpdateState.Failed -> {
+                val permission = state.kind == UpdateErrorKind.InstallPermission
+                SettingsRow(
+                    title = stringResource(if (permission) R.string.update_permission_title else R.string.update_failed),
+                    subtitle = updateErrorText(state),
+                    subtitleColor = RShopColors.Warning,
+                    onClick = when {
+                        permission -> onAllowInstall
+                        state.release != null && state.kind != UpdateErrorKind.NotRShop -> ({ onInstall(state.release) })
+                        else -> onCheck
+                    },
+                )
+            }
+        }
+    }
+    val release = (state as? UpdateState.Available)?.release
+    if (release?.notes != null) {
+        item {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(RShopColors.Surface, Dimens.CardShape)
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+            ) {
+                Text(stringResource(R.string.update_notes), style = MaterialTheme.typography.labelMedium, color = RShopColors.AccentBright)
+                Spacer(Modifier.height(4.dp))
+                Text(release.notes, style = MaterialTheme.typography.bodyMedium, color = RShopColors.TextSecondary, maxLines = 8)
+            }
+        }
+    }
+}
+
+@Composable
+private fun updateErrorText(state: UpdateState.Failed): String {
+    val detail = state.detail?.let { " ($it)" }.orEmpty()
+    return when (state.kind) {
+        UpdateErrorKind.Network -> stringResource(R.string.update_error_network)
+        UpdateErrorKind.Server -> stringResource(R.string.update_error_server) + detail
+        UpdateErrorKind.NoRelease -> stringResource(R.string.update_error_no_release)
+        UpdateErrorKind.BadRelease -> stringResource(R.string.update_error_bad_release) + detail
+        UpdateErrorKind.Metered -> stringResource(R.string.update_error_metered)
+        UpdateErrorKind.Corrupt -> stringResource(R.string.update_error_corrupt) + detail
+        UpdateErrorKind.NotRShop -> stringResource(R.string.update_error_not_rshop)
+        UpdateErrorKind.InstallPermission -> stringResource(R.string.update_permission_desc)
+        UpdateErrorKind.InstallFailed -> stringResource(R.string.update_error_install) + detail
     }
 }
 

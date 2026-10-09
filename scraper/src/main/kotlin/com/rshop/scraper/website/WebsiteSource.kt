@@ -103,6 +103,9 @@ class WebsiteSource(
         return sections
     }
 
+    /** False for a console the user left out of [ScraperConfig.enabledSections]. */
+    fun isEnabled(section: CatalogSection): Boolean = config.enabledSections?.contains(section.url) ?: true
+
     /**
      * Sites organised by console are read in rounds: page 1 of every console, then page 2 of
      * every console, and so on. The catalogue fills evenly instead of one console at a time,
@@ -124,7 +127,7 @@ class WebsiteSource(
                 listOfNotNull(pageUrl(0)?.let { ListingCursor(it, section = null, suffix = null, budget, isKnown) })
             } else {
                 // The first request of the budget is this console index.
-                sections().map { ListingCursor(it.url.toHttpUrl(), it, rules.pageSuffix, budget, isKnown) }
+                sections().filter(::isEnabled).map { ListingCursor(it.url.toHttpUrl(), it, rules.pageSuffix, budget, isKnown) }
             }
             // The next page of another console is already being fetched while the current one is
             // saved and handed on: the rate limiter still spaces the requests, but the wait for a
@@ -519,7 +522,18 @@ class WebsiteSource(
             if (found.isEmpty()) break
             url = document.firstOf(nextRules)?.toHttpUrlOrNull()?.takeIf { it.host == base.host && it != url }
         }
-        return results.values.toList()
+        return results.values.toList().withoutDisabledConsoles()
+    }
+
+    /**
+     * The site search covers every console. Results that name a console the user left out are
+     * dropped; a result without a console name is kept (it cannot be told apart).
+     */
+    private suspend fun List<ScrapedGame>.withoutDisabledConsoles(): List<ScrapedGame> {
+        if (config.enabledSections == null || config.sections == null) return this
+        val left = sections().filterNot(::isEnabled).map { it.name.lowercase() }.toSet()
+        if (left.isEmpty()) return this
+        return filter { it.platform?.lowercase() !in left }
     }
 
     private companion object {

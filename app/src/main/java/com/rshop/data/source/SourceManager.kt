@@ -6,7 +6,9 @@ import com.rshop.data.sync.toDomain
 import com.rshop.domain.repository.GameRepository
 import com.rshop.scraper.analysis.SiteAnalysis
 import com.rshop.scraper.config.ScraperConfig
+import com.rshop.scraper.model.CatalogSection
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import timber.log.Timber
 import java.time.Clock
 import javax.inject.Inject
@@ -51,6 +53,33 @@ class SourceManager @Inject constructor(
     }
 
     suspend fun syncNow(sourceId: String, full: Boolean = false) = scheduler.syncNow(sourceId, restart = full, full = full)
+
+    /** The consoles the site lists (one request), or empty for a source that has no console index. */
+    suspend fun listConsoles(sourceId: String): List<CatalogSection> {
+        val config = sources.get(sourceId) ?: return emptyList()
+        return sources.createSource(config).sections()
+    }
+
+    /**
+     * Chooses the consoles of a source: [enabled] holds the pages of the consoles to read out of
+     * [all] (everything chosen means "no restriction", so consoles the site adds later are read
+     * too). Consoles left out lose their catalogue entries at once, except favorites, listed and
+     * installed games. A console added back is read now; the others are not scanned again.
+     */
+    suspend fun setConsoles(sourceId: String, all: List<CatalogSection>, enabled: Set<String>) {
+        val config = sources.get(sourceId) ?: return
+        val chosen = all.filter { it.url in enabled }
+        require(chosen.isNotEmpty()) { "At least one console must stay enabled" }
+        val before = config.enabledSections?.toSet()
+        sources.save(config.copy(enabledSections = if (chosen.size == all.size) null else chosen.map { it.url }))
+
+        val left = all.filter { it.url !in enabled }
+        if (left.isNotEmpty()) games.deleteGamesOfPlatforms(sourceId, left.map { it.name }.distinct())
+        val added = before != null && chosen.any { it.url !in before }
+        val running = scheduler.sourceStates.first()[sourceId]?.running == true
+        // A running sync keeps the old choice until it restarts.
+        if (added || running) scheduler.syncNow(sourceId, restart = true, full = false)
+    }
 
     /** Switches the source to the next [SyncSpeed]; it applies from the next sync. */
     suspend fun cycleSpeed(sourceId: String) {

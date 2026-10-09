@@ -17,6 +17,7 @@ import com.rshop.scraper.ScraperConfigException
 import com.rshop.scraper.analysis.PaginationKind
 import com.rshop.scraper.analysis.SiteAnalysis
 import com.rshop.scraper.config.ScraperConfig
+import com.rshop.scraper.model.CatalogSection
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -37,6 +38,8 @@ data class AnalysisSummary(
     val config: ScraperConfig,
     val sampleGames: List<Game>,
     val consoles: List<String>,
+    /** The consoles with their pages, to choose which ones to read. */
+    val sections: List<CatalogSection>,
     val pagination: Boolean,
     val search: Boolean,
     val covers: Boolean,
@@ -68,6 +71,7 @@ sealed interface SourceMessage {
     data object Saved : SourceMessage
     data class Removed(val name: String) : SourceMessage
     data object Exported : SourceMessage
+    data object ConsolesSaved : SourceMessage
     data class ImportFailed(val detail: String) : SourceMessage
 }
 
@@ -76,6 +80,9 @@ data class SourceSetupUiState(
     val analysis: AnalysisState = AnalysisState.Idle,
     val busy: Boolean = false,
     val message: SourceMessage? = null,
+    /** Consoles chosen for the source being added; null reads them all. */
+    val analysisConsoles: Set<String>? = null,
+    val picker: ConsolePickerState? = null,
 )
 
 @HiltViewModel
@@ -117,7 +124,7 @@ class SourceSetupViewModel @Inject constructor(
             return
         }
         analysisJob?.cancel()
-        _state.update { it.copy(analysis = AnalysisState.Running) }
+        _state.update { it.copy(analysis = AnalysisState.Running, analysisConsoles = null) }
         analysisJob = viewModelScope.launch {
             val result = try {
                 AnalysisState.Done(sourceManager.analyze(url).toSummary())
@@ -136,9 +143,87 @@ class SourceSetupViewModel @Inject constructor(
 
     fun useAnalyzedSource() {
         val summary = (_state.value.analysis as? AnalysisState.Done)?.summary ?: return
+        val chosen = _state.value.analysisConsoles
+        val config = if (chosen == null) summary.config else summary.config.copy(enabledSections = summary.sections.map { it.url }.filter { it in chosen })
         runBusy {
-            sourceManager.add(summary.config)
-            _state.update { it.copy(url = "", analysis = AnalysisState.Idle, message = SourceMessage.Saved) }
+            sourceManager.add(config)
+            _state.update { it.copy(url = "", analysis = AnalysisState.Idle, analysisConsoles = null, message = SourceMessage.Saved) }
+        }
+    }
+
+    // --- Console choice -----------------------------------------------------------------
+
+    private var pickerJob: Job? = null
+
+    /** Opens the console choice of a source already added (the site's console list is read again). */
+    fun openConsolePicker(sourceId: String) {
+        val item = sources.value.firstOrNull { it.config.id == sourceId } ?: return
+        loadConsoles(ConsolePickerTarget.Source(sourceId, item.config.name))
+    }
+
+    /** Opens the console choice for the site being analysed (its consoles are already known). */
+    fun openAnalysisConsolePicker() {
+        val summary = (_state.value.analysis as? AnalysisState.Done)?.summary ?: return
+        val selected = _state.value.analysisConsoles ?: summary.sections.map { it.url }.toSet()
+        _state.update { it.copy(picker = ConsolePickerState(ConsolePickerTarget.Analysis, sections = summary.sections, selected = selected)) }
+    }
+
+    private fun loadConsoles(target: ConsolePickerTarget.Source) {
+        pickerJob?.cancel()
+        _state.update { it.copy(picker = ConsolePickerState(target, loading = true)) }
+        pickerJob = viewModelScope.launch {
+            try {
+                val sections = sourceManager.listConsoles(target.id)
+                val enabled = sources.value.firstOrNull { it.config.id == target.id }?.config?.enabledSections
+                // A console the site has since removed is not shown; the others keep the saved choice.
+                val selected = sections.map { it.url }.filter { enabled == null || it in enabled }.toSet()
+                _state.update { it.copy(picker = ConsolePickerState(target, sections = sections, selected = selected)) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "Cannot list the consoles of %s", target.id)
+                _state.update { it.copy(picker = ConsolePickerState(target, error = e.toSourceError())) }
+            }
+        }
+    }
+
+    fun retryConsoles() {
+        (_state.value.picker?.target as? ConsolePickerTarget.Source)?.let(::loadConsoles)
+    }
+
+    fun toggleConsole(url: String) = updatePicker { picker ->
+        picker.copy(selected = if (url in picker.selected) picker.selected - url else picker.selected + url)
+    }
+
+    fun selectAllConsoles() = updatePicker { it.copy(selected = it.sections.map { s -> s.url }.toSet()) }
+
+    fun selectNoConsole() = updatePicker { it.copy(selected = emptySet()) }
+
+    private fun updatePicker(change: (ConsolePickerState) -> ConsolePickerState) =
+        _state.update { state -> state.copy(picker = state.picker?.let(change)) }
+
+    fun dismissConsolePicker() {
+        pickerJob?.cancel()
+        _state.update { it.copy(picker = null) }
+    }
+
+    fun applyConsoles() {
+        val picker = _state.value.picker ?: return
+        if (picker.selected.isEmpty() || picker.loading) return
+        _state.update { it.copy(picker = null) }
+        when (val target = picker.target) {
+            ConsolePickerTarget.Analysis -> {
+                val all = picker.sections.size == picker.selected.size
+                _state.update { it.copy(analysisConsoles = if (all) null else picker.selected) }
+            }
+            is ConsolePickerTarget.Source -> runBusy {
+                try {
+                    sourceManager.setConsoles(target.id, picker.sections, picker.selected)
+                    _state.update { it.copy(message = SourceMessage.ConsolesSaved) }
+                } catch (e: IOException) {
+                    _state.update { it.copy(message = SourceMessage.ImportFailed(e.message.orEmpty())) }
+                }
+            }
         }
     }
 
@@ -205,6 +290,7 @@ class SourceSetupViewModel @Inject constructor(
             config = config,
             sampleGames = sampleGames.map { it.toDomain(config.id) },
             consoles = consoles,
+            sections = sections,
             pagination = pagination != PaginationKind.None || config.sections != null,
             search = config.searchUrl != null,
             covers = sampleGames.any { it.coverUrl != null },

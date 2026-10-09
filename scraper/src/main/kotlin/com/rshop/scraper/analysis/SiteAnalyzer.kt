@@ -12,6 +12,7 @@ import com.rshop.scraper.config.firstOf
 import com.rshop.scraper.http.Challenge
 import com.rshop.scraper.http.FetchResult
 import com.rshop.scraper.http.HtmlFetcher
+import com.rshop.scraper.model.CatalogSection
 import com.rshop.scraper.model.ScrapedGame
 import com.rshop.scraper.parse.ConsoleNames
 import com.rshop.scraper.parse.Countdown
@@ -37,6 +38,8 @@ data class SiteAnalysis(
     val detailsError: String?,
     /** Consoles found when the URL was a console index (sections mode). */
     val consoles: List<String> = emptyList(),
+    /** The same consoles with their pages, so the user can choose which ones to read. */
+    val sections: List<CatalogSection> = emptyList(),
     /** Set when files are behind a download page. */
     val downloadPage: DownloadPageInfo? = null,
 )
@@ -132,6 +135,7 @@ class SiteAnalyzer(
         var sampleDocument = document
         var sampleUrl = pageUrl
         var consoles = emptyList<String>()
+        var consoleSections = emptyList<CatalogSection>()
         if (useSections) {
             val rules = SectionRules(
                 url = dir,
@@ -143,6 +147,7 @@ class SiteAnalyzer(
             config = config.copy(sections = rules, listUrl = dir)
             val sections = parseSections(document, rules, base)
             consoles = sections.map { it.name }
+            consoleSections = sections
             // First folder that holds files gives the sample.
             for (section in sections.take(MAX_SECTION_TRIES)) {
                 val doc = runCatching { fetcher.fetch(section.url.toHttpUrl(), INTERVAL) }.getOrNull() ?: continue
@@ -155,7 +160,7 @@ class SiteAnalyzer(
             }
         }
         val defaultPlatform = consoles.firstOrNull { sampleUrl.encodedPath.contains("/$it/", ignoreCase = true) }
-        return finish(config, sampleDocument, sampleUrl, PaginationKind.None, consoles, defaultPlatform)
+        return finish(config, sampleDocument, sampleUrl, PaginationKind.None, consoles, defaultPlatform, consoleSections)
     }
 
     private data class ConsoleIndex(val document: Document, val url: HttpUrl, val rules: SectionRules)
@@ -206,7 +211,7 @@ class SiteAnalyzer(
         }
         val sectionName = sections.firstOrNull { it.url.toHttpUrl().encodedPath == pageUrl.encodedPath }?.name
         val kind = if (pagination.kind == PaginationKind.None && indexRule != null) PaginationKind.Index else pagination.kind
-        return finish(config, document, pageUrl, kind, sections.map { it.name }.distinct(), sectionName ?: sections.first().name)
+        return finish(config, document, pageUrl, kind, sections.map { it.name }.distinct(), sectionName ?: sections.first().name, sections)
     }
 
     /**
@@ -360,6 +365,7 @@ class SiteAnalyzer(
         pagination: PaginationKind,
         consoles: List<String>,
         defaultPlatform: String?,
+        sections: List<CatalogSection> = emptyList(),
     ): SiteAnalysis {
         var config = initial
         val games = WebsiteSource(config, fetcher, log).parseList(document).map { it.copy(platform = it.platform ?: defaultPlatform) }
@@ -409,6 +415,7 @@ class SiteAnalyzer(
             sampleDetails = details,
             detailsError = detailsError,
             consoles = consoles,
+            sections = sections,
             downloadPage = downloadPage,
         )
     }

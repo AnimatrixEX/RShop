@@ -347,4 +347,48 @@
     <string name="source_speed_careful">prudente</string>
     <string name="source_speed_normal">normale</string>
     <string name="source_speed_fast">rapide</string>
+
+    <!-- Choix des consoles -->
+    <string name="source_consoles">Consoles</string>
+    <plurals name="source_consoles_chosen">
+        <item quantity="one">%d console lue</item>
+        <item quantity="other">%d consoles lues</item>
+    </plurals>
+    <string name="console_picker_title">Consoles à récupérer</string>
+    <string name="console_picker_body">Seules les consoles cochées sont lues par la synchronisation. Les favoris, les jeux d\'une liste et les jeux installés des consoles décochées sont conservés.</string>
+    <string name="console_picker_loading">Lecture des consoles du site…</string>
+    <string name="console_picker_error">Impossible de lire les consoles : %s</string>
+    <string name="console_picker_none_found">Ce site n\'est pas organisé par console.</string>
+    <string name="console_picker_count">%1$d sur %2$d</string>
+    <string name="console_picker_all">Tout</string>
+    <string name="console_picker_none">Aucune</string>
+    <string name="console_picker_apply">Appliquer</string>
+    <string name="console_picker_choose">Choisir les consoles</string>
+    <string name="console_picker_all_chosen">Toutes les consoles</string>
+    <string name="console_picker_saved">Consoles enregistrées</string>
+
+    <!-- Mise à jour de l'application -->
+    <string name="update_check">Rechercher une mise à jour</string>
+    <string name="update_check_desc">Consulte les versions publiées de RShop sur GitHub</string>
+    <string name="update_checking">Recherche en cours…</string>
+    <string name="update_up_to_date">RShop est à jour (version %s)</string>
+    <string name="update_available">Version %s disponible</string>
+    <string name="update_install_desc">Appuie pour télécharger et installer (%s)</string>
+    <string name="update_downloading">Téléchargement de la version %1$s : %2$d %%</string>
+    <string name="update_downloading_desc">%1$s sur %2$s · appuie pour annuler</string>
+    <string name="update_verifying">Vérification du fichier…</string>
+    <string name="update_installing">Installation de la version %s</string>
+    <string name="update_installing_desc">Confirme dans la fenêtre d\'Android · appuie ici pour la rouvrir</string>
+    <string name="update_notes">NOUVEAUTÉS</string>
+    <string name="update_failed">Mise à jour impossible</string>
+    <string name="update_permission_title">Autoriser l\'installation</string>
+    <string name="update_permission_desc">Android demande d\'autoriser RShop à installer des applications. Appuie pour ouvrir le réglage, puis reviens.</string>
+    <string name="update_error_network">Connexion impossible. Appuie pour réessayer.</string>
+    <string name="update_error_server">GitHub a refusé la demande. Réessaie plus tard.</string>
+    <string name="update_error_no_release">Aucune version n\'est publiée pour le moment.</string>
+    <string name="update_error_bad_release">La dernière version publiée est inutilisable.</string>
+    <string name="update_error_metered">Réseau mobile détecté et « Wi-Fi uniquement » est activé. Connecte-toi en Wi-Fi.</string>
+    <string name="update_error_corrupt">Le fichier téléchargé est incomplet ou différent de celui publié. Appuie pour réessayer.</string>
+    <string name="update_error_not_rshop">Le fichier publié n\'est pas une version de RShop.</string>
+    <string name="update_error_install">Android a refusé l\'installation.</string>
 </resources>

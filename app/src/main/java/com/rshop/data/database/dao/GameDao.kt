@@ -112,6 +112,18 @@ interface GameDao {
     @Query("DELETE FROM games WHERE source_id = :sourceId")
     suspend fun deleteSource(sourceId: String): Int
 
+    /**
+     * Removes the games of the given consoles (a console the user stopped reading), except the
+     * ones the user keeps: favorites, games in a list, installed games.
+     */
+    @Query(
+        "DELETE FROM games WHERE source_id = :sourceId AND platform IN (:platforms) " +
+            "AND id NOT IN (SELECT game_id FROM favorites) " +
+            "AND id NOT IN (SELECT game_id FROM game_list_entries) " +
+            "AND id NOT IN (SELECT game_id FROM installed_games)",
+    )
+    suspend fun deletePlatforms(sourceId: String, platforms: List<String>): Int
+
     /** Removes games of sources that are no longer configured (demo catalogue, removed sites). */
     @Query("DELETE FROM games WHERE source_id NOT IN (:sourceIds)")
     suspend fun deleteOtherSources(sourceIds: List<String>): Int

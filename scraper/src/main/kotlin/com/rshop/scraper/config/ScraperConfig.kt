@@ -37,6 +37,11 @@ data class ScraperConfig(
     val maxPages: Int = 100,
     /** Set for sites where you first pick a console, then browse that console's games. */
     val sections: SectionRules? = null,
+    /**
+     * Pages of the consoles to read (as listed by the section index); null reads every console.
+     * Only meaningful with [sections].
+     */
+    val enabledSections: List<String>? = null,
     val list: ListRules,
     val details: DetailRules = DetailRules(),
     /** Hosts allowed for download links (`*.example.com` accepted). Empty: same host as [baseUrl]. */
@@ -75,6 +80,10 @@ data class ScraperConfig(
         if (maxRequestsPerCrawl < 1) problems += "maxRequestsPerCrawl must be at least 1"
         if (list.item.isEmpty()) problems += "list.item needs at least one selector"
         if (list.title.isEmpty()) problems += "list.title needs at least one rule"
+        if (enabledSections != null) {
+            if (sections == null) problems += "enabledSections needs sections"
+            if (enabledSections.isEmpty()) problems += "enabledSections is empty: choose at least one console"
+        }
         if (sections != null) {
             if (sections.item.isEmpty()) problems += "sections.item needs at least one selector"
             if (sections.pageSuffix != null && PAGE_PLACEHOLDER !in sections.pageSuffix) {
