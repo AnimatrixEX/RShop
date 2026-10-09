@@ -150,6 +150,29 @@ class DriveSourceTest {
     }
 
     @Test
+    fun `listings still work when Drive leaves the parents out`() = runTest {
+        val (tree, root) = sample
+        FakeDrive(tree).use { drive ->
+            drive.omitParents = true
+            val games = source(drive, root).crawl().toList().flatMap { it.games }
+            assertEquals(listOf("Advance Wars", "Final Fantasy VII", "Golden Sun"), games.map { it.title }.sorted())
+        }
+    }
+
+    @Test
+    fun `a big level is handed on batch by batch`() = runTest {
+        val (tree, root) = tree("Mes jeux") { r ->
+            repeat(45) { n -> folder("Game %02d".format(n), r) { g -> file("g$n.iso", g) } }
+        }
+        FakeDrive(tree).use { drive ->
+            val pages = source(drive, root, platform = "PS2").crawl().toList()
+            assertEquals(45, pages.sumOf { it.games.size })
+            // Folders are read 20 at a time and each batch is emitted at once: three groups, not one.
+            assertTrue(pages.size >= 3)
+        }
+    }
+
+    @Test
     fun `a download resolves to the media link with its real name`() = runTest {
         val (tree, root) = sample
         FakeDrive(tree).use { drive ->

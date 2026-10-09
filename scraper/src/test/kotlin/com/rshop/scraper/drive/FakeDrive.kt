@@ -52,6 +52,9 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
     val server = MockWebServer()
     val requests = CopyOnWriteArrayList<RecordedRequest>()
 
+    /** Leave "parents" out of listed files, as Drive may do for files owned by someone else. */
+    @Volatile var omitParents = false
+
     /** Folders that refuse to be listed (not shared with the link). */
     val refused = mutableSetOf<String>()
 
@@ -85,10 +88,13 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
         val all = tree.files.filter { f -> f.parents.any { it in parents } }.sortedBy { it.name }
         val start = token?.toInt() ?: 0
         val page = all.drop(start).take(pageLimit)
-        val body = mutableMapOf<String, kotlinx.serialization.json.JsonElement>("files" to JsonArray(page.map(::fileJson)))
+        val body = mutableMapOf<String, kotlinx.serialization.json.JsonElement>("files" to JsonArray(page.map(::listedFileJson)))
         if (start + pageLimit < all.size) body["nextPageToken"] = JsonPrimitive((start + pageLimit).toString())
         return json(JsonObject(body))
     }
+
+    private fun listedFileJson(f: DriveFile): JsonObject =
+        if (omitParents) JsonObject(fileJson(f).filterKeys { it != "parents" }) else fileJson(f)
 
     private fun fileJson(f: DriveFile) = JsonObject(
         buildMap {

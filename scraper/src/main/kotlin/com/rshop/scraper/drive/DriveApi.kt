@@ -111,6 +111,7 @@ class DriveApi(
             val query = batch.joinToString(" or ", prefix = "(", postfix = ") and trashed = false") { "'${it.id}' in parents" }
             val keys = resourceKeyHeader(batch.map { it.id to it.resourceKey })
             var token: String? = null
+            var unmapped = false
             do {
                 val url = baseUrl.newBuilder().addPathSegment("files")
                     .addQueryParameter("q", query)
@@ -124,10 +125,21 @@ class DriveApi(
                 val what = "folder " + batch.take(3).joinToString(", ") { it.name.ifBlank { it.id.take(8) } } + if (batch.size > 3) "..." else ""
                 val page = JSON.decodeFromString(FileList.serializer(), get(url, keys, what))
                 for (file in page.files) {
-                    for (parent in file.parents) result[parent]?.add(file)
+                    when {
+                        file.parents.isNotEmpty() -> file.parents.forEach { parent -> result[parent]?.add(file) }
+                        batch.size == 1 -> result.getValue(batch.single().id).add(file)
+                        else -> unmapped = true
+                    }
                 }
                 token = page.nextPageToken
             } while (token != null)
+            // Without the parent of each file a batch cannot be told apart: ask folder by folder.
+            if (unmapped) {
+                for (folder in batch) {
+                    val own = listChildren(listOf(folder))[folder.id].orEmpty()
+                    result.getValue(folder.id).apply { clear(); addAll(own) }
+                }
+            }
         }
         return result
     }

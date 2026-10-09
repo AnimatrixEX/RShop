@@ -75,11 +75,13 @@ class DriveCatalogWalker(
         var level = listOf(console)
         var depth = 0
         while (level.isNotEmpty()) {
-            val children = list(level)
             val next = mutableListOf<DriveFile>()
+            // A level can hold thousands of folders: each batch is handed on as soon as it is read.
+            for (chunk in level.chunked(DriveApi.BATCH)) {
+            val children = list(chunk)
             val games = mutableListOf<DriveGame>()
             val withUpdates = mutableListOf<Pair<DriveGame, List<DriveFile>>>()
-            for (folder in level) {
+            for (folder in chunk) {
                 val entries = children[folder.id].orEmpty().map { it.resolved() }
                 val subfolders = entries.filter { it.isFolder }
                 val offered = entries.filter { !it.isFolder && !it.isGoogleDocument && GameFiles.isOffered(it.name) }
@@ -99,6 +101,7 @@ class DriveCatalogWalker(
             }
             if (withUpdates.isNotEmpty()) games += attachUpdates(withUpdates)
             if (games.isNotEmpty()) onGames(games)
+            }
             level = next
             depth++
         }
