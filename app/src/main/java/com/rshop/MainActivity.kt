@@ -27,6 +27,9 @@ class MainActivity : ComponentActivity() {
     /** Shoulder-button tab switches (-1 = previous, +1 = next), handled here so they work even with nothing focused. */
     private val tabSwitches = MutableSharedFlow<Int>(extraBufferCapacity = 8)
 
+    /** The controller's X button: go to the Store's search. */
+    private val searchRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
     @Inject lateinit var settingsRepository: SettingsRepository
 
     private var themeLoaded = false
@@ -46,7 +49,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             RShopTheme {
-                RShopRoot(tabSwitches = tabSwitches)
+                RShopRoot(tabSwitches = tabSwitches, searchRequests = searchRequests)
             }
         }
     }
@@ -56,6 +59,10 @@ class MainActivity : ComponentActivity() {
      * the first chance at them (and may consume them), wherever the focus currently is.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_X) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) searchRequests.tryEmit(Unit)
+            return true
+        }
         val step = when (event.keyCode) {
             KeyEvent.KEYCODE_BUTTON_L1 -> -1
             KeyEvent.KEYCODE_BUTTON_R1 -> 1

@@ -243,4 +243,37 @@ class RoomGameRepositoryTest {
         assertEquals(listOf("b", "c", "d"), titles(CatalogFilter()))
         assertEquals(0, repository.deleteGamesOfPlatforms("test", emptyList()))
     }
+
+    @Test
+    fun `catalogue filters hide installed games, demos and other regions`() = runTest {
+        repository.saveGames(
+            listOf(
+                testGame("sonic", title = "Sonic (USA, Europe)"),
+                testGame("ff", title = "Final Fantasy (Japan)"),
+                testGame("demo", title = "Sonic (USA) (Demo)"),
+                testGame("homebrew", title = "Neon Drift"),
+                testGame("world", title = "Tetris (World)"),
+            ),
+        )
+        db.installedGameDao().upsert(
+            com.rshop.data.database.entity.InstalledGameEntity(
+                gameId = "test:world", title = "Tetris (World)", platform = null, coverUrl = null, installedVersion = null,
+                documentUri = "content://x", sizeOnDisk = null, installedAt = 0,
+            ),
+        )
+
+        assertEquals(5, titles(CatalogFilter()).size)
+        assertEquals(listOf("Final Fantasy (Japan)", "Neon Drift", "Sonic (USA) (Demo)", "Sonic (USA, Europe)"), titles(CatalogFilter(hideInstalled = true)))
+        assertEquals(listOf("Final Fantasy (Japan)", "Neon Drift", "Sonic (USA, Europe)", "Tetris (World)"), titles(CatalogFilter(hideExtras = true)))
+        // USA: its own games, world releases and games that name no region.
+        assertEquals(
+            listOf("Neon Drift", "Sonic (USA) (Demo)", "Sonic (USA, Europe)", "Tetris (World)"),
+            titles(CatalogFilter(region = com.rshop.domain.catalog.CatalogRegion.Usa)),
+        )
+        assertEquals(
+            listOf("Neon Drift", "Sonic (USA, Europe)"),
+            titles(CatalogFilter(region = com.rshop.domain.catalog.CatalogRegion.Usa, hideInstalled = true, hideExtras = true)),
+        )
+        assertEquals(3, repository.observeCatalogCount(CatalogFilter(region = com.rshop.domain.catalog.CatalogRegion.Japan, hideExtras = true)).first())
+    }
 }

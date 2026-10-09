@@ -39,6 +39,8 @@ import com.rshop.ui.theme.RShopColors
 fun ControllerTextField(
     shape: Shape,
     modifier: Modifier = Modifier,
+    /** Lets the screen move the focus onto the box (the search shortcut). */
+    boxFocus: FocusRequester? = null,
     field: @Composable (fieldModifier: Modifier) -> Unit,
 ) {
     var editing by remember { mutableStateOf(false) }
@@ -63,6 +65,7 @@ fun ControllerTextField(
                     false
                 }
             }
+            .then(if (boxFocus != null) Modifier.focusRequester(boxFocus) else Modifier)
             .focusable(interactionSource = interaction),
     ) {
         field(

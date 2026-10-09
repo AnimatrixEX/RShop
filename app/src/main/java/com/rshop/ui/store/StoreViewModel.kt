@@ -11,6 +11,9 @@ import com.rshop.data.source.displayNames
 import com.rshop.data.sync.SourceError
 import com.rshop.data.sync.toSourceError
 import com.rshop.domain.model.CatalogFilter
+import com.rshop.domain.model.CatalogPrefs
+import com.rshop.domain.repository.SettingsRepository
+import kotlinx.coroutines.flow.first
 import com.rshop.domain.model.Game
 import com.rshop.domain.model.SortOrder
 import com.rshop.domain.repository.GameRepository
@@ -46,6 +49,7 @@ data class StoreUiState(
     val genre: String? = null,
     val platform: String? = null,
     val sort: SortOrder = SortOrder.Title,
+    val prefs: CatalogPrefs = CatalogPrefs(),
     val genres: List<String> = emptyList(),
     val platforms: List<String> = emptyList(),
     /** Source filter, shown only when several sources are configured: (id, name). */
@@ -64,6 +68,7 @@ class StoreViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: GameRepository,
     private val sourceManager: SourceManager,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
 
     private val route = savedStateHandle.toRoute<StoreRoute>()
@@ -76,11 +81,14 @@ class StoreViewModel @Inject constructor(
     private val options = MutableStateFlow(CatalogFilter(genre = route.genre, platform = route.platform))
     private val remoteSearch = MutableStateFlow<RemoteSearchState>(RemoteSearchState.Idle)
 
+    private val prefs: Flow<CatalogPrefs> = settings.settings.map { it.catalog }.distinctUntilChanged()
+
     private val filter: Flow<CatalogFilter> = combine(
         // Typing is debounced; clearing the field is applied immediately.
         _query.debounce { if (it.isBlank()) 0L else SEARCH_DEBOUNCE_MS },
         options,
-    ) { q, f -> f.copy(query = q) }.distinctUntilChanged()
+        prefs,
+    ) { q, f, p -> f.copy(query = q, hideInstalled = p.hideInstalled, hideExtras = p.hideExtras, region = p.region) }.distinctUntilChanged()
 
     /** Lazily loaded results: only the visible part of a large catalogue is read. */
     val games: Flow<PagingData<Game>> = filter
@@ -89,17 +97,18 @@ class StoreViewModel @Inject constructor(
 
     val uiState: StateFlow<StoreUiState> = combine(
         options,
-        combine(repository.observeGenres(), repository.observePlatforms(), ::Pair),
+        combine(repository.observeGenres(), repository.observePlatforms(), prefs, ::Triple),
         filter.flatMapLatest { repository.observeCatalogCount(it) },
         sourceManager.configs,
         remoteSearch,
-    ) { f, (genres, platforms), count, configs, remote ->
+    ) { f, (genres, platforms, p), count, configs, remote ->
         StoreUiState(
             genre = f.genre,
             platform = f.platform,
             sources = if (configs.size > 1) configs.displayNames().toList() else emptyList(),
             sourceId = f.sourceId?.takeIf { id -> configs.any { it.id == id } },
             sort = f.sort,
+            prefs = p,
             genres = genres,
             platforms = platforms,
             resultCount = count,
@@ -129,6 +138,16 @@ class StoreViewModel @Inject constructor(
 
     fun onSourceSelected(sourceId: String?) {
         options.update { it.copy(sourceId = sourceId) }
+    }
+
+    fun onToggleHideInstalled() = updatePrefs { it.copy(hideInstalled = !it.hideInstalled) }
+
+    fun onToggleHideExtras() = updatePrefs { it.copy(hideExtras = !it.hideExtras) }
+
+    fun onCycleRegion() = updatePrefs { it.copy(region = it.region.next()) }
+
+    private fun updatePrefs(change: (CatalogPrefs) -> CatalogPrefs) {
+        viewModelScope.launch { settings.setCatalogPrefs(change(settings.settings.first().catalog)) }
     }
 
     fun onCycleSort() {

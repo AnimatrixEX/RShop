@@ -9,6 +9,7 @@ import com.rshop.data.database.dao.DownloadDao
 import com.rshop.data.database.dao.FavoriteDao
 import com.rshop.data.database.dao.GameDao
 import com.rshop.data.database.dao.GameListDao
+import com.rshop.domain.catalog.TitleTags
 import com.rshop.domain.genre.GenreClassifier
 import com.rshop.domain.genre.TagCodec
 import com.rshop.data.database.dao.HistoryDao
@@ -35,7 +36,7 @@ import com.rshop.data.database.entity.ScreenshotEntity
         GameListEntity::class,
         GameListEntryEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
     autoMigrations = [
         // v2: games.details_synced_at + downloads table.
@@ -56,6 +57,8 @@ import com.rshop.data.database.entity.ScreenshotEntity
         AutoMigration(from = 8, to = 9),
         // v10: games.stats_checked_at (download counters read from game pages in the background).
         AutoMigration(from = 9, to = 10),
+        // v11: games.region_flags + is_extra (catalogue filters) and the several-files columns of downloads.
+        AutoMigration(from = 10, to = 11, spec = AppDatabase.AddTitleTags::class),
     ],
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -93,6 +96,24 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
             updates.forEach { (id, tags) -> db.execSQL("UPDATE games SET tags = ? WHERE id = ?", arrayOf(tags, id)) }
+        }
+    }
+
+    /** Reads the region and the demo/beta mark of every game already in the catalogue. */
+    class AddTitleTags : AutoMigrationSpec {
+        override fun onPostMigrate(db: SupportSQLiteDatabase) {
+            val updates = ArrayList<Triple<String, Int, Int>>()
+            db.query("SELECT id, title FROM games").use { c ->
+                while (c.moveToNext()) {
+                    val title = c.getString(1)
+                    val flags = TitleTags.regionFlags(title)
+                    val extra = if (TitleTags.isExtra(title)) 1 else 0
+                    if (flags != 0 || extra != 0) updates += Triple(c.getString(0), flags, extra)
+                }
+            }
+            updates.forEach { (id, flags, extra) ->
+                db.execSQL("UPDATE games SET region_flags = ?, is_extra = ? WHERE id = ?", arrayOf<Any>(flags, extra, id))
+            }
         }
     }
 

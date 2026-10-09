@@ -80,9 +80,7 @@ class WebsiteSource(
             throw ScraperException.StructureChanged(url.toString(), "no game matched ${config.list.item}")
         }
 
-        val next = config.list.nextPage.takeIf { it.isNotEmpty() }
-            ?.let { document.firstOf(it)?.toHttpUrlOrNull() }
-            ?.takeIf { it.host == base.host && it != url }
+        val next = config.list.nextPage.takeIf { it.isNotEmpty() }?.let { nextLink(document, it, url) }
         if (next != null) discoveredPages[page + 1] = next
 
         val hasNext = games.isNotEmpty() && page + 1 < config.maxPages && when {
@@ -211,7 +209,7 @@ class WebsiteSource(
                 }
                 val games = parseList(document).map { it.copy(platform = it.platform ?: section?.name) }
                 val next = if (useIndex) {
-                    document.firstOf(config.list.nextPage.ifEmpty { ListRules.DEFAULT_NEXT_PAGE })?.toHttpUrlOrNull()
+                    nextLink(document, config.list.nextPage.ifEmpty { ListRules.DEFAULT_NEXT_PAGE }, url)
                 } else {
                     nextSectionPage(document, url, start, suffix, page)
                 }
@@ -220,7 +218,7 @@ class WebsiteSource(
                     if (useIndex) addAll(indexLinks(document))
                 }
                 links.map { it.newBuilder().fragment(null).build() }
-                    .filter { it.host == base.host && it !in sectionUrls }
+                    .filter { sameSite(it) && it !in sectionUrls }
                     .forEach { if (seenPages.add(it)) queue.addLast(it) }
                 page++
                 if (games.isEmpty()) {
@@ -244,6 +242,22 @@ class WebsiteSource(
         }
     }
 
+    /** The site itself; "www." is not told apart, sites link to either form. */
+    private fun sameSite(url: HttpUrl): Boolean = url.host.removePrefix("www.") == base.host.removePrefix("www.")
+
+    /**
+     * The link to the next page: the first usable match of the rules. Every match is looked at,
+     * since a carousel arrow or a "#" link may come before the real pager; links to another site
+     * and to the page itself are skipped.
+     */
+    private fun nextLink(document: Document, rules: List<String>, current: HttpUrl): HttpUrl? {
+        val here = current.newBuilder().fragment(null).build()
+        return rules.asSequence()
+            .flatMap { FieldRule.parse(it).extractAll(document) }
+            .mapNotNull { it.toHttpUrlOrNull() }
+            .firstOrNull { sameSite(it) && it.newBuilder().fragment(null).build() != here }
+    }
+
     /** Links of the page's index (letters, page numbers): every [ListRules.indexPages] rule, merged. */
     private fun indexLinks(document: Document): List<HttpUrl> =
         config.list.indexPages.flatMap { FieldRule.parse(it).extractAll(document) }.mapNotNull { it.toHttpUrlOrNull() }
@@ -251,7 +265,7 @@ class WebsiteSource(
     private fun nextSectionPage(document: Document, current: HttpUrl, sectionUrl: HttpUrl, suffix: String?, page: Int): HttpUrl? {
         if (page + 1 >= config.maxPages) return null
         if (config.list.nextPage.isNotEmpty()) {
-            return document.firstOf(config.list.nextPage)?.toHttpUrlOrNull()?.takeIf { it.host == base.host && it != current }
+            return nextLink(document, config.list.nextPage, current)
         }
         if (suffix != null) {
             return sectionUrl.resolve(suffix.replace(ScraperConfig.PAGE_PLACEHOLDER, (config.firstPageNumber + page + 1).toString()))
@@ -520,7 +534,7 @@ class WebsiteSource(
             val found = parseList(document).filter { results.putIfAbsent(it.id, it) == null }
             pages++
             if (found.isEmpty()) break
-            url = document.firstOf(nextRules)?.toHttpUrlOrNull()?.takeIf { it.host == base.host && it != url }
+            url = nextLink(document, nextRules, url)
         }
         return results.values.toList().withoutDisabledConsoles()
     }

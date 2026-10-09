@@ -75,31 +75,38 @@ class GameInstaller @Inject constructor(
 
                 val previous = installedDao.get(download.gameId)
                 val previousUris = previous?.documentUri?.let(::urisOf).orEmpty().toSet()
+                // The second file of a game (disc 2…) joins what the first one installed.
+                val append = download.partIndex > 0 && previous != null
                 // Readmes and pictures next to the game are left behind; the game's own files go
                 // straight into the console folder, whatever their number (bin + cue, several discs).
                 val items = result.topLevelNames.filterNot { FileFormats.isExtra(it) }.ifEmpty { result.topLevelNames.toList() }
                 val placed = placeInConsoleFolder(tree, platformDir, staging, items, previousUris)
                 val finalUri = if (placed != null) {
                     placed.joinToString(URI_SEPARATOR.toString())
+                } else if (append) {
+                    // Joins the game's own folder when the first file had to be set apart.
+                    placeInTitleFolder(tree, platformDir, staging, items, download.title)?.toString()
+                        ?: renameStaging(tree, platformDir, staging, download.title, replace = false).also { stagingKept = true }.toString()
                 } else {
                     // A name is taken by another game's file, or the provider cannot move: keep this game apart.
-                    renameStaging(tree, platformDir, staging, download.title).also { stagingKept = true }.toString()
+                    renameStaging(tree, platformDir, staging, download.title, replace = !append).also { stagingKept = true }.toString()
                 }
 
-                if (previous != null) {
+                if (previous != null && !append) {
                     val current = urisOf(finalUri).toSet()
                     previousUris.filterNot { it in current }.forEach { storage.delete(Uri.parse(it)) }
                 }
+                val formats = result.formats.takeIf { it.isNotEmpty() }?.joinToString(" + ")
                 InstalledGameEntity(
                     gameId = download.gameId,
                     title = download.title,
                     platform = download.platform,
                     coverUrl = download.coverUrl,
                     installedVersion = download.version,
-                    documentUri = finalUri,
-                    sizeOnDisk = result.bytesWritten,
+                    documentUri = if (append) (previousUris + urisOf(finalUri)).joinToString(URI_SEPARATOR.toString()) else finalUri,
+                    sizeOnDisk = if (append) (previous?.sizeOnDisk ?: 0L) + result.bytesWritten else result.bytesWritten,
                     installedAt = clock.millis(),
-                    fileFormat = result.formats.takeIf { it.isNotEmpty() }?.joinToString(" + "),
+                    fileFormat = if (append) listOfNotNull(previous?.fileFormat, formats).joinToString(" + ").ifEmpty { null } else formats,
                 ).also { installedDao.upsert(it) }
             } finally {
                 if (!stagingKept) storage.delete(staging)
@@ -168,10 +175,24 @@ class GameInstaller @Inject constructor(
         return placed
     }
 
-    private fun renameStaging(tree: Uri, platformDir: Uri, staging: Uri, title: String): Uri {
+    private fun renameStaging(tree: Uri, platformDir: Uri, staging: Uri, title: String, replace: Boolean = true): Uri {
         val folder = SafeEntryPath.sanitizeName(title)
-        storage.findChild(tree, platformDir, folder)?.let { storage.delete(it) }
+        if (replace) storage.findChild(tree, platformDir, folder)?.let { storage.delete(it) }
         return storage.rename(staging, folder)
+    }
+
+    /**
+     * A later file of a game that was set apart in its own `<Title>/` folder joins that folder.
+     * Null when there is no such folder or the provider cannot move into it.
+     */
+    private fun placeInTitleFolder(tree: Uri, platformDir: Uri, staging: Uri, items: List<String>, title: String): Uri? {
+        val folder = storage.findChild(tree, platformDir, SafeEntryPath.sanitizeName(title)) ?: return null
+        for (name in items) {
+            val item = storage.findChild(tree, staging, name) ?: return null
+            storage.findChild(tree, folder, name)?.let { storage.delete(it) }
+            storage.move(item, staging, folder) ?: return null
+        }
+        return folder
     }
 
     private companion object {

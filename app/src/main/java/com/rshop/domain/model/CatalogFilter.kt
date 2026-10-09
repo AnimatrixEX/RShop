@@ -1,5 +1,7 @@
 package com.rshop.domain.model
 
+import com.rshop.domain.catalog.CatalogRegion
+
 data class CatalogFilter(
     val query: String = "",
     val genre: String? = null,
@@ -7,6 +9,11 @@ data class CatalogFilter(
     /** Only games of this source (its id); null for all sources. */
     val sourceId: String? = null,
     val sort: SortOrder = SortOrder.Title,
+    /** Leave out games that are already installed. */
+    val hideInstalled: Boolean = false,
+    /** Leave out demos, betas and prototypes. */
+    val hideExtras: Boolean = false,
+    val region: CatalogRegion = CatalogRegion.All,
 )
 
 enum class SortOrder { Title, Popular, RecentlyAdded, RecentlyUpdated, Size }

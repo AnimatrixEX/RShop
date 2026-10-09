@@ -8,6 +8,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.rshop.data.database.DownloadOptionsJson
 import com.rshop.data.database.dao.DownloadDao
 import com.rshop.data.database.entity.DownloadEntity
 import com.rshop.data.source.SourceRepository
@@ -89,9 +90,10 @@ class DownloadManager @Inject constructor(
 
     /**
      * Queues the game's download. [optionUrl] picks one of [Game.downloadOptions] (format, disc…);
-     * null takes the first one.
+     * null takes the first one. [moreUrls] are further files of the same game (other discs, bin +
+     * cue), fetched and installed one after the other into the same game.
      */
-    suspend fun start(gameId: String, optionUrl: String? = null): StartResult {
+    suspend fun start(gameId: String, optionUrl: String? = null, moreUrls: List<String> = emptyList()): StartResult {
         dao.get(gameId)?.let { existing ->
             if (DownloadStatus.valueOf(existing.state).isActive) return StartResult.Started
         }
@@ -112,6 +114,10 @@ class DownloadManager @Inject constructor(
             ?: return StartResult.Failed(DownloadError(DownloadErrorKind.NoLink))
         val url = option.url.toHttpUrlOrNull() ?: return StartResult.Failed(DownloadError(DownloadErrorKind.NoLink))
         if (option.viaPage) return StartResult.OpenInBrowser(url.toString())
+        val extras = moreUrls.distinct().filter { it != option.url }
+            .mapNotNull { wanted -> game.downloadOptions.firstOrNull { it.url == wanted } }
+        // A file behind a site page needs the browser; the others of the game follow once it is done.
+        extras.firstOrNull { it.viaPage }?.let { return StartResult.OpenInBrowser(it.url) }
         val config = sources.get(game.sourceId)
             ?: return StartResult.Failed(DownloadError(DownloadErrorKind.Rejected, "game does not belong to a configured source"))
         val policy = DownloadUrlPolicy(config.base, config.allowedDownloadHosts)
@@ -120,6 +126,10 @@ class DownloadManager @Inject constructor(
             // Every link is resolved by the worker first (download pages, redirects, real file
             // name); the resolved URL and name are checked again there.
             DownloadPolicy.check(url, if (option.viaPage) "$fileName.page" else fileName) { policy.accepts(it) || option.viaPage }
+            for (extra in extras) {
+                val extraUrl = extra.url.toHttpUrlOrNull() ?: throw DownloadException.Rejected("invalid link ${extra.url}")
+                DownloadPolicy.check(extraUrl, DownloadPolicy.fileName(extraUrl, game.title)) { policy.accepts(it) }
+            }
         } catch (e: DownloadException) {
             return StartResult.Failed(e.toDownloadError())
         }
@@ -148,6 +158,8 @@ class DownloadManager @Inject constructor(
                 version = game.version,
                 createdAt = now,
                 updatedAt = now,
+                extraParts = DownloadOptionsJson.encode(extras),
+                partCount = 1 + extras.size,
             ),
         )
         enqueue(game.id)
@@ -390,6 +402,8 @@ class DownloadManager @Inject constructor(
             bytesPerSecond = speed,
             etaSeconds = if (speed != null && total != null) ((total - downloaded).coerceAtLeast(0) / speed) else null,
             installedBytes = live?.installedBytes,
+            partIndex = partIndex,
+            partCount = partCount,
             verified = verified,
             hasChecksum = expectedSha256 != null,
             error = DownloadError.decode(error),

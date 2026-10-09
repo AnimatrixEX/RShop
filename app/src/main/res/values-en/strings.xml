@@ -381,4 +381,68 @@
     <string name="update_error_corrupt">The downloaded file is incomplete or differs from the published one. Press to try again.</string>
     <string name="update_error_not_rshop">The published file is not an RShop version.</string>
     <string name="update_error_install">Android refused the installation.</string>
+
+    <!-- Catalogue filters -->
+    <string name="store_hide_installed">Hide installed</string>
+    <string name="store_hide_extras">No demos or betas</string>
+    <string name="store_region">Region: %1$s</string>
+    <string name="region_all">All</string>
+    <string name="region_usa">USA</string>
+    <string name="region_europe">Europe</string>
+    <string name="region_japan">Japan</string>
+
+    <!-- Games made of several files -->
+    <string name="details_choose_files">Choose the files</string>
+    <string name="details_several_files">Several files</string>
+    <string name="details_one_file">Single file</string>
+    <string name="details_parts_hint">These files look like the parts of one game (discs, bin + cue). They will be installed together.</string>
+    <plurals name="details_download_all">
+        <item quantity="one">Download all (%d file)</item>
+        <item quantity="other">Download all (%d files)</item>
+    </plurals>
+    <plurals name="details_download_selected">
+        <item quantity="one">Download %d file</item>
+        <item quantity="other">Download %d files</item>
+    </plurals>
+    <string name="download_part">File %1$d of %2$d</string>
+
+    <!-- Backup -->
+    <string name="settings_backup">Backup</string>
+    <string name="settings_backup_export">Save a backup</string>
+    <string name="settings_backup_export_desc">Sources, favorites, lists and settings in one file</string>
+    <string name="settings_backup_restore">Restore a backup</string>
+    <string name="settings_backup_restore_desc">Puts back the sources, favorites, lists and settings of a file</string>
+    <string name="backup_restore_title">Restore this backup?</string>
+    <string name="backup_made_on">Made on %s</string>
+    <plurals name="backup_sources">
+        <item quantity="one">%d source</item>
+        <item quantity="other">%d sources</item>
+    </plurals>
+    <plurals name="backup_favorites">
+        <item quantity="one">%d favorite</item>
+        <item quantity="other">%d favorites</item>
+    </plurals>
+    <plurals name="backup_lists">
+        <item quantity="one">%d list</item>
+        <item quantity="other">%d lists</item>
+    </plurals>
+    <string name="backup_restore_note">Settings are replaced. Sources are read again; favorites whose game is not in the catalogue yet are added after the sync.</string>
+    <string name="backup_restore_confirm">Restore</string>
+    <string name="backup_saved_title">Backup saved</string>
+    <string name="backup_saved_body">The file holds your sources, favorites, lists and settings. Installed games stay in the games folder; the SteamGridDB key and the folder access are not saved.</string>
+    <string name="backup_restored_title">Backup restored</string>
+    <string name="backup_restored_body">%1$d sources, %2$d favorites and %3$d lists put back. %4$d items wait for the sync to finish.</string>
+    <string name="backup_failed_title">Backup failed</string>
+    <string name="backup_failed_body">The file could not be read or written.</string>
+
+    <!-- Controller hints and the game menu -->
+    <string name="hint_select">Select</string>
+    <string name="hint_back">Back</string>
+    <string name="hint_game_menu">Game menu</string>
+    <string name="hint_search">Search</string>
+    <string name="hint_tabs">Tabs</string>
+    <string name="game_menu_open">Open page</string>
+    <string name="game_menu_favorite">Add to favorites</string>
+    <string name="game_menu_unfavorite">Remove from favorites</string>
+    <string name="game_menu_lists">Add to a list…</string>
 </resources>

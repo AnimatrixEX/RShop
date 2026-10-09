@@ -91,11 +91,11 @@ fun GameDetailsScreen(
     }
     // Asked once, on the first install; downloads work without it (no progress notification).
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val install = { optionUrl: String? ->
+    val install = { optionUrl: String?, moreUrls: List<String> ->
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        viewModel.onInstall(optionUrl)
+        viewModel.onInstall(optionUrl, moreUrls)
     }
     // Picks a file the user downloaded themselves (e.g. in the device browser) and installs it.
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -146,7 +146,7 @@ fun GameDetailsScreen(
                 state = current,
                 onBack = onBack,
                 onInstall = {
-                    if (current.game.downloadOptions.size > 1) chooser = current.game else install(null)
+                    if (current.game.downloadOptions.size > 1) chooser = current.game else install(null, emptyList())
                 },
                 onOpenBrowser = {
                     val url = current.browserUrl
@@ -199,7 +199,11 @@ fun GameDetailsScreen(
             options = game.downloadOptions,
             onPick = { option ->
                 chooser = null
-                install(option.url)
+                install(option.url, emptyList())
+            },
+            onPickMany = { picked ->
+                chooser = null
+                install(picked.first().url, picked.drop(1).map { it.url })
             },
             onDismiss = { chooser = null },
         )

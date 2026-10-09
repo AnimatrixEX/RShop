@@ -17,14 +17,15 @@ Conçu en priorité pour les Retroid, Ayn, Anbernic et consorts (écran 16:9, ma
 ## Fonctionnalités
 
 - **Accueil** : carrousel « À la une » des jeux les plus téléchargés (avec barre de progression avant le défilement), étagères *Consultés récemment*, *Favoris*, *Ajoutés récemment*, *Populaires*, *Mis à jour*, catégories et plateformes.
-- **Store** : recherche instantanée (et recherche sur le site source), filtres par plateforme, genre (tags détectés depuis le site, le titre et la description) et source, tris (titre, populaires, récents, taille), chargement progressif pour les très gros catalogues.
+- **Store** : recherche instantanée (et recherche sur le site source), filtres par plateforme, genre (tags détectés depuis le site, le titre et la description) et source, tris (titre, populaires, récents, taille), chargement progressif pour les très gros catalogues. Trois filtres mémorisés : masquer les jeux déjà installés, masquer les démos/bêtas/prototypes, ne garder qu'une région (USA, Europe, Japon ; les jeux « World » et sans région restent).
 - **Plusieurs sources de catalogue** en parallèle, chacune synchronisée en arrière-plan dans une base locale (Room) : l'app reste utilisable hors ligne. Une fois un site entièrement scanné, les synchronisations suivantes ne cherchent que les nouveaux jeux (« Tout rescanner » pour tout relire). Pour un site organisé par console, vous choisissez **les consoles à récupérer** (à l'ajout de la source, puis à tout moment via le bouton *Consoles*).
 - **Téléchargements** en arrière-plan : progression, vitesse, temps restant, pause, reprise, annulation, nouvelle tentative, vérification SHA-256 quand le site la publie.
-- **Installation** automatique dans le dossier de votre choix (Storage Access Framework) : `.zip`, `.7z`, `.tar`, `.tar.gz`, `.tar.xz`… avec protection contre le *path traversal* et les *zip bombs*. Plusieurs formats par jeu (ZIP, CHD, ISO…) : vous choisissez.
+- **Installation** automatique dans le dossier de votre choix (Storage Access Framework) : `.zip`, `.7z`, `.tar`, `.tar.gz`, `.tar.xz`… avec protection contre le *path traversal* et les *zip bombs*. Plusieurs formats par jeu (ZIP, CHD, ISO…) : vous choisissez. Un jeu en plusieurs fichiers (disques, bin + cue) : « Tout télécharger » est proposé quand les fichiers semblent être les parties d'un même jeu, ou cochez-les à la main ; ils sont téléchargés et installés l'un après l'autre dans le même jeu.
 - **Navigateur intégré** (GeckoView) pour les sites qui passent par des pages intermédiaires : le fichier cliqué est récupéré directement par l'app et installé, même si vous fermez le navigateur.
 - **Favoris et listes personnalisées** : un onglet dédié, des listes créées/renommées/supprimées à volonté, jeux ajoutés depuis leur page.
 - **Bibliothèque** des jeux installés : informations, mise à jour, suppression.
-- **Manette de bout en bout** : focus toujours visible, L1/R1 pour changer d'onglet, retour au jeu précédemment sélectionné, clavier ouvert seulement sur appui.
+- **Manette de bout en bout** : focus toujours visible, L1/R1 pour changer d'onglet, Y sur une carte pour son menu (fiche, favori, listes ; appui long au toucher), X pour la recherche, une barre d'aide des boutons (visible seulement à la manette), retour au jeu précédemment sélectionné, clavier ouvert seulement sur appui.
+- **Sauvegarde** : *Paramètres → Sauvegarde* enregistre sources, favoris, listes et réglages dans un fichier JSON et les restaure (sur le même appareil ou un autre). Les favoris dont le jeu n'est pas encore dans le catalogue sont ajoutés à la fin de la synchronisation.
 - **Personnalisation** : fonds (Nuit, OLED noir, Ardoise, Crépuscule), 7 couleurs d'accent, contour de sélection, taille du texte, arrière-plans dynamiques, langue (français / anglais).
 - **Mise à jour de l'app** : *Paramètres → À propos → Rechercher une mise à jour* consulte la dernière release GitHub, télécharge l'APK (reprise possible, SHA-256 vérifié) et le confie à l'installateur d'Android, qui contrôle la signature.
 - Reste en **paysage**, plein écran.
@@ -93,4 +94,4 @@ MVVM, pattern Repository, coroutines / Flow. Le parsing HTML ne touche jamais l'
 
 ## État du projet
 
-Version 0.1.5, usage personnel. Le projet suit les phases décrites dans [`CLAUDE.md`](CLAUDE.md) (le lanceur de jeux en est volontairement exclu). Testé sur Retroid Pocket 6.
+Version 0.1.6, usage personnel. Le projet suit les phases décrites dans [`CLAUDE.md`](CLAUDE.md) (le lanceur de jeux en est volontairement exclu). Testé sur Retroid Pocket 6.

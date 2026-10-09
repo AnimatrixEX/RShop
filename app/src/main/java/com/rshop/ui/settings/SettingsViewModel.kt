@@ -4,6 +4,13 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rshop.data.artwork.ArtworkResolver
+import com.rshop.data.backup.Backup
+import com.rshop.data.backup.BackupException
+import com.rshop.data.backup.BackupManager
+import com.rshop.data.backup.BackupSummary
+import com.rshop.data.backup.RestoreReport
+import com.rshop.data.storage.TextDocuments
+import java.io.IOException
 import com.rshop.data.artwork.ArtworkScheduler
 import com.rshop.data.artwork.ArtworkSettings
 import com.rshop.data.artwork.ArtworkStatus
@@ -31,6 +38,21 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+sealed interface BackupMessage {
+    data object Exported : BackupMessage
+    data class Restored(val report: RestoreReport) : BackupMessage
+    data class Failed(val detail: String) : BackupMessage
+}
+
+data class BackupUiState(
+    /** A backup read and waiting for the user's go-ahead. */
+    val preview: BackupSummary? = null,
+    val restoring: Boolean = false,
+    val message: BackupMessage? = null,
+)
+
+private const val MAX_BACKUP_BYTES = 8 * 1024 * 1024
+
 data class SettingsUiState(
     val settings: AppSettings = AppSettings(),
     val directory: GamesDirectoryState = GamesDirectoryState.NotSelected,
@@ -53,7 +75,66 @@ class SettingsViewModel @Inject constructor(
     private val artworkResolver: ArtworkResolver,
     private val artworkScheduler: ArtworkScheduler,
     private val appUpdater: AppUpdater,
+    private val backupManager: BackupManager,
+    private val documents: TextDocuments,
 ) : ViewModel() {
+
+    private val _backup = MutableStateFlow(BackupUiState())
+    val backup: StateFlow<BackupUiState> = _backup
+
+    /** The backup file the user picked, until they confirm or cancel the restore. */
+    private var picked: Backup? = null
+
+    fun onExportBackup(uri: Uri) {
+        viewModelScope.launch {
+            _backup.value = _backup.value.copy(
+                message = try {
+                    documents.write(uri, backupManager.export())
+                    BackupMessage.Exported
+                } catch (e: IOException) {
+                    BackupMessage.Failed(e.message.orEmpty())
+                },
+            )
+        }
+    }
+
+    fun onBackupPicked(uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val backup = backupManager.parse(documents.read(uri, maxBytes = MAX_BACKUP_BYTES))
+                picked = backup
+                _backup.value = _backup.value.copy(preview = backupManager.summarize(backup))
+            } catch (e: BackupException) {
+                _backup.value = _backup.value.copy(message = BackupMessage.Failed(e.message.orEmpty()))
+            } catch (e: IOException) {
+                _backup.value = _backup.value.copy(message = BackupMessage.Failed(e.message.orEmpty()))
+            }
+        }
+    }
+
+    fun onConfirmRestore() {
+        val backup = picked ?: return
+        picked = null
+        _backup.value = _backup.value.copy(preview = null, restoring = true)
+        viewModelScope.launch {
+            val message = try {
+                BackupMessage.Restored(backupManager.restore(backup))
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                BackupMessage.Failed(e.message.orEmpty())
+            }
+            _backup.value = BackupUiState(message = message)
+        }
+    }
+
+    fun onCancelRestore() {
+        picked = null
+        _backup.value = _backup.value.copy(preview = null)
+    }
+
+    fun onBackupMessageShown() {
+        _backup.value = _backup.value.copy(message = null)
+    }
 
     val update: StateFlow<UpdateState> = appUpdater.state
 

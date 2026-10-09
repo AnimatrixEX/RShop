@@ -541,17 +541,19 @@ class SiteAnalyzer(
         gamesOn: (Document) -> Set<String>,
     ): Pagination {
         val relative = pageUrl.encodedPath + (pageUrl.encodedQuery?.let { "?$it" } ?: "")
-        fun sameSite(url: HttpUrl?) = url?.takeIf { it.host == pageUrl.host && it.newBuilder().fragment(null).build() != pageUrl }
+        fun sameSite(url: HttpUrl?) =
+            url?.takeIf { it.host.removePrefix("www.") == pageUrl.host.removePrefix("www.") && it.newBuilder().fragment(null).build() != pageUrl }
 
+        // Every match of a rule is looked at: a carousel arrow or a "#" link may come first.
         NEXT_CANDIDATES.firstNotNullOfOrNull { rule ->
-            sameSite(FieldRule.parse(rule).extractFirst(document)?.toHttpUrlOrNull())?.let { rule to it }
+            FieldRule.parse(rule).extractAll(document).firstNotNullOfOrNull { sameSite(it.toHttpUrlOrNull()) }?.let { rule to it }
         }?.let { (rule, next) ->
             return templateFrom(next, pageUrl) ?: Pagination(PaginationKind.NextLink, relative, rule, null)
         }
 
         // Numbered pagination without a "next" link: "1 2 3 … 40".
         document.select("a[href]")
-            .firstOrNull { it.ownText().trim() == "2" && sameSite(it.absUrl("href").toHttpUrlOrNull()) != null }
+            .firstOrNull { isPageTwoLink(it) && sameSite(it.absUrl("href").toHttpUrlOrNull()) != null }
             ?.let { link -> templateFrom(link.absUrl("href").toHttpUrl(), pageUrl)?.let { return it } }
 
         // No visible link (infinite scroll, JS buttons): try common URL patterns.
@@ -570,12 +572,19 @@ class SiteAnalyzer(
         return Pagination(PaginationKind.None, relative, null, null)
     }
 
+    /** The link to page 2 of a pager: "2" (also inside a span) or a label such as "Page 2". */
+    private fun isPageTwoLink(anchor: Element): Boolean =
+        anchor.text().trim() == "2" || PAGE_TWO_LABEL.matches(anchor.attr("aria-label")) || PAGE_TWO_LABEL.matches(anchor.attr("title"))
+
     private fun probeCandidates(pageUrl: HttpUrl): List<HttpUrl> {
         val dir = pageUrl.encodedPath.let { if (it.endsWith("/")) it else "$it/" }
         return listOfNotNull(
             pageUrl.newBuilder().setQueryParameter("page", "2").build(),
             pageUrl.newBuilder().encodedPath(dir + "page/2/").build(),
             pageUrl.newBuilder().setQueryParameter("p", "2").build(),
+            pageUrl.newBuilder().setQueryParameter("paged", "2").build(),
+            pageUrl.newBuilder().setQueryParameter("pg", "2").build(),
+            pageUrl.newBuilder().encodedPath(dir + "2/").build(),
         )
     }
 
@@ -667,6 +676,7 @@ class SiteAnalyzer(
         private val TITLE_CANDIDATES = listOf("h1, h2, h3, h4, h5", "[class*=title]", "[class*=name]", "a[title] @title", "img[alt] @alt", "a")
         private val COVER_CANDIDATES = listOf("img @data-src", "img @data-lazy-src", "img @data-original", "img @src")
         private val NEXT_CANDIDATES = ListRules.DEFAULT_NEXT_PAGE
+        private val PAGE_TWO_LABEL = Regex("(?i)\\s*(go to )?(page|p\u00e1gina|pagina|seite)\\s*2\\s*")
         private val DESCRIPTION_CANDIDATES = listOf(
             "[itemprop=description]", "#description", ".description", "[class*=description]",
             "[class*=synopsis]", "[class*=summary]", "article p",

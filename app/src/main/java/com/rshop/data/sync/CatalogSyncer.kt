@@ -1,5 +1,6 @@
 package com.rshop.data.sync
 
+import com.rshop.data.backup.PendingRestore
 import com.rshop.data.source.SourceRepository
 import com.rshop.domain.model.Game
 import com.rshop.domain.repository.GameRepository
@@ -33,6 +34,7 @@ class CatalogSyncer @Inject constructor(
     private val games: GameRepository,
     private val clock: Clock,
     private val status: SyncStatusStore,
+    private val pendingRestore: PendingRestore,
 ) {
 
     /**
@@ -66,6 +68,8 @@ class CatalogSyncer @Inject constructor(
         if (seen.isEmpty()) {
             throw ScraperException.StructureChanged(config.baseUrl, "the sync found no game")
         }
+        // Favorites and list entries of a restored backup whose games have just arrived.
+        runCatching { pendingRestore.apply() }.onFailure { Timber.w(it, "Pending restore failed") }
         if (incremental) {
             val total = known.size + seen.count { (prefix + it) !in known }
             Timber.i("Incremental sync of %s: %d new games, %d pages read", config.id, total - known.size, pages)

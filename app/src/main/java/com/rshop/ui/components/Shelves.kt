@@ -39,6 +39,7 @@ fun GameShelf(
     onGameFocused: (Game) -> Unit = {},
     returnFocus: ReturnFocus? = null,
     shelfKey: String = title,
+    onGameMenu: ((Game) -> Unit)? = null,
 ) {
     if (games.isEmpty()) return
     val rowState = rememberLazyListState()
@@ -66,6 +67,7 @@ fun GameShelf(
                         onGameClick(game)
                     },
                     onFocused = onGameFocused,
+                    onMenu = onGameMenu,
                     modifier = Modifier
                         .width(Dimens.CardWidth)
                         .then(if (returnFocus != null) Modifier.returnFocusTarget(returnFocus, key) else Modifier),

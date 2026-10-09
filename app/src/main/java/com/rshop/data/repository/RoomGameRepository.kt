@@ -58,16 +58,27 @@ class RoomGameRepository @Inject constructor(
         tag = filter.genre?.let(TagCodec::pattern),
         platform = filter.platform,
         sourceId = filter.sourceId,
+        hideInstalled = filter.hideInstalled.toInt(),
+        hideExtras = filter.hideExtras.toInt(),
+        regionMask = filter.region.mask,
         sort = filter.sort.toSql(),
     ).mapGames()
 
     override fun pagedCatalog(filter: CatalogFilter): Flow<PagingData<Game>> =
         Pager(PagingConfig(pageSize = PAGE_SIZE, prefetchDistance = PAGE_SIZE / 2, enablePlaceholders = false)) {
-            gameDao.pagingCatalog(FtsQuery.from(filter.query), filter.genre?.let(TagCodec::pattern), filter.platform, filter.sourceId, filter.sort.toSql())
+            gameDao.pagingCatalog(
+                FtsQuery.from(filter.query), filter.genre?.let(TagCodec::pattern), filter.platform, filter.sourceId,
+                filter.hideInstalled.toInt(), filter.hideExtras.toInt(), filter.region.mask, filter.sort.toSql(),
+            )
         }.flow.map { data -> data.map { it.toDomain() } }
 
     override fun observeCatalogCount(filter: CatalogFilter): Flow<Int> =
-        gameDao.observeCatalogCount(FtsQuery.from(filter.query), filter.genre?.let(TagCodec::pattern), filter.platform, filter.sourceId)
+        gameDao.observeCatalogCount(
+            FtsQuery.from(filter.query), filter.genre?.let(TagCodec::pattern), filter.platform, filter.sourceId,
+            filter.hideInstalled.toInt(), filter.hideExtras.toInt(), filter.region.mask,
+        )
+
+    private fun Boolean.toInt() = if (this) 1 else 0
 
     override fun observeGame(id: String): Flow<Game?> = gameDao.observeGame(id).map { it?.toDomain() }
 
@@ -121,6 +132,9 @@ class RoomGameRepository @Inject constructor(
 
     override suspend fun deleteGamesNotFrom(sourceIds: List<String>): Int = gameDao.deleteOtherSources(sourceIds)
 
+    override suspend fun existingIds(ids: Collection<String>): Set<String> =
+        ids.chunked(EXISTING_CHUNK).flatMapTo(HashSet()) { gameDao.existing(it) }
+
     override suspend fun knownGameIds(sourceId: String): Set<String> = gameDao.idsOfSource(sourceId).toHashSet()
 
     override suspend fun gamesWithoutStats(limit: Int): List<String> = gameDao.pendingStats(limit)
@@ -144,6 +158,7 @@ class RoomGameRepository @Inject constructor(
         const val HISTORY_VIEWED = "viewed"
         const val PAGE_SIZE = 48
         const val MAX_GENRE_CHIPS = 40
+        const val EXISTING_CHUNK = 500
         val HISTORY_RETENTION: Duration = Duration.ofDays(180)
     }
 }

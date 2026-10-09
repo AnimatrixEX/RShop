@@ -231,16 +231,30 @@ data class ListRules(
         /** Numbered links of a pager ("1 2 3 … 40"), whatever their URLs look like. */
         const val NUMBERED_PAGER = ":is([class*=pag], [id*=pag], nav[aria-label]) a[href]:matchesOwn(^\\s*\\d\\d?\\d?\\d?\\s*$) @href"
 
+        /** Words for "next" in the languages sites are most often written in. */
+        private const val NEXT_WORDS = "next|suivant|suivante|siguiente|pr\u00f3xima|proxima|pr\u00f3ximo|weiter|n\u00e4chste|volgende|avanti|successiva"
+
+        /** Where pagers keep their links: a block whose class or id says "pagination", or a labelled nav. */
+        private const val PAGER = ":is([class*=pag], [id*=pag], nav[aria-label])"
+
+        /** The current page in a pager: marked as active/current, or flagged by aria-current. */
+        private const val CURRENT_PAGE = ":is(.active, .current, [aria-current])"
+
         val DEFAULT_NEXT_PAGE = listOf(
             "link[rel=next] @href",
-            "a[rel=next] @href",
+            "a[rel~=(?i)(^|\\s)next(\\s|$)] @href",
             "a.next @href",
             "a[class*=next] @href",
             "[class*=next] a @href",
-            "a[aria-label~=(?i)(next|suivant)] @href",
-            "a[title~=(?i)(next|suivant)] @href",
-            "a:matchesOwn((?i)^\\s*(next|next page|suivant|suivante|page suivante|›|»|>|>>|→)\\s*$) @href",
-            "a:matches((?i)^\\s*(next|suivant|page suivante)\\b) @href",
+            "a[aria-label~=(?i)($NEXT_WORDS)] @href",
+            "a[title~=(?i)($NEXT_WORDS)] @href",
+            "a:matches((?i)^\\s*($NEXT_WORDS|next page|page suivante|older|older posts|older entries|\u203a|\u00bb|>|>>|\u00bb\u00bb|\u2192)\\s*$) @href",
+            "a:matches((?i)^\\s*($NEXT_WORDS)\\b) @href",
+            // Icon-only buttons: <a><i class="fa fa-angle-right"></i></a>.
+            "$PAGER a:has([class*=angle-right], [class*=chevron-right], [class*=arrow-right], [class*=caret-right], [class*=icon-right], [class*=next]) @href",
+            // No "next" at all: the link that follows the current page in the pager.
+            "$PAGER li$CURRENT_PAGE + li a[href] @href",
+            "$PAGER $CURRENT_PAGE + a[href] @href",
         )
     }
 }

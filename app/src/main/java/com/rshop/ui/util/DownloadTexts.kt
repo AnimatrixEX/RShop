@@ -51,6 +51,7 @@ fun downloadStatusText(status: DownloadStatus): String = stringResource(
 @Composable
 fun downloadProgressLine(task: DownloadTask): String {
     val parts = mutableListOf<String>()
+    if (task.partCount > 1) parts += stringResource(R.string.download_part, task.partIndex + 1, task.partCount)
     if (task.status == DownloadStatus.Installing && task.installedBytes != null) {
         parts += stringResource(R.string.download_installed_bytes, formatSize(task.installedBytes))
     } else if (task.totalBytes != null) {

@@ -138,13 +138,16 @@ class GameDetailsViewModel @Inject constructor(
         }
     }
 
-    /** File chosen when the games folder had to be picked first, to continue with the same one. */
+    /** Files chosen when the games folder had to be picked first, to continue with the same ones. */
     private var pendingOption: String? = null
+    private var pendingMore: List<String> = emptyList()
 
-    fun onInstall(optionUrl: String? = null) {
+    /** [moreUrls]: further files of the game (other discs, bin + cue) installed after [optionUrl]. */
+    fun onInstall(optionUrl: String? = null, moreUrls: List<String> = emptyList()) {
         pendingOption = optionUrl
+        pendingMore = moreUrls
         viewModelScope.launch {
-            when (val result = downloads.start(gameId, optionUrl)) {
+            when (val result = downloads.start(gameId, optionUrl, moreUrls)) {
                 StartResult.Started -> Unit
                 StartResult.NoGamesDirectory -> _events.value = DetailsEvent.PickFolder
                 is StartResult.Failed -> _events.value = DetailsEvent.StartFailed(result.error)
@@ -174,7 +177,7 @@ class GameDetailsViewModel @Inject constructor(
                 pendingLocalFile?.let { (file, name, size) ->
                     pendingLocalFile = null
                     onInstallLocalFile(file, name, size)
-                } ?: onInstall(pendingOption)
+                } ?: onInstall(pendingOption, pendingMore)
             }
         }
     }

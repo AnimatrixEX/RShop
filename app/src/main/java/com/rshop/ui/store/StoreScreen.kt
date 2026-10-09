@@ -1,6 +1,16 @@
 package com.rshop.ui.store
 
 import com.rshop.ui.components.ControllerTextField
+import com.rshop.ui.components.GameMenuHost
+import com.rshop.ui.components.LocalSearchSignal
+import com.rshop.ui.components.rememberGameMenu
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -44,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import com.rshop.R
+import com.rshop.domain.catalog.CatalogRegion
 import com.rshop.domain.model.SortOrder
 import com.rshop.ui.components.ConsoleChip
 import com.rshop.ui.components.GameCard
@@ -67,7 +78,26 @@ fun StoreScreen(
     // Start on the active filter chip rather than the search field, which would pop the keyboard.
     // Back from a game page, its card gets focus instead (see ReturnFocus).
     val returnFocus = rememberReturnFocus()
-    val filterFocus = rememberInitialFocusRequester(ready = returnFocus.openedKey == null)
+    val menu = rememberGameMenu()
+    // X on the controller: the search field takes the focus (A then starts typing).
+    val searchSignal = LocalSearchSignal.current
+    val searchFocus = remember { FocusRequester() }
+    var searchHandled by remember { mutableStateOf(false) }
+    LaunchedEffect(searchSignal.pending) {
+        if (!searchSignal.pending) return@LaunchedEffect
+        repeat(20) {
+            try {
+                searchFocus.requestFocus()
+                searchHandled = true
+                searchSignal.pending = false
+                return@LaunchedEffect
+            } catch (e: IllegalStateException) {
+                delay(50)
+            }
+        }
+        searchSignal.pending = false
+    }
+    val filterFocus = rememberInitialFocusRequester(ready = returnFocus.openedKey == null && !searchSignal.pending && !searchHandled)
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(Dimens.CardWidth),
@@ -79,7 +109,7 @@ fun StoreScreen(
         item(key = "filters", span = { GridItemSpan(maxLineSpan) }) {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ControllerTextField(shape = Dimens.PillShape, modifier = Modifier.weight(1f)) { fieldModifier ->
+                    ControllerTextField(shape = Dimens.PillShape, modifier = Modifier.weight(1f), boxFocus = searchFocus) { fieldModifier ->
                         OutlinedTextField(
                             value = query,
                             onValueChange = viewModel::onQueryChange,
@@ -113,6 +143,27 @@ fun StoreScreen(
                         selected = false,
                         onClick = viewModel::onCycleSort,
                     )
+                }
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRestorer(),
+                    contentPadding = PaddingValues(top = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    item(key = "hide-installed") {
+                        ConsoleChip(stringResource(R.string.store_hide_installed), selected = state.prefs.hideInstalled, onClick = viewModel::onToggleHideInstalled)
+                    }
+                    item(key = "hide-extras") {
+                        ConsoleChip(stringResource(R.string.store_hide_extras), selected = state.prefs.hideExtras, onClick = viewModel::onToggleHideExtras)
+                    }
+                    item(key = "region") {
+                        ConsoleChip(
+                            stringResource(R.string.store_region, stringResource(state.prefs.region.labelRes())),
+                            selected = state.prefs.region != CatalogRegion.All,
+                            onClick = viewModel::onCycleRegion,
+                        )
+                    }
                 }
                 if (state.sources.isNotEmpty()) {
                     LazyRow(
@@ -193,11 +244,14 @@ fun StoreScreen(
                         returnFocus.onOpen(game.id)
                         onOpenGame(game.id)
                     },
+                    onMenu = menu::open,
                     modifier = Modifier.returnFocusTarget(returnFocus, game.id),
                 )
             }
         }
     }
+
+    GameMenuHost(menu, onOpen = { onOpenGame(it.id) })
 }
 
 @Composable
@@ -219,6 +273,13 @@ private fun RemoteSearchRow(query: String, state: RemoteSearchState, onSearch: (
             else -> Unit
         }
     }
+}
+
+private fun CatalogRegion.labelRes(): Int = when (this) {
+    CatalogRegion.All -> R.string.region_all
+    CatalogRegion.Usa -> R.string.region_usa
+    CatalogRegion.Europe -> R.string.region_europe
+    CatalogRegion.Japan -> R.string.region_japan
 }
 
 private fun SortOrder.labelRes(): Int = when (this) {

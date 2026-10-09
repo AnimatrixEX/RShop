@@ -9,6 +9,8 @@ import com.rshop.data.update.AppRelease
 import com.rshop.data.update.UpdateErrorKind
 import com.rshop.data.update.UpdateState
 import com.rshop.ui.util.formatSize
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import com.rshop.ui.components.ControllerTextField
 import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyRow
@@ -94,12 +96,21 @@ fun SettingsScreen(
         uri?.let(viewModel::onDirectorySelected)
     }
     val firstRowFocus = rememberInitialFocusRequester()
+    val backup by viewModel.backup.collectAsStateWithLifecycle()
+    val exportBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let(viewModel::onExportBackup)
+    }
+    val restoreBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::onBackupPicked)
+    }
     val update by viewModel.update.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // "Install unknown apps" is a system screen; coming back continues the update if it was allowed.
     val allowInstall = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.onInstallPermissionResult()
     }
+
+    BackupDialogs(backup, viewModel)
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
@@ -239,6 +250,27 @@ fun SettingsScreen(
                 )
             }
 
+            item { GroupTitle(stringResource(R.string.settings_backup)) }
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_backup_export),
+                    subtitle = stringResource(R.string.settings_backup_export_desc),
+                    onClick = { exportBackup.launch(backupFileName()) },
+                )
+            }
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_backup_restore),
+                    subtitle = stringResource(R.string.settings_backup_restore_desc),
+                    onClick = { restoreBackup.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                    trailing = if (backup.restoring) {
+                        { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp) }
+                    } else {
+                        null
+                    },
+                )
+            }
+
             item { GroupTitle(stringResource(R.string.settings_about)) }
             item {
                 SettingsRow(
@@ -259,6 +291,65 @@ fun SettingsScreen(
                 },
             )
         }
+    }
+}
+
+private fun backupFileName(): String =
+    "rshop-backup-${java.time.LocalDate.now().toString().replace("-", "")}.json"
+
+/** Confirmation before a restore, and what happened after a save or a restore. */
+@Composable
+private fun BackupDialogs(state: BackupUiState, viewModel: SettingsViewModel) {
+    state.preview?.let { preview ->
+        AlertDialog(
+            onDismissRequest = viewModel::onCancelRestore,
+            title = { Text(stringResource(R.string.backup_restore_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (preview.createdAt > 0) {
+                        Text(stringResource(R.string.backup_made_on, java.text.DateFormat.getDateInstance().format(java.util.Date(preview.createdAt))))
+                    }
+                    Text(
+                        pluralStringResource(R.plurals.backup_sources, preview.sources.size, preview.sources.size) +
+                            preview.sources.takeIf { it.isNotEmpty() }?.joinToString(prefix = " : ").orEmpty(),
+                    )
+                    Text(pluralStringResource(R.plurals.backup_favorites, preview.favorites, preview.favorites))
+                    Text(pluralStringResource(R.plurals.backup_lists, preview.lists, preview.lists))
+                    Text(stringResource(R.string.backup_restore_note), style = MaterialTheme.typography.bodySmall, color = RShopColors.TextSecondary)
+                }
+            },
+            confirmButton = { TextButton(onClick = viewModel::onConfirmRestore) { Text(stringResource(R.string.backup_restore_confirm)) } },
+            dismissButton = { TextButton(onClick = viewModel::onCancelRestore) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+    state.message?.let { message ->
+        AlertDialog(
+            onDismissRequest = viewModel::onBackupMessageShown,
+            title = {
+                Text(
+                    stringResource(
+                        when (message) {
+                            BackupMessage.Exported -> R.string.backup_saved_title
+                            is BackupMessage.Restored -> R.string.backup_restored_title
+                            is BackupMessage.Failed -> R.string.backup_failed_title
+                        },
+                    ),
+                )
+            },
+            text = {
+                Text(
+                    when (message) {
+                        BackupMessage.Exported -> stringResource(R.string.backup_saved_body)
+                        is BackupMessage.Restored -> stringResource(
+                            R.string.backup_restored_body,
+                            message.report.sources, message.report.favorites, message.report.lists, message.report.waiting,
+                        )
+                        is BackupMessage.Failed -> message.detail.ifEmpty { stringResource(R.string.backup_failed_body) }
+                    },
+                )
+            },
+            confirmButton = { TextButton(onClick = viewModel::onBackupMessageShown) { Text(stringResource(R.string.action_close)) } },
+        )
     }
 }
 

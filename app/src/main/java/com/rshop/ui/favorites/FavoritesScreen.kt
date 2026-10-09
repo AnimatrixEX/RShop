@@ -34,6 +34,8 @@ import com.rshop.ui.components.ConsoleButtonStyle
 import com.rshop.ui.components.ConsoleChip
 import com.rshop.ui.components.EmptyState
 import com.rshop.ui.components.GameCard
+import com.rshop.ui.components.GameMenuHost
+import com.rshop.ui.components.rememberGameMenu
 import com.rshop.ui.components.rememberInitialFocusRequester
 import com.rshop.ui.components.rememberReturnFocus
 import com.rshop.ui.components.returnFocusTarget
@@ -52,6 +54,7 @@ fun FavoritesScreen(
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
     // Back from a game page, the card that opened it gets focus again.
     val returnFocus = rememberReturnFocus()
+    val menu = rememberGameMenu()
     val chipsFocus = rememberInitialFocusRequester(ready = !state.loading && returnFocus.openedKey == null)
 
     if (!state.loading) {
@@ -122,6 +125,7 @@ fun FavoritesScreen(
                         returnFocus.onOpen(game.id)
                         onOpenGame(game.id)
                     },
+                    onMenu = menu::open,
                     modifier = Modifier.returnFocusTarget(returnFocus, game.id),
                 )
             }
@@ -156,5 +160,7 @@ fun FavoritesScreen(
         )
         null -> Unit
     }
+
+    GameMenuHost(menu, onOpen = { onOpenGame(it.id) })
 }
 

@@ -29,6 +29,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.rshop.domain.model.Game
@@ -42,6 +47,8 @@ fun GameCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onFocused: (Game) -> Unit = {},
+    /** Opens the game's menu: Y on a controller, long press on a touch screen. */
+    onMenu: ((Game) -> Unit)? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
@@ -55,10 +62,19 @@ fun GameCard(
     Column(modifier) {
         FocusableSurface(
             onClick = onClick,
+            onLongClick = onMenu?.let { menu -> { menu(game) } },
             interactionSource = interactionSource,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(Dimens.CoverAspectRatio),
+                .aspectRatio(Dimens.CoverAspectRatio)
+                .onPreviewKeyEvent { event ->
+                    if (onMenu != null && event.type == KeyEventType.KeyDown && event.key == Key.ButtonY) {
+                        onMenu(game)
+                        true
+                    } else {
+                        false
+                    }
+                },
         ) {
             GameCover(game = game, showTitle = game.coverUrl == null, modifier = Modifier.fillMaxSize())
             if (game.id in LocalInstalledIds.current) {

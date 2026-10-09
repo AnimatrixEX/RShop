@@ -40,7 +40,25 @@ class GameListRepository @Inject constructor(
         if (member) dao.addEntry(GameListEntryEntity(listId, gameId, clock.millis())) else dao.removeEntry(listId, gameId)
     }
 
+    /** Every list with its games, for a backup. */
+    suspend fun snapshot(): List<ListSnapshot> {
+        val entries = dao.entriesWithGames().groupBy { it.listId }
+        return dao.listNames().map { list ->
+            ListSnapshot(list.name, entries[list.id].orEmpty().map { GameRef(it.gameId, it.title, it.platform) })
+        }
+    }
+
+    /** The list called [name] (any case), created when there is none; null for a blank name. */
+    suspend fun idOfOrCreate(name: String): Long? {
+        val clean = name.trim().take(MAX_NAME).takeIf { it.isNotEmpty() } ?: return null
+        return dao.listNames().firstOrNull { it.name.equals(clean, ignoreCase = true) }?.id ?: create(clean)
+    }
+
     private companion object {
         const val MAX_NAME = 40
     }
 }
+
+data class GameRef(val id: String, val title: String, val platform: String?)
+
+data class ListSnapshot(val name: String, val games: List<GameRef>)

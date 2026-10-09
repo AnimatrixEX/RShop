@@ -49,6 +49,9 @@ interface GameDao {
           AND (:tag IS NULL OR tags LIKE :tag)
           AND (:platform IS NULL OR platform = :platform)
           AND (:sourceId IS NULL OR source_id = :sourceId)
+          AND (:hideInstalled = 0 OR id NOT IN (SELECT game_id FROM installed_games))
+          AND (:hideExtras = 0 OR is_extra = 0)
+          AND (:regionMask = 0 OR region_flags = 0 OR (region_flags & :regionMask) != 0)
         ORDER BY
           CASE WHEN :sort = 'title' THEN title END COLLATE NOCASE ASC,
           CASE WHEN :sort = 'popular' THEN popularity END DESC,
@@ -58,7 +61,10 @@ interface GameDao {
           title COLLATE NOCASE ASC
         """,
     )
-    fun observeCatalog(ftsQuery: String?, tag: String?, platform: String?, sourceId: String?, sort: String): Flow<List<GameEntity>>
+    fun observeCatalog(
+        ftsQuery: String?, tag: String?, platform: String?, sourceId: String?,
+        hideInstalled: Int, hideExtras: Int, regionMask: Int, sort: String,
+    ): Flow<List<GameEntity>>
 
     @Query(
         """
@@ -67,6 +73,9 @@ interface GameDao {
           AND (:tag IS NULL OR tags LIKE :tag)
           AND (:platform IS NULL OR platform = :platform)
           AND (:sourceId IS NULL OR source_id = :sourceId)
+          AND (:hideInstalled = 0 OR id NOT IN (SELECT game_id FROM installed_games))
+          AND (:hideExtras = 0 OR is_extra = 0)
+          AND (:regionMask = 0 OR region_flags = 0 OR (region_flags & :regionMask) != 0)
         ORDER BY
           CASE WHEN :sort = 'title' THEN title END COLLATE NOCASE ASC,
           CASE WHEN :sort = 'popular' THEN popularity END DESC,
@@ -76,7 +85,10 @@ interface GameDao {
           title COLLATE NOCASE ASC
         """,
     )
-    fun pagingCatalog(ftsQuery: String?, tag: String?, platform: String?, sourceId: String?, sort: String): PagingSource<Int, GameEntity>
+    fun pagingCatalog(
+        ftsQuery: String?, tag: String?, platform: String?, sourceId: String?,
+        hideInstalled: Int, hideExtras: Int, regionMask: Int, sort: String,
+    ): PagingSource<Int, GameEntity>
 
     @Query(
         """
@@ -85,12 +97,21 @@ interface GameDao {
           AND (:tag IS NULL OR tags LIKE :tag)
           AND (:platform IS NULL OR platform = :platform)
           AND (:sourceId IS NULL OR source_id = :sourceId)
+          AND (:hideInstalled = 0 OR id NOT IN (SELECT game_id FROM installed_games))
+          AND (:hideExtras = 0 OR is_extra = 0)
+          AND (:regionMask = 0 OR region_flags = 0 OR (region_flags & :regionMask) != 0)
         """,
     )
-    fun observeCatalogCount(ftsQuery: String?, tag: String?, platform: String?, sourceId: String?): Flow<Int>
+    fun observeCatalogCount(
+        ftsQuery: String?, tag: String?, platform: String?, sourceId: String?,
+        hideInstalled: Int, hideExtras: Int, regionMask: Int,
+    ): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM games")
     suspend fun count(): Int
+
+    @Query("SELECT id FROM games WHERE id IN (:ids)")
+    suspend fun existing(ids: List<String>): List<String>
 
     @Query("SELECT id FROM games WHERE source_id = :sourceId")
     suspend fun idsOfSource(sourceId: String): List<String>

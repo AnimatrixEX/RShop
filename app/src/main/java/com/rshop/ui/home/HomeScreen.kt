@@ -32,7 +32,9 @@ import com.rshop.domain.model.Game
 import com.rshop.ui.components.Backdrop
 import com.rshop.ui.components.CategoryTile
 import com.rshop.ui.components.EmptyState
+import com.rshop.ui.components.GameMenuHost
 import com.rshop.ui.components.GameShelf
+import com.rshop.ui.components.rememberGameMenu
 import com.rshop.ui.components.FeaturedCarousel
 import com.rshop.ui.components.SectionHeader
 import com.rshop.ui.components.rememberInitialFocusRequester
@@ -70,6 +72,7 @@ private fun HomeContent(
         ready = state.featured.isNotEmpty() && returnFocus.openedKey.let { it == null || it == HERO_KEY },
     )
     val openGame: (Game) -> Unit = { onOpenGame(it.id) }
+    val menu = rememberGameMenu()
     val highlight: (Game) -> Unit = { highlighted = it }
     val listState = rememberLazyListState()
 
@@ -125,19 +128,19 @@ private fun HomeContent(
                 }
             }
             item(key = "viewed") {
-                GameShelf(stringResource(R.string.home_recently_viewed), state.recentlyViewed, openGame, onGameFocused = highlight, returnFocus = returnFocus, shelfKey = "viewed")
+                GameShelf(stringResource(R.string.home_recently_viewed), state.recentlyViewed, openGame, onGameFocused = highlight, returnFocus = returnFocus, onGameMenu = menu::open, shelfKey = "viewed")
             }
             item(key = "favorites") {
-                GameShelf(stringResource(R.string.home_favorites), state.favorites, openGame, onGameFocused = highlight, returnFocus = returnFocus, shelfKey = "favorites")
+                GameShelf(stringResource(R.string.home_favorites), state.favorites, openGame, onGameFocused = highlight, returnFocus = returnFocus, onGameMenu = menu::open, shelfKey = "favorites")
             }
             item(key = "recent") {
-                GameShelf(stringResource(R.string.home_recently_added), state.recentlyAdded, openGame, onGameFocused = highlight, returnFocus = returnFocus, shelfKey = "recent")
+                GameShelf(stringResource(R.string.home_recently_added), state.recentlyAdded, openGame, onGameFocused = highlight, returnFocus = returnFocus, onGameMenu = menu::open, shelfKey = "recent")
             }
             item(key = "popular") {
-                GameShelf(stringResource(R.string.home_popular), state.popular, openGame, onGameFocused = highlight, returnFocus = returnFocus, shelfKey = "popular")
+                GameShelf(stringResource(R.string.home_popular), state.popular, openGame, onGameFocused = highlight, returnFocus = returnFocus, onGameMenu = menu::open, shelfKey = "popular")
             }
             item(key = "updated") {
-                GameShelf(stringResource(R.string.home_recently_updated), state.recentlyUpdated, openGame, onGameFocused = highlight, returnFocus = returnFocus, shelfKey = "updated")
+                GameShelf(stringResource(R.string.home_recently_updated), state.recentlyUpdated, openGame, onGameFocused = highlight, returnFocus = returnFocus, onGameMenu = menu::open, shelfKey = "updated")
             }
             if (state.genres.isNotEmpty()) {
                 item(key = "genres") {
@@ -151,6 +154,8 @@ private fun HomeContent(
             }
         }
     }
+
+    GameMenuHost(menu, onOpen = openGame)
 }
 
 private const val HERO_KEY = "hero"

@@ -22,12 +22,19 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import com.rshop.ui.components.ConsoleTopBar
+import com.rshop.ui.components.ControllerHints
+import com.rshop.ui.components.ControllerHintsBar
+import com.rshop.ui.components.LocalSearchSignal
+import com.rshop.ui.components.SearchSignal
+import kotlinx.coroutines.flow.emptyFlow
 import com.rshop.ui.theme.RShopColors
 import kotlinx.coroutines.flow.Flow
 
 @Composable
-fun RShopRoot(tabSwitches: Flow<Int>) {
+fun RShopRoot(tabSwitches: Flow<Int>, searchRequests: Flow<Unit> = emptyFlow()) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentTab = backStackEntry?.destination.toTopLevelDestination()
@@ -40,6 +47,26 @@ fun RShopRoot(tabSwitches: Flow<Int>) {
         }
     }
 
+    val searchSignal = remember { SearchSignal() }
+    LaunchedEffect(searchRequests) {
+        searchRequests.collect {
+            // Only from the tabs: on a game page X is not a search shortcut.
+            if (navController.currentBackStackEntry?.destination.toTopLevelDestination() != null) {
+                navController.navigateToTab(TopLevelDestination.Store)
+                searchSignal.pending = true
+            }
+        }
+    }
+    val destination = backStackEntry?.destination
+    val hints = when {
+        currentTab == TopLevelDestination.Home || currentTab == TopLevelDestination.Store ||
+            currentTab == TopLevelDestination.Favorites -> ControllerHints.OnCards
+        currentTab != null -> ControllerHints.OnTabs
+        destination?.hasRoute(BrowserRoute::class) == true -> emptyList()
+        else -> ControllerHints.OnPage
+    }
+
+    CompositionLocalProvider(LocalSearchSignal provides searchSignal) {
     Column(
         Modifier
             .fillMaxSize()
@@ -57,6 +84,8 @@ fun RShopRoot(tabSwitches: Flow<Int>) {
             )
         }
         RShopNavHost(navController = navController, modifier = Modifier.weight(1f))
+        ControllerHintsBar(hints)
+    }
     }
 }
 

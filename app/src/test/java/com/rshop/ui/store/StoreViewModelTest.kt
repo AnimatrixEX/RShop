@@ -77,6 +77,7 @@ class StoreViewModelTest {
             savedStateHandle = SavedStateHandle(mapOf("genre" to genre, "platform" to null)),
             repository = db.repository(),
             sourceManager = sourceManager,
+            settings = DataStoreSettingsRepository(context),
         )
         backgroundScope.launch { vm.uiState.collect {} }
         advanceUntilIdle()

@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.rshop.BuildConfig
 import com.rshop.R
+import com.rshop.data.database.DownloadOptionsJson
 import com.rshop.data.database.dao.DownloadDao
 import com.rshop.data.database.entity.DownloadEntity
 import com.rshop.data.source.SourceRepository
@@ -70,21 +71,14 @@ class DownloadWorker @AssistedInject constructor(
         runCatching { setForeground(foreground(row.title, null)) }
             .onFailure { Timber.w(it, "Download runs without foreground service") }
 
-        // The path can change once: a download page resolves to the real file name.
-        var file = File(row.tempPath)
         return try {
-            if (row.url.startsWith(BrowserStreams.SCHEME)) {
-                // Already flowing from the browser: never held back by the parallel-download limit.
-                row = copyBrowserStream(row, file)
-            } else if (!isDownloaded(row, file)) {
-                // Only the transfer is limited; verification and installation run freely.
-                row = slots.semaphore.withPermit { download(row, file) }
-                file = File(row.tempPath)
+            // A game made of several files goes through the same steps for each one, in order;
+            // every file is installed before the next is fetched.
+            while (true) {
+                row = processFile(row)
+                row = nextPart(row) ?: break
             }
-            if (row.expectedSha256 != null && !row.verified) {
-                row = verify(row, file)
-            }
-            install(row, file)
+            complete(row)
             Result.success()
         } catch (e: CancellationException) {
             withContext(NonCancellable) {
@@ -110,6 +104,60 @@ class DownloadWorker @AssistedInject constructor(
                 Result.failure()
             }
         }
+    }
+
+    /** Download (or copy), check and install the file of [start]; returns the row as it ended. */
+    private suspend fun processFile(start: DownloadEntity): DownloadEntity {
+        var row = start
+        // The path can change once: a download page resolves to the real file name.
+        var file = File(row.tempPath)
+        if (row.url.startsWith(BrowserStreams.SCHEME)) {
+            // Already flowing from the browser: never held back by the parallel-download limit.
+            row = copyBrowserStream(row, file)
+        } else if (!isDownloaded(row, file)) {
+            // Only the transfer is limited; verification and installation run freely.
+            row = slots.semaphore.withPermit { download(row, file) }
+            file = File(row.tempPath)
+        }
+        if (row.expectedSha256 != null && !row.verified) {
+            row = verify(row, file)
+        }
+        install(row, file)
+        return row
+    }
+
+    /** The row for the next file of the game, saved, or null when [row] was the last one. */
+    private suspend fun nextPart(row: DownloadEntity): DownloadEntity? {
+        val parts = DownloadOptionsJson.decode(row.extraParts)
+        val next = parts.firstOrNull() ?: return null
+        // The file just installed is not needed any more (unless the user keeps archives).
+        if (settings.settings.first().deleteArchivesAfterInstall) File(row.tempPath).delete()
+        var fileName = DownloadPolicy.fileName(next.url.toHttpUrl(), row.title)
+        if (fileName == row.fileName) fileName = "${row.partIndex + 2}-$fileName"
+        val advanced = row.copy(
+            url = next.url,
+            viaPage = true,
+            fileName = fileName,
+            tempPath = File(File(row.tempPath).parentFile, fileName).absolutePath,
+            expectedSha256 = next.sha256,
+            totalBytes = next.sizeBytes,
+            downloadedBytes = 0,
+            etag = null,
+            lastModified = null,
+            state = DownloadStatus.Downloading.name,
+            error = null,
+            verified = false,
+            referer = null,
+            requestCookie = null,
+            requestUserAgent = null,
+            extraParts = DownloadOptionsJson.encode(parts.drop(1)),
+            partIndex = row.partIndex + 1,
+            updatedAt = clock.millis(),
+        )
+        dao.upsert(advanced)
+        tracker.clear(gameId)
+        Timber.i("Next file of %s (%d/%d)", gameId, advanced.partIndex + 1, advanced.partCount)
+        return advanced
     }
 
     override suspend fun getForegroundInfo() = foreground(dao.get(gameId)?.title ?: "", null)
@@ -272,10 +320,14 @@ class DownloadWorker @AssistedInject constructor(
         dao.updateState(gameId, DownloadStatus.Installing.name, null, clock.millis())
         runCatching { setForeground(foreground(row.title, null, installing = true)) }
         installer.install(row, file) { written -> tracker.onInstall(gameId, written) }
+    }
+
+    /** Every file of the game is installed. */
+    private suspend fun complete(row: DownloadEntity) {
         dao.updateState(gameId, DownloadStatus.Completed.name, null, clock.millis())
         tracker.clear(gameId)
         if (settings.settings.first().deleteArchivesAfterInstall) {
-            file.parentFile?.deleteRecursively()
+            File(row.tempPath).parentFile?.deleteRecursively()
         }
         notifyDone(row.title, success = true)
         Timber.i("Installed %s", gameId)

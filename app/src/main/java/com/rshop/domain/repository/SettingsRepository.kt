@@ -1,6 +1,7 @@
 package com.rshop.domain.repository
 
 import com.rshop.domain.model.AppSettings
+import com.rshop.domain.model.CatalogPrefs
 import com.rshop.domain.model.ThemeSettings
 import kotlinx.coroutines.flow.Flow
 
@@ -11,4 +12,5 @@ interface SettingsRepository {
     suspend fun setDeleteArchivesAfterInstall(enabled: Boolean)
     suspend fun setSyncPaused(paused: Boolean)
     suspend fun setTheme(theme: ThemeSettings)
+    suspend fun setCatalogPrefs(prefs: CatalogPrefs)
 }

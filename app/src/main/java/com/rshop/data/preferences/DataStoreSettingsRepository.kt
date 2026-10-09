@@ -8,7 +8,9 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.rshop.domain.catalog.CatalogRegion
 import com.rshop.domain.model.AppSettings
+import com.rshop.domain.model.CatalogPrefs
 import com.rshop.domain.model.FocusStyle
 import com.rshop.domain.model.TextSize
 import com.rshop.domain.model.ThemeAccent
@@ -55,6 +57,11 @@ class DataStoreSettingsRepository @Inject constructor(
                     textSize = prefs[Keys.TextSize].toEnum(TextSize.Normal),
                     dynamicBackdrop = prefs[Keys.DynamicBackdrop] ?: true,
                 ),
+                catalog = CatalogPrefs(
+                    hideInstalled = prefs[Keys.HideInstalled] ?: false,
+                    hideExtras = prefs[Keys.HideExtras] ?: false,
+                    region = prefs[Keys.CatalogRegion].toEnum(CatalogRegion.All),
+                ),
             )
         }
 
@@ -86,6 +93,14 @@ class DataStoreSettingsRepository @Inject constructor(
         }
     }
 
+    override suspend fun setCatalogPrefs(prefs: CatalogPrefs) {
+        dataStore.edit {
+            it[Keys.HideInstalled] = prefs.hideInstalled
+            it[Keys.HideExtras] = prefs.hideExtras
+            it[Keys.CatalogRegion] = prefs.region.name
+        }
+    }
+
     /** Stored by name; an unknown value (renamed or removed option) falls back to the default. */
     private inline fun <reified E : Enum<E>> String?.toEnum(default: E): E =
         this?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
@@ -100,5 +115,8 @@ class DataStoreSettingsRepository @Inject constructor(
         val FocusStyle = stringPreferencesKey("theme_focus")
         val TextSize = stringPreferencesKey("theme_text_size")
         val DynamicBackdrop = booleanPreferencesKey("theme_dynamic_backdrop")
+        val HideInstalled = booleanPreferencesKey("catalog_hide_installed")
+        val HideExtras = booleanPreferencesKey("catalog_hide_extras")
+        val CatalogRegion = stringPreferencesKey("catalog_region")
     }
 }

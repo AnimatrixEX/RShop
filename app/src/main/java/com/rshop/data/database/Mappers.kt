@@ -3,6 +3,7 @@ package com.rshop.data.database
 import com.rshop.data.database.entity.GameEntity
 import com.rshop.data.database.entity.GameWithScreenshots
 import com.rshop.data.database.entity.ScreenshotEntity
+import com.rshop.domain.catalog.TitleTags
 import com.rshop.domain.genre.TagCodec
 import com.rshop.domain.model.Game
 import java.time.Instant
@@ -57,6 +58,8 @@ fun Game.toEntity(syncedAt: Long): GameWithScreenshots = GameWithScreenshots(
         lastSyncedAt = syncedAt,
         detailsSyncedAt = detailsSyncedAt?.toEpochMilli(),
         downloadOptions = DownloadOptionsJson.encode(downloadOptions),
+        regionFlags = TitleTags.regionFlags(title),
+        isExtra = TitleTags.isExtra(title),
     ),
     screenshots = screenshots.mapIndexed { index, url -> ScreenshotEntity(gameId = id, position = index, url = url) },
 )

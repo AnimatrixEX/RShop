@@ -88,4 +88,78 @@ class PaginationDetectionTest {
         val results = WebsiteSource(analysis.config, site.fetcher()).search("game")
         assertEquals(8, results.size)
     }
+
+    private suspend fun crawlAll(path: String): Pair<SiteAnalysis, List<String>> {
+        val analysis = SiteAnalyzer(site.fetcher()).analyze(site.baseUrl + path)
+        val games = WebsiteSource(analysis.config, site.fetcher()).crawl().toList().flatMap { it.games }
+        return analysis to games.map { it.id }.distinct()
+    }
+
+    @Test
+    fun `an icon-only next button is followed`() = runTest {
+        val pager = "<div class='pagination'><a href='/roms?p=2'><i class='fa fa-angle-right'></i></a></div>"
+        site.routes["/roms"] = { listing(page1, pager) }
+        site.routes["/roms?p=2"] = { listing(page2) }
+
+        val (analysis, ids) = crawlAll("roms")
+        assertEquals(PaginationKind.Template, analysis.pagination)
+        assertEquals(8, ids.size)
+    }
+
+    @Test
+    fun `the link after the active page is the next page`() = runTest {
+        // No "next" button, and the pager is a list: 1 (active) 2 3.
+        val pager = "<ul class='pagination'><li class='page-item active'><span>1</span></li>" +
+            "<li class='page-item'><a href='/roms/part-2'>Two</a></li><li class='page-item'><a href='/roms/part-3'>Three</a></li></ul>"
+        site.routes["/roms"] = { listing(page1, pager) }
+        site.routes["/roms/part-2"] = { listing(page2, pager.replace("page-item active", "page-item")) }
+
+        val analysis = SiteAnalyzer(site.fetcher()).analyze(site.baseUrl + "roms")
+        assertEquals(PaginationKind.NextLink, analysis.pagination)
+        val games = WebsiteSource(analysis.config, site.fetcher()).getPage(0)
+        assertEquals(true, games.hasNext)
+    }
+
+    @Test
+    fun `a carousel arrow before the pager does not hide the next link`() = runTest {
+        val carousel = "<a class='carousel-control-next' href='#slides'>&rsaquo;</a>"
+        val pager = "<a class='next page-numbers' href='/roms/page/2/'>Next</a>"
+        site.routes["/roms"] = { listing(page1, carousel + pager) }
+        site.routes["/roms/page/2/"] = { listing(page2, carousel) }
+
+        val (analysis, ids) = crawlAll("roms")
+        assertEquals(PaginationKind.Template, analysis.pagination)
+        assertEquals(8, ids.size)
+    }
+
+    @Test
+    fun `page two found through its label or a span`() = runTest {
+        val pager = "<div class='pager'><a href='/roms?page=2' aria-label='Page 2'><span>2</span></a></div>"
+        site.routes["/roms"] = { listing(page1, pager) }
+        site.routes["/roms?page=2"] = { listing(page2) }
+
+        val (analysis, ids) = crawlAll("roms")
+        assertEquals("/roms?page={page}", analysis.config.listUrl)
+        assertEquals(8, ids.size)
+    }
+
+    @Test
+    fun `WordPress style paged parameter is found by probing`() = runTest {
+        site.routes["/roms"] = { listing(page1) }
+        site.routes["/roms?paged=2"] = { listing(page2) }
+
+        val (analysis, ids) = crawlAll("roms")
+        assertEquals("/roms?paged={page}", analysis.config.listUrl)
+        assertEquals(8, ids.size)
+    }
+
+    @Test
+    fun `next links in other languages are recognised`() = runTest {
+        for (word in listOf("Siguiente", "Weiter", "Volgende", "Avanti &raquo;", "Suivant &rsaquo;")) {
+            site.routes["/roms"] = { listing(page1, "<a class='nav' href='/roms/page/2/'>$word</a>") }
+            site.routes["/roms/page/2/"] = { listing(page2) }
+            val analysis = SiteAnalyzer(site.fetcher()).analyze(site.baseUrl + "roms")
+            assertEquals("no pagination for '$word'", PaginationKind.Template, analysis.pagination)
+        }
+    }
 }

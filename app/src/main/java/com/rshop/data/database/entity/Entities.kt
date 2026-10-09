@@ -58,6 +58,10 @@ data class GameEntity(
      * show; null while never looked up (or while the listing gives the counter itself).
      */
     @ColumnInfo(name = "stats_checked_at") val statsCheckedAt: Long? = null,
+    /** Regions named by the title, as a bit set (see TitleTags); 0 when it names none. */
+    @ColumnInfo(name = "region_flags", defaultValue = "0") val regionFlags: Int = 0,
+    /** The title says demo, beta, prototype… (see TitleTags.isExtra). */
+    @ColumnInfo(name = "is_extra", defaultValue = "0") val isExtra: Boolean = false,
 )
 
 /** Full-text index kept in sync with [GameEntity] by triggers Room generates. */
@@ -186,6 +190,14 @@ data class DownloadEntity(
      */
     @ColumnInfo(name = "request_cookie") val requestCookie: String? = null,
     @ColumnInfo(name = "request_user_agent") val requestUserAgent: String? = null,
+    /**
+     * Files of a game made of several (discs, bin + cue) still to fetch after this one, as JSON
+     * (see DownloadOptionsJson); null when this is the last or only file.
+     */
+    @ColumnInfo(name = "extra_parts") val extraParts: String? = null,
+    /** Which file of the game this row is, from 0, out of [partCount]. */
+    @ColumnInfo(name = "part_index", defaultValue = "0") val partIndex: Int = 0,
+    @ColumnInfo(name = "part_count", defaultValue = "1") val partCount: Int = 1,
 )
 
 data class GameWithScreenshots(

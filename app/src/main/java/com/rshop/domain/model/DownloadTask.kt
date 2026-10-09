@@ -39,6 +39,9 @@ data class DownloadTask(
     val verified: Boolean,
     val hasChecksum: Boolean,
     val error: DownloadError?,
+    /** The file being fetched, from 0, among [partCount] files of the game (discs, bin + cue). */
+    val partIndex: Int = 0,
+    val partCount: Int = 1,
 ) {
     val progress: Float? get() = totalBytes?.takeIf { it > 0 }?.let { (downloadedBytes.toFloat() / it).coerceIn(0f, 1f) }
 }

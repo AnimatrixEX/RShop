@@ -139,6 +139,10 @@ data class GameListWithCount(
     val games: Int,
 )
 
+data class ListName(val id: Long, val name: String)
+
+data class ListEntryRow(val listId: Long, val gameId: String, val title: String, val platform: String?)
+
 @Dao
 interface GameListDao {
 
@@ -162,6 +166,18 @@ interface GameListDao {
 
     @Query("SELECT list_id FROM game_list_entries WHERE game_id = :gameId")
     fun observeListIdsOf(gameId: String): Flow<List<Long>>
+
+    @Query("SELECT id, name FROM game_lists ORDER BY created_at")
+    suspend fun listNames(): List<ListName>
+
+    @Query(
+        """
+        SELECT game_list_entries.list_id AS listId, games.id AS gameId, games.title AS title, games.platform AS platform
+        FROM game_list_entries JOIN games ON games.id = game_list_entries.game_id
+        ORDER BY game_list_entries.added_at
+        """,
+    )
+    suspend fun entriesWithGames(): List<ListEntryRow>
 
     @Insert
     suspend fun insertList(list: GameListEntity): Long

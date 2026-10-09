@@ -391,4 +391,68 @@
     <string name="update_error_corrupt">Le fichier téléchargé est incomplet ou différent de celui publié. Appuie pour réessayer.</string>
     <string name="update_error_not_rshop">Le fichier publié n\'est pas une version de RShop.</string>
     <string name="update_error_install">Android a refusé l\'installation.</string>
+
+    <!-- Filtres du catalogue -->
+    <string name="store_hide_installed">Masquer les installés</string>
+    <string name="store_hide_extras">Sans démos ni bêtas</string>
+    <string name="store_region">Région : %1$s</string>
+    <string name="region_all">Toutes</string>
+    <string name="region_usa">USA</string>
+    <string name="region_europe">Europe</string>
+    <string name="region_japan">Japon</string>
+
+    <!-- Jeux en plusieurs fichiers -->
+    <string name="details_choose_files">Choisir les fichiers</string>
+    <string name="details_several_files">Plusieurs fichiers</string>
+    <string name="details_one_file">Un seul fichier</string>
+    <string name="details_parts_hint">Ces fichiers semblent être les parties d\'un même jeu (disques, bin + cue). Ils seront installés ensemble.</string>
+    <plurals name="details_download_all">
+        <item quantity="one">Tout télécharger (%d fichier)</item>
+        <item quantity="other">Tout télécharger (%d fichiers)</item>
+    </plurals>
+    <plurals name="details_download_selected">
+        <item quantity="one">Télécharger %d fichier</item>
+        <item quantity="other">Télécharger %d fichiers</item>
+    </plurals>
+    <string name="download_part">Fichier %1$d sur %2$d</string>
+
+    <!-- Sauvegarde -->
+    <string name="settings_backup">Sauvegarde</string>
+    <string name="settings_backup_export">Enregistrer une sauvegarde</string>
+    <string name="settings_backup_export_desc">Sources, favoris, listes et réglages dans un fichier</string>
+    <string name="settings_backup_restore">Restaurer une sauvegarde</string>
+    <string name="settings_backup_restore_desc">Remet les sources, favoris, listes et réglages d\'un fichier</string>
+    <string name="backup_restore_title">Restaurer cette sauvegarde ?</string>
+    <string name="backup_made_on">Faite le %s</string>
+    <plurals name="backup_sources">
+        <item quantity="one">%d source</item>
+        <item quantity="other">%d sources</item>
+    </plurals>
+    <plurals name="backup_favorites">
+        <item quantity="one">%d favori</item>
+        <item quantity="other">%d favoris</item>
+    </plurals>
+    <plurals name="backup_lists">
+        <item quantity="one">%d liste</item>
+        <item quantity="other">%d listes</item>
+    </plurals>
+    <string name="backup_restore_note">Les réglages sont remplacés. Les sources sont lues à nouveau ; les favoris dont le jeu n\'est pas encore dans le catalogue sont ajoutés après la synchronisation.</string>
+    <string name="backup_restore_confirm">Restaurer</string>
+    <string name="backup_saved_title">Sauvegarde enregistrée</string>
+    <string name="backup_saved_body">Le fichier contient vos sources, favoris, listes et réglages. Les jeux installés restent dans le dossier des jeux ; la clé SteamGridDB et l\'accès au dossier ne sont pas sauvegardés.</string>
+    <string name="backup_restored_title">Sauvegarde restaurée</string>
+    <string name="backup_restored_body">%1$d sources, %2$d favoris et %3$d listes remis en place. %4$d éléments attendent la fin de la synchronisation.</string>
+    <string name="backup_failed_title">Sauvegarde impossible</string>
+    <string name="backup_failed_body">Le fichier n\'a pas pu être lu ou écrit.</string>
+
+    <!-- Aide manette et menu d\'un jeu -->
+    <string name="hint_select">Valider</string>
+    <string name="hint_back">Retour</string>
+    <string name="hint_game_menu">Menu du jeu</string>
+    <string name="hint_search">Rechercher</string>
+    <string name="hint_tabs">Onglets</string>
+    <string name="game_menu_open">Voir la fiche</string>
+    <string name="game_menu_favorite">Ajouter aux favoris</string>
+    <string name="game_menu_unfavorite">Retirer des favoris</string>
+    <string name="game_menu_lists">Ajouter à une liste…</string>
 </resources>
