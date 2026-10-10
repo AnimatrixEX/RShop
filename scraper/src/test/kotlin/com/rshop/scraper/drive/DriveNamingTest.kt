@@ -25,6 +25,32 @@ class DriveNamingTest {
     }
 
     @Test
+    fun `scene releases, split archives and DLC counts read as the game`() {
+        val part1 = parse("BATMN-ARKHMCITY-(USA)-NSwTcH-NSP-Update102-Ziperto.part1.rar")
+        val part2 = parse("BATMN-ARKHMCITY-(USA)-NSwTcH-NSP-Update102-Ziperto.part2.rar")
+        val base = parse("BATMN-ARKHMCITY-(USA)-NSwTcH-NSP-Ziperto.part1.rar")
+        assertEquals("BATMN-ARKHMCITY", part1.title)
+        assertEquals(Role.Update, part1.role)
+        assertEquals(Role.Base, base.role)
+        assertEquals(1, setOf(part1.groupKey, part2.groupKey, base.groupKey).size)
+
+        assertEquals("FFXX2-HDR", parse("FFXX2-HDR-(USA)-NSwTcH-NSP-(2DLCPack)-Ziperto.part1.rar").title)
+        assertEquals(Role.Dlc, parse("DAVTDIVR-(USA)-NSwTcH-NSP-[4DLCPack]-Ziperto.rar").role)
+        for ((name, title) in listOf(
+            "Capcom Arcade 2nd Stadium [34DLC][US] NSP.rar" to "Capcom Arcade 2nd Stadium",
+            "Capcom Arcade Stadium (NSP)(33 DLCs).rar" to "Capcom Arcade Stadium",
+            "Hogwarts Legacy (NSP)(4 Updated DLCs).rar" to "Hogwarts Legacy",
+            "Grip_18_DLC_NSP.rar" to "Grip",
+            "Dragon Quest 7 Reimagined [DLC Jam Packed Swag Bag] [0100A9D01C447003][v0].nsp.nsp" to "Dragon Quest 7 Reimagined",
+            "Against the Storm v1.17[010062F01F2CC800][131072][UPD].nsp" to "Against the Storm",
+            "GRIP__0100459009A2A000__v0_NSP.rar" to "GRIP",
+        )) {
+            assertEquals(name, title, parse(name).title)
+        }
+        assertEquals("1 2 Switch", parse("1 2 Switch [01000320000CC000][v0].nsp").title)
+    }
+
+    @Test
     fun `an id alone decides, whatever the name says`() {
         // No tag in the name at all.
         assertEquals(Role.Update, parse("Zelda [0100ABCDEF012800][v131072].nsp").role)

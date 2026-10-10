@@ -79,7 +79,8 @@ class CatalogSyncer @Inject constructor(
         // deleted from it and it does not count as complete.
         val complete = !source.crawlTruncated
         val stale = if (complete) games.deleteStaleGames(config.id, start) else 0
-        Timber.i("Sync of %s done: %d games in %d pages, %d removed, complete=%s", config.id, seen.size, pages, stale, complete)
+        // Warning level: release builds keep it, so a sync can be checked on a device.
+        Timber.w("Sync of %s done: %d games in %d pages, %d removed, complete=%s", config.id, seen.size, pages, stale, complete)
         return SyncOutcome(seen.size, fullScan = complete)
     }
 

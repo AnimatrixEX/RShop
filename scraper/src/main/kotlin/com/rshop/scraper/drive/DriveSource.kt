@@ -96,8 +96,10 @@ class DriveSource(
             log.warn("Drive crawl stopped after ${config.maxRequestsPerCrawl} requests (maxRequestsPerCrawl)")
             truncated = true
         }
-        // Folders that could not be read were left out: the scan is not complete, nothing may be deleted from it.
-        if (skipped.get() > 0) truncated = true
+        // A folder the link does not open (403) stays closed: its games cannot be downloaded either, so the
+        // scan still counts as complete and games no longer found are removed. Passing failures (rate
+        // limits, network) never get here: they fail the whole sync, which then removes nothing.
+        if (skipped.get() > 0) log.warn("Drive crawl left out ${skipped.get()} folder(s) the link does not open")
     }
 
     /** Pages only exist through [crawl]; this reads the whole tree, kept for the interface. */
@@ -116,10 +118,10 @@ class DriveSource(
                 val others = offered.filterNot { GameFiles.isGameFile(it.name) }.sortedBy { it.name }
                 val updateFolders = children.filter { it.isFolder && GameFiles.isUpdateFolderName(it.name) }
                 val updates = if (updateFolders.isEmpty()) emptyList() else {
-                    val listed = api.listChildren(updateFolders, full = true)
+                    val listed = listReadable(updateFolders)
                     updateFolders.flatMap { DriveCatalogWalker.updateFiles(listed[it.id].orEmpty()) }
                 }
-                DriveGame(file.id, DriveNaming.parse(file.name, isFile = false).title, config.platform, files, addOns + updates, others)
+                DriveGame(file.id, DriveCatalogWalker.folderTitle(file, files + addOns, null), config.platform, files, addOns + updates, others)
             }
             file.isGoogleDocument -> throw ScraperException.InvalidContent(id, "a Google document is not a game file")
             else -> {
@@ -216,6 +218,20 @@ class DriveSource(
             }
         }
         return result
+    }
+
+    /** The add-on folders of a game page: one that the link does not open is left out, not an error. */
+    private suspend fun listReadable(folders: List<DriveFile>): Map<String, List<DriveFile>> = try {
+        api.listChildren(folders, full = true)
+    } catch (e: ScraperException.AccessDenied) {
+        folders.associate { folder ->
+            folder.id to try {
+                api.listChildren(listOf(folder), full = true)[folder.id].orEmpty()
+            } catch (e: ScraperException.AccessDenied) {
+                log.warn("Skipping folder '${folder.name}': ${e.message}")
+                emptyList()
+            }
+        }
     }
 
     private fun skip(folder: DriveFile, cause: ScraperException.AccessDenied): Map<String, List<DriveFile>> {

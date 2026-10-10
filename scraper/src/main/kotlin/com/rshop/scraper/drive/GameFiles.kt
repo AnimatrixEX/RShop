@@ -69,10 +69,7 @@ internal object GameFiles {
             "|\\b(?:disc|disk|cd|dvd|track)\\s*\\d+\\b|\\.part\\d+$",
     )
 
-    private val CONTAINER_NAMES = setOf(
-        "roms", "rom", "games", "game", "jeux", "isos", "iso", "europe", "eur", "usa", "us", "japan", "jpn", "jp", "world", "pal", "ntsc",
-        "translations", "traductions", "hacks", "homebrew", "collection", "all", "misc", "other", "autres", "numbers", "symbols",
-    )
+    private val CONTAINER_NAMES = NamingRules.GROUPING_NAMES
 
     /**
      * A folder that only sorts games ("A", "A-C", "0-9", "Europe", "Roms") instead of being one: its
@@ -85,12 +82,16 @@ internal object GameFiles {
 
     /**
      * A sub-folder of a game folder holding the game's add-ons: "Update", "Updates v1.2", "Patch",
-     * "Mise à jour", "DLC", "DLC (3)", "Add-ons" ("DLC Quest" is a game, not a DLC folder).
+     * "Mise à jour", "DLC", "DLC Wave 1+2", "15DLC", "Add-ons". A game called "DLC Quest" is still
+     * read as a game: its own folder takes the title of its files.
      */
-    fun isUpdateFolderName(name: String): Boolean = UPDATE_FOLDER.matches(name.trim()) || DLC_FOLDER.matches(name.trim())
+    fun isUpdateFolderName(name: String): Boolean =
+        UPDATE_FOLDER.matches(name.trim()) || DLC_FOLDER.matches(name.trim()) ||
+            // "5 DLC", "DLC Pack (13 DLCs)", "Game [Update v1.2]": the name itself says add-on.
+            DriveNaming.parse(name, isFile = false).role != DriveNaming.Role.Base
 
-    private val UPDATE_FOLDER = Regex("(?i)(?:updates?|patch(?:e?s)?|maj|mises?\\s+[àa]\\s+jour)(?:[\\s_.-].*)?")
-    private val DLC_FOLDER = Regex("(?i)(?:dlcs?|add-?ons?)(?:\\s*[\\d(\\[].*)?")
+    private val UPDATE_FOLDER = Regex("(?i)(?:${NamingRules.any(NamingRules.UPDATE_FOLDER_WORDS)})(?:[\\s_.-].*)?")
+    private val DLC_FOLDER = Regex("(?i)\\d*\\s*(?:${NamingRules.any(NamingRules.DLC_WORDS)})\\b.*")
 
     /** A name that holds no title: a Switch id, a version, a long number ("1942" is a game). */
     fun isTitleless(title: String): Boolean = TITLE_ID.matches(title.replace(" ", ""))

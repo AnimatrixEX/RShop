@@ -26,29 +26,43 @@ internal object DriveNaming {
 
     private val SWITCH_ID = Regex("(?i)(?<![0-9a-f])(0100[0-9a-f]{12})(?![0-9a-f])")
     private val GROUPS = Regex("\\[[^\\]]*]|\\([^)]*\\)")
-    private val UPDATE_TAG = Regex("(?i)\\b(update|patch|upd)\\b")
-    private val DLC_TAG = Regex("(?i)\\b(dlc|add-?ons?)\\b")
-    private val UPDATE_IN_NAME = Regex("(?i)[\\s+_.-](update|patch)(?:\\s*v?\\d|\\s*$)")
-    private val DLC_IN_NAME = Regex("(?i)[\\s+_.-]dlcs?\\b")
-    private val ADD_ON_CUT = Regex("(?i)[\\s+_.-]*\\b(update|patch|dlcs?|add-?ons?)\\b.*$")
+    // The patterns below are built from the word lists of NamingRules: conventions live there.
+    private val UPDATE = NamingRules.any(NamingRules.UPDATE_WORDS)
+    private val DLC = NamingRules.any(NamingRules.DLC_WORDS)
+    private val UPDATE_TAG = Regex("(?i)\\b(${NamingRules.any(NamingRules.UPDATE_TAG_WORDS)})\\b")
+    /** "DLC", "34DLC", "2DLCPack", "4 Updated DLCs", "add-on": the word anywhere in the tag. */
+    private val DLC_TAG = Regex("(?i)$DLC")
+    private val UPDATE_IN_NAME = Regex("(?i)[\\s+_.-]($UPDATE)(?:\\s*v?\\d|\\s*$)")
+    private val DLC_IN_NAME = Regex("(?i)[\\s+_.-]\\d*(?:$DLC)\\b")
+    /** From the add-on word to the end: "Game Update 1.2", "Game-Update150", "Game DLC Pack". */
+    private val ADD_ON_CUT = Regex("(?i)[\\s+_.-]*(?:\\b|(?<=\\d))($UPDATE|$DLC)(?:\\b|(?=\\d)).*$")
+    private val LOOSE_VERSION = Regex("(?i)(?<=^|\\s)v\\d+(?=\\s|$)")
+    /** The count in "Grip 18 DLC". */
+    private val DLC_COUNT = Regex("(?i)[\\s+_.-]+\\d{1,3}[\\s_.-]*(?=(?:$DLC)\\b)")
+    private val TRAILING_VERSION = Regex("(?i)\\s+v\\d+(?:\\.\\d+)*$")
+    /** Split archives: "Game.part1" (the extension is already gone). */
+    private val PART = Regex("(?i)[.\\s_-]part\\s?\\d+$")
+    /** An inner extension left by "Game.nsp.rar" or "Game.nsp.nsp". */
+    private val INNER_EXTENSION = Regex("(?i)\\.(${NamingRules.any(NamingRules.INNER_EXTENSIONS)})$")
+    /** Release-group words of scene names: "NAME-(USA)-NSwTcH-NSP-Ziperto". */
+    private val SCENE = Regex("(?i)(?<=^|[-_\\s.])(?:${NamingRules.any(NamingRules.SCENE_WORDS)})(?=$|[-_\\s.])")
+    private val DASH_RUNS = Regex("\\s*-(?:\\s*-)+\\s*")
     private val VERSION_TAG = Regex("(?i)^v\\s?(\\d+(?:\\.\\d+)*)$")
     private val VERSION_IN_NAME = Regex("(?i)\\bv(\\d+(?:\\.\\d+)+)\\b")
-    private val VERSION_AFTER_WORD = Regex("(?i)\\b(?:update|patch)\\s*v?(\\d+(?:\\.\\d+)+)\\b")
-    private val DEMO = Regex("(?i)\\b(demo|beta|proto|prototype|sample|kiosk|preview|trial|alpha|promo)\\b")
+    private val VERSION_AFTER_WORD = Regex("(?i)\\b(?:$UPDATE)\\s*v?(\\d+(?:\\.\\d+)+)\\b")
+    private val DEMO = Regex("(?i)\\b(${NamingRules.any(NamingRules.DEMO_WORDS)})\\b")
     private val SEPARATORS = Regex("[,+/&]")
     private val SPACES = Regex("\\s+")
 
     /** What a parenthesis may hold and still be a tag rather than part of the title. */
-    private val TAG_TOKEN = Regex(
-        "(?i)usa|us|europe|eur|eu|japan|jpn|jp|world|asia|korea|china|taiwan|hong kong|australia|brazil|canada|france|germany|" +
-            "italy|spain|netherlands|sweden|norway|denmark|finland|russia|uk|ntsc(?:-[uj])?|pal|multi ?\\d*|[a-z]{2}(?:-[a-z]{2})?|" +
-            "rev ?[\\w.]+|v ?\\d[\\w.]*|\\d+(?:\\.\\d+)+|update.*|dlc.*|patch.*|disc ?\\d+|disk ?\\d+|cd ?\\d+|track ?\\d+|part ?\\d+|" +
-            "unl|hack|translated.*|!|[0-9a-f]{8,}|\\d+|nsp|xci|nsz|digital|eshop|retail|scene.*|decrypted|cia|3ds",
-    )
+    private val TAG_TOKEN = Regex("(?i)" + NamingRules.any(NamingRules.REGIONS + NamingRules.TAG_PATTERNS))
 
     /** [isFile]: the name has an extension to drop. */
     fun parse(name: String, isFile: Boolean): Parsed {
         var stem = if (isFile) GameFiles.titleOf(name) else name.replace('_', ' ').trim()
+        stem = PART.replace(stem, "")
+        if (isFile) stem = INNER_EXTENSION.replace(stem, "")
+        stem = SCENE.replace(stem, " ").trim().ifEmpty { stem }
         // Scene style: Super.Mario.Odyssey.NSW
         if (!stem.contains(' ') && stem.count { it == '.' } >= 2) stem = stem.replace('.', ' ')
 
@@ -72,10 +86,13 @@ internal object DriveNaming {
         var title = GROUPS.replace(stem) { match ->
             val inner = match.value.trim('[', ']', '(', ')').trim()
             // Brackets are always noise; a parenthesis stays unless it only holds tags (a demo mark stays too).
-            if (match.value.startsWith("(") && !onlyTags(inner)) match.value else " "
+            if (match.value.startsWith("(") && inner.isNotBlank() && !onlyTags(inner)) match.value else " "
         }
-        if (role != Role.Base) title = ADD_ON_CUT.replace(title, "")
-        title = title.replace(SPACES, " ").trim(' ', '-', '_', '.', '+', ',')
+        // An id or a "v0" left outside brackets: "GRIP__0100459009A2A000__v0_NSP".
+        title = LOOSE_VERSION.replace(SWITCH_ID.replace(title, " "), " ")
+        if (role == Role.Dlc) title = DLC_COUNT.replace(title, " ")
+        if (role != Role.Base) title = TRAILING_VERSION.replace(ADD_ON_CUT.replace(title, "").trimEnd(), "")
+        title = DASH_RUNS.replace(title.replace(SPACES, " "), " - ").trim(' ', '-', '_', '.', '+', ',')
         if (title.isEmpty()) title = stem.trim()
 
         val key = if (id != null) ID_PREFIX + baseId(id, role) else titleKey(title)

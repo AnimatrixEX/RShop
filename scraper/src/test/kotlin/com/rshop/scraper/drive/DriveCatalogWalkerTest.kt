@@ -120,11 +120,43 @@ class DriveCatalogWalkerTest {
                 file("cover.jpg", g)
             }
             folder("DLC Quest", it) { g -> file("DLC Quest.nsp", g) }
+            // Folders of add-ons only, named any way: the title of their files.
+            folder("Sorted", it) { s ->
+                file("notes.txt", s)
+                folder("DLC Supporters Pack", s) { d -> file("Worlds of Aria [DLC Supporters Pack] [010091201B797001][v0][US].nsp.rar", d) }
+                folder("60 FPS Patch (MOD)", s) { d -> file("Persona5 Royal [60FPS MOD].rar", d) }
+            }
+            // "5 DLC" next to the game: its add-ons. A lone "34 DLC" folder: named by its file.
+            folder("Harvest Moon The Winds of Anthos", it) { g ->
+                file("Harvest Moon The Winds of Anthos [0100CA6011122000][v0].nsp", g)
+                folder("5 DLC", g) { d -> file("Harvest Moon The Winds of Anthos [5DLC][US] NSP.rar", d) }
+            }
+            folder("Capcom", it) { c ->
+                file("readme.txt", c)
+                folder("34 DLC", c) { d -> file("Capcom Arcade 2nd Stadium [34DLC][US] NSP.rar", d) }
+                folder("DLC Unlocker v2.7.1", c) { d -> file("Diablo III Eternal Collection [diablo iii heritage DLC].nsp", d) }
+            }
+            // Split archives of one release are one game.
+            folder("Batman", it) { b ->
+                file("BATMN-ARKHMCITY-(USA)-NSwTcH-NSP-Ziperto.part1.rar", b)
+                file("BATMN-ARKHMCITY-(USA)-NSwTcH-NSP-Ziperto.part2.rar", b)
+                file("BATMN-ARKHMCITY-(USA)-NSwTcH-NSP-Update102-Ziperto.part1.rar", b)
+                file("BATMN-ARKHMCITY-(USA)-NSwTcH-NSP-Update102-Ziperto.part2.rar", b)
+            }
         }
         val games = walker(t).games(t.byId(root), "Switch")
-        assertEquals(listOf("Against the Storm", "Celeste", "DLC Quest", "Hades"), games.map { it.title }.sorted())
+        assertEquals(
+            listOf(
+                "Against the Storm", "Batman", "Capcom Arcade 2nd Stadium", "Celeste", "DLC Quest", "Diablo III Eternal Collection", "Hades",
+                "Harvest Moon The Winds of Anthos", "Persona5 Royal", "Worlds of Aria",
+            ),
+            games.map { it.title }.sorted(),
+        )
+        assertEquals(2, games.first { it.title == "Batman" }.files.size)
+        assertEquals(2, games.first { it.title == "Batman" }.updates.size)
+        assertEquals(1, games.first { it.title == "Harvest Moon The Winds of Anthos" }.updates.size)
         assertEquals(listOf("Hades Soundtrack [01000D200AC0D001][v0].nsp"), games.first { it.title == "Hades" }.updates.map { it.name })
-        assertTrue(GameFiles.isUpdateFolderName("DLC (3)") && !GameFiles.isUpdateFolderName("DLC Quest"))
+        assertTrue(GameFiles.isUpdateFolderName("DLC (3)") && GameFiles.isUpdateFolderName("15DLC") && !GameFiles.isUpdateFolderName("Updated Remix"))
         assertTrue(GameFiles.isTitleless("01002B30028F6000") && GameFiles.isTitleless("v1.2") && !GameFiles.isTitleless("1942"))
     }
 

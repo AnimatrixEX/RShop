@@ -139,8 +139,8 @@ class DriveSourceTest {
             val source = source(drive, root)
             val games = source.crawl().toList().flatMap { it.games }
             assertEquals(listOf("Advance Wars"), games.map { it.title })
-            // Nothing may be deleted after a scan that left a folder out.
-            assertTrue(source.crawlTruncated)
+            // A folder closed to the link is no reason to keep stale games: the scan is complete.
+            assertFalse(source.crawlTruncated)
 
             drive.refused += root
             val error = runCatching { source(drive, root).crawl().toList() }.exceptionOrNull() as ScraperException.AccessDenied
@@ -227,6 +227,27 @@ class DriveSourceTest {
             expect<ScraperException.Busy> { source.inspect() }
             assertTrue(drive.requests.isNotEmpty())
             assertTrue(drive.requests.none { it.headers["Authorization"] != null })
+        }
+    }
+
+    @Test
+    fun `a game page leaves out an add-on folder the link does not open`() = runTest {
+        val (tree, root) = tree("Switch") { sw ->
+            folder("Zelda", sw) { g ->
+                file("Zelda [0100000000010000][v0].nsp", g)
+                folder("Update 1.6.0 (v786432)", g) { u -> file("Zelda [0100000000010800][v786432].nsp", u) }
+                folder("DLC Pack 1+2", g) { d -> file("Zelda [0100000000011001][v0].nsp", d) }
+            }
+        }
+        FakeDrive(tree).use { drive ->
+            drive.refused += tree.files.first { it.name == "DLC Pack 1+2" }.id
+            val zelda = tree.files.first { it.name == "Zelda" }.id
+            val details = source(drive, root).getGameDetails(zelda)
+            assertEquals("Zelda", details.game.title)
+            assertEquals(
+                listOf("Zelda [0100000000010000][v0].nsp", "Zelda [0100000000010800][v786432].nsp"),
+                details.downloads.map { it.fileName },
+            )
         }
     }
 

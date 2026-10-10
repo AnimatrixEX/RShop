@@ -111,10 +111,11 @@ class DriveCatalogWalker(
                     val others = offered.filterNot { GameFiles.isGameFile(it.name) }.sortedBy { it.name }
                     // Updates and DLC next to the game in its folder are its add-ons, not other games.
                     val (bases, addOns) = splitRoles(files)
-                    val game = DriveGame(folder.id, folderTitle(folder, parentNames[folder.id]), platform, bases, updates = addOns, others = others)
+                    val game = DriveGame(folder.id, folderTitle(folder, bases + addOns, parentNames[folder.id]), platform, bases, updates = addOns, others = others)
                     if (updateFolders.isEmpty()) games += game else withUpdates += game to updateFolders
                 } else {
-                    games += gamesOfFiles(files, platform)
+                    val fallback = folder.name.takeIf { depth > 0 && !GameFiles.isGroupingName(it) }
+                    games += gamesOfFiles(files, platform, fallback?.let { DriveNaming.parse(it, isFile = false).title })
                     if (depth < maxDepth) {
                         val added = subfolders.filter { visited.add(it.id) }
                         next += added
@@ -138,18 +139,24 @@ class DriveCatalogWalker(
         }
     }
 
-    /**
-     * The game's title from its folder's name; an "Update" or "DLC" folder found without its game, or
-     * a folder named by an id or a version, takes the name of the game folder above it.
-     */
-    private fun folderTitle(folder: DriveFile, parentName: String?): String {
-        val own = DriveNaming.parse(folder.name, isFile = false).title
-        if (parentName == null || (!GameFiles.isUpdateFolderName(folder.name) && !GameFiles.isTitleless(own))) return own
-        return DriveNaming.parse(parentName, isFile = false).title
-    }
-
     companion object {
         const val DISCOVERY_DEPTH = 3
+
+        /**
+         * The game's title from its folder's name. An "Update" or "DLC" folder, or a folder named by an id
+         * or a version, takes the title its files carry, else the name of the game folder above it.
+         */
+        fun folderTitle(folder: DriveFile, files: List<DriveFile>, parentName: String?): String {
+            val own = DriveNaming.parse(folder.name, isFile = false).title
+            // A folder of add-ons only ("DLC Supporters Pack", "60 FPS Patch") is named by the game its files belong to.
+            val addOnsOnly = files.isNotEmpty() && files.all { DriveNaming.parse(it.name, isFile = true).role != DriveNaming.Role.Base }
+            if (!addOnsOnly && !GameFiles.isUpdateFolderName(folder.name) && hasTitle(own)) return own
+            files.asSequence().map { DriveNaming.parse(it.name, isFile = true).title }.firstOrNull(::hasTitle)?.let { return it }
+            return parentName?.let { DriveNaming.parse(it, isFile = false).title }?.takeIf(::hasTitle) ?: own
+        }
+
+        /** A name that is a title, not an id, a version or a count ("1942" is a title, "5" left from "5 DLC" is not). */
+        private fun hasTitle(title: String): Boolean = !GameFiles.isTitleless(title) && (title.any { it.isLetter() } || title.length >= 4)
         const val MAX_CONTAINER_FOLDERS = 40
 
         /** Batches of folders being read at the same time. */
@@ -173,7 +180,7 @@ class DriveCatalogWalker(
          * Loose files of one folder: one game per title, with its updates and DLC attached. Files of the same
          * title (discs, cue + bin, one file per region) are one game offering several files.
          */
-        fun gamesOfFiles(files: List<DriveFile>, platform: String?): List<DriveGame> {
+        fun gamesOfFiles(files: List<DriveFile>, platform: String?, folderTitle: String? = null): List<DriveGame> {
             val groups = LinkedHashMap<String, MutableList<DriveFile>>()
             val parsed = files.associateWith { DriveNaming.parse(it.name, isFile = true) }
             for (file in files) groups.getOrPut(parsed.getValue(file).groupKey) { mutableListOf() } += file
@@ -194,7 +201,9 @@ class DriveCatalogWalker(
 
             return groups.values.map { group ->
                 val (bases, addOns) = splitRoles(group)
-                DriveGame(bases.first().id, parsed.getValue(bases.first()).title, platform, bases, updates = addOns)
+                // A file named by its id alone ("0100AF800C950000.nsp") takes its folder's title.
+                val title = parsed.getValue(bases.first()).title.takeIf(::hasTitle) ?: folderTitle?.takeIf(::hasTitle) ?: parsed.getValue(bases.first()).title
+                DriveGame(bases.first().id, title, platform, bases, updates = addOns)
             }
         }
     }
