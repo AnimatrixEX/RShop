@@ -17,3 +17,6 @@ bin/
 
 # Design references kept locally
 references/
+
+# Local instructions for Claude Code, not part of the project
+CLAUDE.md
