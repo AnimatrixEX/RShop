@@ -180,6 +180,14 @@ class HttpFileDownloaderTest {
     fun `a spent Drive quota is told apart from a refusal`() = runTest {
         refusal = """{"error":{"errors":[{"reason":"downloadQuotaExceeded"}],"code":403}}"""
         assertTrue(runCatching { downloader.download(url, target(), null) }.exceptionOrNull() is DownloadException.QuotaExceeded)
+        assertEquals("downloadQuotaExceeded", (runCatching { downloader.download(url, target(), null) }.exceptionOrNull() as DownloadException.QuotaExceeded).reason)
+        refusal = """{"error":{"errors":[{"reason":"dailyLimitExceeded"}],"code":403}}"""
+        assertEquals("dailyLimitExceeded", (runCatching { downloader.download(url, target(), null) }.exceptionOrNull() as DownloadException.QuotaExceeded).reason)
+        // A rate limit is waited out, not reported as a refusal.
+        refusal = """{"error":{"errors":[{"reason":"userRateLimitExceeded"}],"code":403}}"""
+        assertTrue(runCatching { downloader.download(url, target(), null) }.exceptionOrNull() is DownloadException.Busy)
+        refusal = """{"error":{"errors":[{"reason":"API_KEY_ANDROID_APP_BLOCKED"}],"code":403}}"""
+        assertTrue(runCatching { downloader.download(url, target(), null) }.exceptionOrNull() is DownloadException.KeyRefused)
         refusal = """{"error":{"errors":[{"reason":"forbidden"}],"code":403}}"""
         assertTrue(runCatching { downloader.download(url, target(), null) }.exceptionOrNull() is DownloadException.AccessDenied)
     }

@@ -550,4 +550,6 @@
     <string name="drive_device_not_registered">Google does not recognise this app: create the \"Android\" OAuth client ID (package and SHA-1 fingerprint shown below) in Google Cloud Console.</string>
     <string name="source_speed_turbo">Turbo</string>
     <string name="library_storage_unknown_folder">Folder removed or unavailable</string>
+    <string name="error_quota_file">Google limits downloads of this file (too many recent downloads, by everybody): try again in a few hours</string>
+    <string name="error_quota_project">the Google API key reached its quota (it is shared by everyone using it): try again later, or use your own key or your Google account</string>
 </resources>

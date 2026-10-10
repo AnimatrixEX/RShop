@@ -560,4 +560,6 @@
     <string name="drive_device_not_registered">Google ne reconnaît pas cette application : créez l\'ID client OAuth \"Android\" (package et empreinte SHA-1 indiqués plus bas) dans Google Cloud Console.</string>
     <string name="source_speed_turbo">Très rapide</string>
     <string name="library_storage_unknown_folder">Dossier retiré ou inaccessible</string>
+    <string name="error_quota_file">Google limite les téléchargements de ce fichier (trop de téléchargements récents, par tout le monde) : réessayez dans quelques heures</string>
+    <string name="error_quota_project">la clé API Google a atteint son quota (elle est partagée par tous ceux qui l\'utilisent) : réessayez plus tard, ou utilisez votre propre clé ou votre compte Google</string>
 </resources>

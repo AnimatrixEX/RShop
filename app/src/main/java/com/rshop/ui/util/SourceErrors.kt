@@ -23,7 +23,7 @@ fun Context.sourceErrorText(error: SourceError): String = when (error.kind) {
     SourceErrorKind.InvalidContent -> getString(R.string.error_invalid_content)
     SourceErrorKind.NoSource -> getString(R.string.error_no_source)
     SourceErrorKind.ApiKey -> getString(R.string.error_drive_key) + (error.detail?.let { " ($it)" } ?: "")
-    SourceErrorKind.Quota -> getString(R.string.error_quota)
+    SourceErrorKind.Quota -> quotaText(error.detail)
     SourceErrorKind.NoConsole -> getString(R.string.error_drive_no_console)
     SourceErrorKind.Unknown -> getString(R.string.error_unknown)
 }
@@ -36,4 +36,14 @@ fun relativeTime(instant: Instant): String {
     // Always used inside a sentence ("synced 2 minutes ago"): no leading capital.
     return DateUtils.getRelativeTimeSpanString(instant.toEpochMilli(), now, DateUtils.MINUTE_IN_MILLIS).toString()
         .replaceFirstChar { it.lowercase() }
+}
+
+/**
+ * Google's two kinds of quota: the file's own (too many recent downloads by anybody, it lifts by itself)
+ * and the API key's project (shared by everyone using the same key).
+ */
+fun android.content.Context.quotaText(reason: String?): String = when (reason) {
+    "downloadQuotaExceeded" -> getString(R.string.error_quota_file)
+    null, "" -> getString(R.string.error_quota)
+    else -> getString(R.string.error_quota_project)
 }

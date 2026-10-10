@@ -49,7 +49,13 @@ sealed class DownloadException(message: String, cause: Throwable? = null) : IOEx
     class StreamLost : DownloadException("The browser transfer was interrupted")
 
     /** The server's download quota for this file or this key is spent (Google Drive): only waiting helps. */
-    class QuotaExceeded : DownloadException("Download quota exceeded, try again later")
+    class QuotaExceeded(
+        /** Google's reason: "downloadQuotaExceeded" (this file, for everybody) or a limit of the API key's project. */
+        val reason: String? = null,
+    ) : DownloadException("Download quota exceeded, try again later")
+
+    /** Google refuses the API key (invalid, restricted to another app, API not enabled). */
+    class KeyRefused(val reason: String?) : DownloadException("The API key is refused (${reason ?: "unknown reason"})")
 }
 
 /**
@@ -131,8 +137,13 @@ class HttpFileDownloader(
                 }
                 401, 403 -> {
                     // Google APIs explain a refusal in a small JSON body; a spent quota is not a denial.
-                    val reason = runCatching { response.peekBody(4096).string() }.getOrDefault("")
-                    if (QUOTA_REASONS.containsMatchIn(reason)) throw DownloadException.QuotaExceeded()
+                    val body = runCatching { response.peekBody(4096).string() }.getOrDefault("")
+                    val reasons = REASON.findAll(body).map { it.groupValues[1] }.toList()
+                    when {
+                        reasons.any { it in RATE_REASONS } -> throw DownloadException.Busy(response.code)
+                        reasons.any { it in QUOTA_REASONS } -> throw DownloadException.QuotaExceeded(reasons.first { it in QUOTA_REASONS })
+                        reasons.any { it in KEY_REASONS } -> throw DownloadException.KeyRefused(reasons.first { it in KEY_REASONS })
+                    }
                     throw DownloadException.AccessDenied(response.code)
                 }
                 404, 410 -> throw DownloadException.NotFound()
@@ -212,6 +223,13 @@ class HttpFileDownloader(
         const val BUFFER_SIZE = 64 * 1024
         const val SPACE_MARGIN = 50L * 1024 * 1024
         val CONTENT_RANGE = Regex("""bytes (\d+)-(\d+)/(\d+|\*)""")
-        val QUOTA_REASONS = Regex("downloadQuotaExceeded|dailyLimitExceeded|quotaExceeded")
+        /** Google's APIs explain a refusal in a small JSON body: each "reason" in it. */
+        val REASON = Regex("\"reason\"\\s*:\\s*\"([^\"]+)\"")
+        val RATE_REASONS = setOf("rateLimitExceeded", "userRateLimitExceeded")
+        val QUOTA_REASONS = setOf("downloadQuotaExceeded", "dailyLimitExceeded", "quotaExceeded", "sharingRateLimitExceeded")
+        val KEY_REASONS = setOf(
+            "keyInvalid", "API_KEY_INVALID", "API_KEY_ANDROID_APP_BLOCKED", "API_KEY_SERVICE_BLOCKED", "accessNotConfigured",
+            "SERVICE_DISABLED", "dailyLimitExceededUnreg", "keyExpired",
+        )
     }
 }
