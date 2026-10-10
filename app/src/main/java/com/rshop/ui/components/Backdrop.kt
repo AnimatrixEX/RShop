@@ -37,7 +37,7 @@ fun Backdrop(highlighted: Game?, modifier: Modifier = Modifier) {
             .drawBehind {
                 // Glass and PS2 draw their own page behind the screens: keep it.
                 if (ActiveTheme.look.backdrop == BackdropStyle.Plain) drawRect(RShopColors.Background)
-                if (!ActiveTheme.palette.isLight) drawRect(
+                if (!ActiveTheme.palette.isLight && ActiveTheme.look.artBackdrop) drawRect(
                     Brush.radialGradient(
                         colors = listOf(end.copy(alpha = 0.45f), start.copy(alpha = 0.2f), RShopColors.Background.copy(alpha = 0f)),
                         center = Offset(size.width * 0.85f, 0f),
@@ -48,7 +48,7 @@ fun Backdrop(highlighted: Game?, modifier: Modifier = Modifier) {
     ) {
         val coverUrl = game?.coverUrl
         // A blur of the whole screen's size, redone at every move of the focus: only where it shows.
-        val artShows = !ActiveTheme.palette.isLight && ActiveTheme.look.backdrop != BackdropStyle.Ps2
+        val artShows = !ActiveTheme.palette.isLight && ActiveTheme.look.backdrop != BackdropStyle.Ps2 && ActiveTheme.look.artBackdrop
         if (coverUrl != null && artShows) {
             AsyncImage(
                 model = coverUrl,

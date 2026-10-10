@@ -70,6 +70,8 @@ data class ThemeLook(
     val accentBars: Boolean = false,
     /** Section titles are underlined in the accent color. */
     val sectionRule: Boolean = false,
+    /** Dark bases light the page with the game's art and colors; a flat design keeps it plain. */
+    val artBackdrop: Boolean = true,
 )
 
 private data class Base(
@@ -134,6 +136,16 @@ object ThemePalettes {
             ),
             isLight = true,
         )
+        // The same eShop in the dark: charcoal page and cards, red bands, nothing behind the page.
+        ThemeBase.EshopDark -> Base(
+            Color(0xFF1F1F1F), Color(0xFF2B2B2B), Color(0xFF353535), Color(0xFF424242), Color(0xFF575757),
+            Color(0xFFF2F2F2), Color(0xFFB4B4B4), Color(0xFF8A8A8A), swatch = Color(0xFF2B2B2B),
+            look = ThemeLook(
+                corner = 1.dp, edge = Color(0x1FFFFFFF), restingElevation = 0.dp, backdrop = BackdropStyle.Plain,
+                squareControls = true, focusScale = 1.03f, focusBorder = 3.dp, accentBars = true, sectionRule = true,
+                artBackdrop = false,
+            ),
+        )
     }
 
     /**
@@ -154,7 +166,7 @@ object ThemePalettes {
     fun recommendedAccent(base: ThemeBase): ThemeAccent? = when (base) {
         ThemeBase.Glass -> ThemeAccent.Cyan
         ThemeBase.Ps2 -> ThemeAccent.Cyan
-        ThemeBase.Eshop -> ThemeAccent.Red
+        ThemeBase.Eshop, ThemeBase.EshopDark -> ThemeAccent.Red
         else -> null
     }
 

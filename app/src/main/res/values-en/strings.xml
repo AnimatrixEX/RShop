@@ -484,6 +484,7 @@
     <string name="theme_base_glass">Glass</string>
     <string name="theme_base_ps2">PlayStation</string>
     <string name="theme_base_eshop">eShop</string>
+    <string name="theme_base_eshop_dark">eShop dark</string>
 
     <!-- Collapsible filters -->
     <string name="store_filters">Filters</string>

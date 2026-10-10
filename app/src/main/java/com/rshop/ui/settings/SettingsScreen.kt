@@ -606,6 +606,7 @@ private fun ThemeBase.labelRes(): Int = when (this) {
     ThemeBase.Glass -> R.string.theme_base_glass
     ThemeBase.Ps2 -> R.string.theme_base_ps2
     ThemeBase.Eshop -> R.string.theme_base_eshop
+    ThemeBase.EshopDark -> R.string.theme_base_eshop_dark
 }
 
 private fun ThemeAccent.labelRes(): Int = when (this) {

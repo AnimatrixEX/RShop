@@ -494,6 +494,7 @@
     <string name="theme_base_glass">Verre</string>
     <string name="theme_base_ps2">PlayStation</string>
     <string name="theme_base_eshop">eShop</string>
+    <string name="theme_base_eshop_dark">eShop sombre</string>
 
     <!-- Filtres repliables -->
     <string name="store_filters">Filtres</string>

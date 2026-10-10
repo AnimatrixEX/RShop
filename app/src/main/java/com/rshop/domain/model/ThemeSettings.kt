@@ -16,7 +16,7 @@ data class ThemeSettings(
 
 enum class CoverStyle { Flat, Box3d }
 
-enum class ThemeBase { Night, Oled, Slate, Twilight, Glass, Ps2, Eshop }
+enum class ThemeBase { Night, Oled, Slate, Twilight, Glass, Ps2, Eshop, EshopDark }
 
 enum class ThemeAccent { Blue, Violet, Cyan, Green, Orange, Pink, Red }
 

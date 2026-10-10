@@ -56,6 +56,7 @@ class ThemePreviewTest {
     @Test fun glass() = preview(ThemeBase.Glass)
     @Test fun ps2() = preview(ThemeBase.Ps2)
     @Test fun eshop() = preview(ThemeBase.Eshop)
+    @Test fun eshopDark() = preview(ThemeBase.EshopDark)
 
     private fun preview(base: ThemeBase) {
         val out = File("build/theme-previews").apply { mkdirs() }

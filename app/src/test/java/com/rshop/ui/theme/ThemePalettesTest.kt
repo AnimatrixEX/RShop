@@ -40,6 +40,7 @@ class ThemePalettesTest {
     @Test
     fun `styles come with the accent that suits them`() {
         assertEquals(ThemeAccent.Red, ThemePalettes.recommendedAccent(ThemeBase.Eshop))
+        assertEquals(ThemeAccent.Red, ThemePalettes.recommendedAccent(ThemeBase.EshopDark))
         assertEquals(ThemeAccent.Cyan, ThemePalettes.recommendedAccent(ThemeBase.Ps2))
         assertNull(ThemePalettes.recommendedAccent(ThemeBase.Night))
     }
@@ -52,6 +53,9 @@ class ThemePalettesTest {
         assertTrue(ThemePalettes.look(ThemeBase.Ps2).squareControls)
         assertTrue(ThemePalettes.look(ThemeBase.Eshop).accentBars)
         assertTrue(ThemePalettes.look(ThemeBase.Eshop).sectionRule)
+        // The dark eShop keeps the eShop's shape, on a plain dark page.
+        val dark = ThemePalettes.look(ThemeBase.EshopDark)
+        assertTrue(dark.accentBars && dark.sectionRule && dark.squareControls && !dark.artBackdrop)
         assertTrue(ThemePalettes.look(ThemeBase.Ps2).corner < ThemePalettes.look(ThemeBase.Night).corner)
     }
 }

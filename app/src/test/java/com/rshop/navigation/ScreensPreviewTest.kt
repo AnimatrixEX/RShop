@@ -88,6 +88,7 @@ class ScreensPreviewTest {
     }
 
     @Test fun eshop() = screens(ThemeBase.Eshop)
+    @Test fun eshopDark() = screens(ThemeBase.EshopDark)
     @Test fun playstation() = screens(ThemeBase.Ps2)
     @Test fun glass() = screens(ThemeBase.Glass)
     @Test fun night3d() = screens(ThemeBase.Night, CoverStyle.Box3d)
