@@ -78,4 +78,4 @@ MVVM, repositories, coroutines/Flow. HTML parsing never touches the UI: `Scraper
 
 ## Status
 
-Version 0.2.2, personal project, tested on a Retroid Pocket 6. See [`CLAUDE.md`](CLAUDE.md) for the development plan (the game launcher is deliberately out of scope).
+Version 0.2.3, personal project, tested on a Retroid Pocket 6. See [`CLAUDE.md`](CLAUDE.md) for the development plan (the game launcher is deliberately out of scope).
