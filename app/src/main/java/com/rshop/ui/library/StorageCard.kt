@@ -1,5 +1,6 @@
 package com.rshop.ui.library
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,8 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.rshop.R
+import com.rshop.ui.components.FocusableSurface
 import com.rshop.ui.theme.RShopColors
 import com.rshop.ui.util.folderLabel
 import com.rshop.ui.util.formatSize
@@ -51,28 +58,82 @@ private fun slicesOf(folder: FolderUsage, platformOrder: List<String>): List<Sli
 /**
  * Where the games' space goes: for each games folder, a bar split per console and the volume around
  * it. With a single folder it is just that; with several, each folder gets its own block.
+ * The header folds it ([collapsed]) to one line per folder: its bar and its free space.
  */
 @Composable
-fun StorageCard(usage: StorageUsage, modifier: Modifier = Modifier) {
+fun StorageCard(usage: StorageUsage, collapsed: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier
             .fillMaxWidth()
             .background(RShopColors.Surface, RoundedCornerShape(16.dp))
-            .padding(18.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .animateContentSize(),
     ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(stringResource(R.string.library_storage_title), style = MaterialTheme.typography.titleMedium, color = RShopColors.TextPrimary)
-            Spacer(Modifier.weight(1f))
-            Text(
-                stringResource(R.string.library_storage_games, formatSize(usage.gamesBytes)),
-                style = MaterialTheme.typography.bodyMedium,
-                color = RShopColors.TextSecondary,
-            )
+        // The whole header folds and unfolds the card, by touch or with the controller.
+        FocusableSurface(
+            onClick = onToggle,
+            shape = RoundedCornerShape(12.dp),
+            focusedScale = 1.01f,
+            glow = false,
+        ) {
+            Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.library_storage_title), style = MaterialTheme.typography.titleMedium, color = RShopColors.TextPrimary)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    stringResource(R.string.library_storage_games, formatSize(usage.gamesBytes)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = RShopColors.TextSecondary,
+                )
+                Spacer(Modifier.width(10.dp))
+                Icon(
+                    if (collapsed) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+                    contentDescription = stringResource(if (collapsed) R.string.library_storage_expand else R.string.library_storage_collapse),
+                    tint = RShopColors.TextSecondary,
+                )
+            }
         }
         val several = usage.folders.size > 1
-        usage.folders.forEach { folder ->
-            Spacer(Modifier.height(if (several) 18.dp else 12.dp))
-            FolderBlock(folder, usage.platformOrder, showHeader = several)
+        Column(Modifier.padding(start = 8.dp, end = 8.dp, bottom = 10.dp)) {
+            usage.folders.forEach { folder ->
+                if (collapsed) {
+                    Spacer(Modifier.height(6.dp))
+                    CompactFolder(folder, usage.platformOrder, showName = several)
+                } else {
+                    Spacer(Modifier.height(if (several) 16.dp else 8.dp))
+                    FolderBlock(folder, usage.platformOrder, showHeader = several)
+                }
+            }
+        }
+    }
+}
+
+/** A folder on one line: its name when there are several, its console bar, the room left. */
+@Composable
+private fun CompactFolder(folder: FolderUsage, platformOrder: List<String>, showName: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (showName) {
+            Text(
+                folder.folder?.let { folderLabel(it) } ?: stringResource(R.string.library_storage_unknown_folder),
+                modifier = Modifier.width(150.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (folder.folder == null) RShopColors.Warning else RShopColors.TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(12.dp))
+        }
+        Box(Modifier.weight(1f)) {
+            if (folder.gamesBytes > 0) {
+                Bar(slicesOf(folder, platformOrder).map { it.bytes.toFloat() to it.color }, track = RShopColors.SurfaceHighest, height = 8.dp)
+            }
+        }
+        folder.device?.takeIf { it.totalBytes > 0 }?.let { device ->
+            Spacer(Modifier.width(12.dp))
+            Text(
+                stringResource(R.string.library_storage_free_short, formatSize(device.freeBytes)),
+                style = MaterialTheme.typography.bodySmall,
+                color = RShopColors.TextTertiary,
+            )
         }
     }
 }

@@ -6,7 +6,10 @@ import kotlinx.coroutines.isActive
 import net.sf.sevenzipjbinding.ExtractAskMode
 import net.sf.sevenzipjbinding.ExtractOperationResult
 import net.sf.sevenzipjbinding.IArchiveExtractCallback
+import net.sf.sevenzipjbinding.IArchiveOpenCallback
+import net.sf.sevenzipjbinding.IArchiveOpenVolumeCallback
 import net.sf.sevenzipjbinding.IInArchive
+import net.sf.sevenzipjbinding.IInStream
 import net.sf.sevenzipjbinding.ISequentialOutStream
 import net.sf.sevenzipjbinding.PropID
 import net.sf.sevenzipjbinding.SevenZip
@@ -21,7 +24,9 @@ import java.io.RandomAccessFile
 /**
  * RAR and RAR5 extraction with the 7-Zip engine (7-Zip-JBinding, a native library). Entries stream
  * through the same [ArchiveExtractor.LimitedWriter] as every other format, so path validation, entry
- * and size limits apply unchanged. Password-protected and multi-volume archives are refused.
+ * and size limits apply unchanged. An archive split into volumes ("Game.part1.rar", "Game.part2.rar")
+ * is read from its first volume, the engine opening the next ones beside it in the same folder; a
+ * missing volume is reported as such. Password-protected archives are refused.
  */
 internal object RarExtraction {
 
@@ -41,29 +46,68 @@ internal object RarExtraction {
         if (!ready) throw InstallException.UnsupportedFormat("RAR")
         val context = currentCoroutineContext()
         var failure: Throwable? = null
+        val volumes = Volumes(file.parentFile ?: File("."))
         try {
-            RandomAccessFile(file, "r").use { raf ->
-                // Format detected from the content: RAR 2 to 4 and RAR5.
-                val archive = SevenZip.openInArchive(null, RandomAccessFileInStream(raf))
-                archive.use {
-                    val callback = Callback(it, writer) { context.isActive }
-                    try {
-                        it.extract(null, false, callback)
-                    } catch (e: SevenZipException) {
-                        failure = callback.failure ?: e
-                    }
-                    failure = failure ?: callback.failure
+            // Format detected from the content: RAR 2 to 4 and RAR5.
+            val first = volumes.getStream(file.name) ?: throw InstallException.MissingVolume(file.name)
+            val archive = SevenZip.openInArchive(null, first, volumes)
+            archive.use {
+                val callback = Callback(it, writer) { context.isActive }
+                try {
+                    it.extract(null, false, callback)
+                } catch (e: SevenZipException) {
+                    failure = callback.failure ?: e
                 }
+                failure = failure ?: callback.failure
             }
         } catch (e: SevenZipException) {
-            throw InstallException.Corrupt(e)
+            throw volumes.missing?.let { InstallException.MissingVolume(it) } ?: InstallException.Corrupt(e)
+        } finally {
+            volumes.close()
         }
+        // A volume the engine asked for and did not find explains the failure better than its own error.
+        volumes.missing?.let { if (failure != null && failure !is InstallException) failure = InstallException.MissingVolume(it) }
         context.ensureActive()
         when (val error = failure) {
             null -> Unit
             is InstallException -> throw error
             else -> throw InstallException.Corrupt(error)
         }
+    }
+
+    /**
+     * Opens the volumes of a split archive as the engine asks for them, by name, in [folder]. It
+     * also tells the engine the name of the volume being read, from which it derives the next one.
+     */
+    private class Volumes(private val folder: File) : IArchiveOpenVolumeCallback, IArchiveOpenCallback {
+        private val opened = LinkedHashMap<String, RandomAccessFile>()
+        private var current: String? = null
+
+        /** The first volume the engine asked for and that is not there. */
+        var missing: String? = null
+            private set
+
+        override fun getProperty(propID: PropID): Any? = if (propID == PropID.NAME) current else null
+
+        override fun getStream(filename: String): IInStream? {
+            // Only names inside the archive's own folder.
+            val name = File(filename).name
+            val file = File(folder, name)
+            if (!file.isFile) {
+                if (missing == null) missing = name
+                return null
+            }
+            val raf = opened.getOrPut(name) { RandomAccessFile(file, "r") }
+            raf.seek(0)
+            current = name
+            return RandomAccessFileInStream(raf)
+        }
+
+        override fun setTotal(files: Long?, bytes: Long?) = Unit
+
+        override fun setCompleted(files: Long?, bytes: Long?) = Unit
+
+        fun close() = opened.values.forEach { runCatching { it.close() } }
     }
 
     private class Callback(

@@ -23,6 +23,8 @@ data class AppSettings(
     val lastUpdateCheckAt: Long = 0,
     /** Catalogue syncs (automatic ones, download counters) are off until the user turns them back on. */
     val syncPaused: Boolean = false,
+    /** The Library's storage card shows its compact form (one bar per folder). */
+    val storageCollapsed: Boolean = false,
     val theme: ThemeSettings = ThemeSettings(),
     val catalog: CatalogPrefs = CatalogPrefs(),
 )

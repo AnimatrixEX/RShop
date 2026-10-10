@@ -73,7 +73,7 @@ class ThemePreviewTest {
                         ThemeBackground()
                         Backdrop(highlighted = games.first())
                         Column(Modifier.fillMaxSize()) {
-                            ConsoleTopBar(selected = TopLevelDestination.Store, onSelect = {}, settingsBadge = true)
+                            ConsoleTopBar(selected = TopLevelDestination.Store, onSelect = {}, settingsBadge = com.rshop.ui.components.SettingsBadge.Update)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 SectionHeader("Greatest Hits", Modifier.padding(top = 10.dp))
                                 Row(Modifier.padding(horizontal = 28.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {

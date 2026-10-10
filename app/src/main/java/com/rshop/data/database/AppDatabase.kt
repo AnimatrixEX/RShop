@@ -15,6 +15,7 @@ import com.rshop.domain.genre.GenreClassifier
 import com.rshop.domain.genre.TagCodec
 import com.rshop.data.database.dao.HistoryDao
 import com.rshop.data.database.dao.InstalledGameDao
+import com.rshop.data.database.entity.DownloadAdditionEntity
 import com.rshop.data.database.entity.DownloadEntity
 import com.rshop.data.database.entity.FavoriteEntity
 import com.rshop.data.database.entity.GameEntity
@@ -34,10 +35,11 @@ import com.rshop.data.database.entity.ScreenshotEntity
         HistoryEntity::class,
         InstalledGameEntity::class,
         DownloadEntity::class,
+        DownloadAdditionEntity::class,
         GameListEntity::class,
         GameListEntryEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
     autoMigrations = [
         // v2: games.details_synced_at + downloads table.
@@ -68,6 +70,8 @@ import com.rshop.data.database.entity.ScreenshotEntity
         AutoMigration(from = 13, to = 14),
         // v15: downloads.target_directory (which games folder the player chose for a game).
         AutoMigration(from = 14, to = 15),
+        // v16: downloads.adds_to_install + download_additions (updates and DLC added to a game).
+        AutoMigration(from = 15, to = 16),
     ],
 )
 abstract class AppDatabase : RoomDatabase() {

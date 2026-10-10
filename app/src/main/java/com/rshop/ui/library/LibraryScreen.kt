@@ -84,6 +84,7 @@ fun LibraryScreen(
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val event by viewModel.events.collectAsStateWithLifecycle()
     val scanning by viewModel.scanning.collectAsStateWithLifecycle()
+    val storageCollapsed by viewModel.storageCollapsed.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     // Back from a game page or the browser, the card that opened it gets focus again.
@@ -116,7 +117,11 @@ fun LibraryScreen(
         when {
             state.loading -> Unit
             state.totalCount == 0 -> EmptyLibrary(onBrowseStore, scanning, viewModel::onScan)
-            else -> LibraryGrid(state, returnFocus, scanning, viewModel::onScan, viewModel::onCycleSort, viewModel::onPlatformSelected, viewModel::onSelect)
+            else -> LibraryGrid(
+                state, returnFocus, scanning, viewModel::onScan, viewModel::onCycleSort, viewModel::onPlatformSelected, viewModel::onSelect,
+                storageCollapsed = storageCollapsed,
+                onToggleStorage = viewModel::onToggleStorage,
+            )
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(24.dp))
     }
@@ -171,6 +176,8 @@ private fun LibraryGrid(
     onCycleSort: () -> Unit,
     onPlatform: (String?) -> Unit,
     onSelect: (InstalledGame) -> Unit,
+    storageCollapsed: Boolean,
+    onToggleStorage: () -> Unit,
 ) {
     val firstFocus = rememberInitialFocusRequester(ready = state.games.isNotEmpty() && returnFocus.openedKey == null)
     LazyVerticalGrid(
@@ -183,7 +190,7 @@ private fun LibraryGrid(
         item(key = "header", span = { GridItemSpan(maxLineSpan) }) {
             Column {
                 if (state.storage.gamesBytes > 0) {
-                    StorageCard(state.storage, Modifier.padding(bottom = 14.dp))
+                    StorageCard(state.storage, collapsed = storageCollapsed, onToggle = onToggleStorage, modifier = Modifier.padding(bottom = 14.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(

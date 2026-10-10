@@ -58,6 +58,8 @@ fun InstallPanel(
     onUninstall: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAddToList: () -> Unit,
+    /** Opens the game's files to add an update or a DLC; null when the game has a single file. */
+    onAddFiles: (() -> Unit)? = null,
 ) {
     val download = state.download?.takeIf { it.status != DownloadStatus.Completed }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -95,6 +97,11 @@ fun InstallPanel(
                     }
                 }
             }
+        }
+        // Updates and DLC can join the game while it downloads or once it is installed.
+        if (onAddFiles != null && (download != null || state.installed != null)) {
+            Spacer(Modifier.height(10.dp))
+            ConsoleButton(stringResource(R.string.details_add_files), onAddFiles, style = ConsoleButtonStyle.Secondary)
         }
     }
 

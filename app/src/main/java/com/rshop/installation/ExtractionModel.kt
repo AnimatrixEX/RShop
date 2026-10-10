@@ -33,6 +33,8 @@ sealed class InstallException(message: String, cause: Throwable? = null) : IOExc
     class TooManyEntries(val limit: Int) : InstallException("Archive has more than $limit entries")
     class Corrupt(cause: Throwable) : InstallException("Archive is damaged or unsupported: ${cause.message}", cause)
     class Empty : InstallException("Archive contains no file")
+    /** An archive split into volumes ("Game.part2.rar") lacks one: it cannot be extracted without it. */
+    class MissingVolume(val volume: String) : InstallException("Archive volume missing: $volume")
     class UnsupportedFormat(val format: String) : InstallException("$format archives are not supported")
     class NoGamesDirectory : InstallException("No games folder selected")
     class DirectoryLost : InstallException("Access to the games folder was lost")

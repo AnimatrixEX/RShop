@@ -170,17 +170,20 @@ class GameDetailsViewModel @Inject constructor(
     private var pendingOption: String? = null
     private var pendingMore: List<String> = emptyList()
     private var pendingFolder: String? = null
+    private var pendingAdd = false
 
     /**
      * [moreUrls]: further files of the game (other discs, bin + cue) installed after [optionUrl].
      * [folder]: the games folder the player chose; null keeps the game where it is, else the default.
+     * [addToInstall]: the files (an update, a DLC) join the installed game or its download under way.
      */
-    fun onInstall(optionUrl: String? = null, moreUrls: List<String> = emptyList(), folder: String? = null) {
+    fun onInstall(optionUrl: String? = null, moreUrls: List<String> = emptyList(), folder: String? = null, addToInstall: Boolean = false) {
         pendingOption = optionUrl
         pendingMore = moreUrls
         pendingFolder = folder
+        pendingAdd = addToInstall
         viewModelScope.launch {
-            when (val result = downloads.start(gameId, optionUrl, moreUrls, folder)) {
+            when (val result = downloads.start(gameId, optionUrl, moreUrls, folder, addToInstall)) {
                 StartResult.Started -> Unit
                 StartResult.NoGamesDirectory -> _events.value = DetailsEvent.PickFolder
                 is StartResult.Failed -> _events.value = DetailsEvent.StartFailed(result.error)
@@ -210,7 +213,7 @@ class GameDetailsViewModel @Inject constructor(
                 pendingLocalFile?.let { (file, name, size) ->
                     pendingLocalFile = null
                     onInstallLocalFile(file, name, size)
-                } ?: onInstall(pendingOption, pendingMore, pendingFolder)
+                } ?: onInstall(pendingOption, pendingMore, pendingFolder, pendingAdd)
             }
         }
     }

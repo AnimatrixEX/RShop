@@ -101,6 +101,45 @@ class RarExtractionTest {
         assertTrue("got $error", error is InstallException.TooLarge)
     }
 
+    /** Copies the split archive [name] (made with WinRAR: Game/game.nsp, 150 kB of noise, in 60 kB volumes) out of the test assets. */
+    private fun volumes(name: String): File {
+        val dir = tmp.newFolder()
+        val assets = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets
+        assets.list("volumes").orEmpty().filter { it.startsWith("$name.") }.forEach { file ->
+            assets.open("volumes/$file").use { input -> File(dir, file).outputStream().use { input.copyTo(it) } }
+        }
+        return dir
+    }
+
+    @Test
+    fun a_split_rar5_is_extracted_from_its_first_volume() = splitArchive("Vol5")
+
+    @Test
+    fun a_split_rar4_is_extracted_from_its_first_volume() = splitArchive("Vol4")
+
+    private fun splitArchive(name: String) {
+        val dir = volumes(name)
+        assertEquals(3, dir.listFiles()!!.size)
+        val (out, result) = extract(File(dir, "$name.part1.rar"))
+        val game = File(out, "Game/game.nsp")
+        assertEquals(150_000L, game.length())
+        assertEquals("588724fa6fa5d4366731d189f548555e", md5(game))
+        assertEquals("readme", File(out, "Game/readme.txt").readText().trim())
+        assertEquals(setOf("Game"), result.topLevelNames)
+    }
+
+    @Test
+    fun a_split_rar_with_a_volume_missing_says_which() {
+        val dir = volumes("Vol5")
+        File(dir, "Vol5.part2.rar").delete()
+        val error = runCatching { extract(File(dir, "Vol5.part1.rar")) }.exceptionOrNull()
+        assertTrue("got $error", error is InstallException.MissingVolume)
+        assertEquals("Vol5.part2.rar", (error as InstallException.MissingVolume).volume)
+    }
+
+    private fun md5(file: File): String =
+        java.security.MessageDigest.getInstance("MD5").digest(file.readBytes()).joinToString("") { "%02x".format(it) }
+
     @Test
     fun a_damaged_rar_is_reported_as_corrupt_not_copied() {
         val file = rar4("a.gba" to ByteArray(2_000)).also { it.writeBytes(it.readBytes().copyOf(60)) }

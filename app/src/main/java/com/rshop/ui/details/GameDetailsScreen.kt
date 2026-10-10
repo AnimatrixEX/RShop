@@ -94,15 +94,15 @@ fun GameDetailsScreen(
     val folderChoices by viewModel.folderChoices.collectAsStateWithLifecycle()
     // Set while the player picks the games folder of a game, once the files are chosen.
     var folderQuestion by remember { mutableStateOf<Pair<String?, List<String>>?>(null) }
-    val startInstall = { optionUrl: String?, moreUrls: List<String>, folder: String? ->
+    val startInstall = { optionUrl: String?, moreUrls: List<String>, folder: String?, addToInstall: Boolean ->
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        viewModel.onInstall(optionUrl, moreUrls, folder)
+        viewModel.onInstall(optionUrl, moreUrls, folder, addToInstall)
     }
     // With several games folders the player says which one; with one, it just goes there.
     val install = { optionUrl: String?, moreUrls: List<String> ->
-        if (folderChoices.size > 1) folderQuestion = optionUrl to moreUrls else startInstall(optionUrl, moreUrls, null)
+        if (folderChoices.size > 1) folderQuestion = optionUrl to moreUrls else startInstall(optionUrl, moreUrls, null, false)
     }
     // Picks a file the user downloaded themselves (e.g. in the device browser) and installs it.
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -118,6 +118,8 @@ fun GameDetailsScreen(
     }
     // Set while the player picks one of several files (formats, discs…).
     var chooser by remember { mutableStateOf<Game?>(null) }
+    // The chooser adds files (an update, a DLC) to the installed game instead of installing it.
+    var chooserAdds by remember { mutableStateOf(false) }
     var showLists by remember { mutableStateOf(false) }
     var newListName by remember { mutableStateOf(false) }
 
@@ -153,7 +155,16 @@ fun GameDetailsScreen(
                 state = current,
                 onBack = onBack,
                 onInstall = {
+                    chooserAdds = false
                     if (current.game.downloadOptions.size > 1) chooser = current.game else install(null, emptyList())
+                },
+                onAddFiles = if (current.game.downloadOptions.size > 1) {
+                    {
+                        chooserAdds = true
+                        chooser = current.game
+                    }
+                } else {
+                    null
                 },
                 onOpenBrowser = {
                     val url = current.browserUrl
@@ -206,7 +217,7 @@ fun GameDetailsScreen(
             choices = folderChoices,
             onPick = { folder ->
                 folderQuestion = null
-                startInstall(optionUrl, moreUrls, folder.uri.toString())
+                startInstall(optionUrl, moreUrls, folder.uri.toString(), false)
             },
             onDismiss = { folderQuestion = null },
         )
@@ -217,13 +228,16 @@ fun GameDetailsScreen(
             options = game.downloadOptions,
             onPick = { option ->
                 chooser = null
-                install(option.url, emptyList())
+                // Added files go where the game is: no folder question.
+                if (chooserAdds) startInstall(option.url, emptyList(), null, true) else install(option.url, emptyList())
             },
             onPickMany = { picked ->
                 chooser = null
-                install(picked.first().url, picked.drop(1).map { it.url })
+                val more = picked.drop(1).map { it.url }
+                if (chooserAdds) startInstall(picked.first().url, more, null, true) else install(picked.first().url, more)
             },
             onDismiss = { chooser = null },
+            adding = chooserAdds,
         )
     }
 }
@@ -241,6 +255,7 @@ private fun GameDetailsContent(
     onUninstall: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAddToList: () -> Unit,
+    onAddFiles: (() -> Unit)?,
 ) {
     val game = state.game
     val primaryFocus = rememberInitialFocusRequester()
@@ -315,6 +330,7 @@ private fun GameDetailsContent(
                         onUninstall = onUninstall,
                         onToggleFavorite = onToggleFavorite,
                         onAddToList = onAddToList,
+                        onAddFiles = onAddFiles,
                     )
                 }
             }

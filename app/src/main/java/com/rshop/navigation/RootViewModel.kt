@@ -3,13 +3,17 @@ package com.rshop.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rshop.data.sync.DetailsPrefetcher
+import com.rshop.data.sync.SyncScheduler
 import com.rshop.data.update.AppUpdater
 import com.rshop.data.update.UpdateState
 import com.rshop.domain.model.Game
 import com.rshop.domain.repository.SettingsRepository
+import com.rshop.ui.components.SettingsBadge
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -25,12 +29,27 @@ class RootViewModel @Inject constructor(
     private val updater: AppUpdater,
     private val settings: SettingsRepository,
     private val clock: Clock,
+    syncScheduler: SyncScheduler,
 ) : ViewModel() {
 
-    /** A newer version is known (or being installed): the Settings tab shows a dot. */
-    val updateAvailable: StateFlow<Boolean> = updater.state
+    /** A newer version is known (or being installed). */
+    private val updateAvailable = updater.state
         .map { it is UpdateState.Available || it is UpdateState.Downloading || it is UpdateState.Verifying || it is UpdateState.Installing }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /**
+     * The mark on the Settings button: a catalogue sync running, else a new RShop version found.
+     * The sync shows first while it lasts: it is short, the new version stays.
+     */
+    val settingsBadge: StateFlow<SettingsBadge> = combine(
+        syncScheduler.state.map { it.running }.distinctUntilChanged(),
+        updateAvailable,
+    ) { syncing, update ->
+        when {
+            syncing -> SettingsBadge.Syncing
+            update -> SettingsBadge.Update
+            else -> SettingsBadge.None
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsBadge.None)
 
     init {
         viewModelScope.launch {

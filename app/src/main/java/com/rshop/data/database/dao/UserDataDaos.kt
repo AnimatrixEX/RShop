@@ -7,6 +7,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
+import com.rshop.data.database.entity.DownloadAdditionEntity
 import com.rshop.data.database.entity.DownloadEntity
 import com.rshop.data.database.entity.FavoriteEntity
 import com.rshop.data.database.entity.GameEntity
@@ -131,6 +132,16 @@ interface DownloadDao {
 
     @Query("DELETE FROM downloads WHERE game_id = :gameId")
     suspend fun delete(gameId: String)
+
+    @Insert
+    suspend fun insertAddition(addition: DownloadAdditionEntity)
+
+    @Query("SELECT * FROM download_additions WHERE game_id = :gameId ORDER BY id")
+    suspend fun additions(gameId: String): List<DownloadAdditionEntity>
+
+    /** Removes the additions up to [lastId] (later ones, added meanwhile, stay). */
+    @Query("DELETE FROM download_additions WHERE game_id = :gameId AND id <= :lastId")
+    suspend fun deleteAdditions(gameId: String, lastId: Long = Long.MAX_VALUE)
 }
 
 data class GameListWithCount(

@@ -17,6 +17,7 @@ interface SettingsRepository {
     suspend fun setReadPagesAhead(enabled: Boolean)
     suspend fun setLastUpdateCheckAt(epochMillis: Long)
     suspend fun setSyncPaused(paused: Boolean)
+    suspend fun setStorageCollapsed(collapsed: Boolean)
     suspend fun setTheme(theme: ThemeSettings)
     suspend fun setCatalogPrefs(prefs: CatalogPrefs)
 }

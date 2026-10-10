@@ -38,6 +38,7 @@ fun Context.downloadErrorMessage(error: DownloadError): String = when (error.kin
     DownloadErrorKind.DirectoryLost -> getString(R.string.dl_error_directory_lost)
     DownloadErrorKind.UnsafeArchive -> getString(R.string.dl_error_unsafe_archive)
     DownloadErrorKind.Corrupt -> getString(R.string.dl_error_corrupt)
+    DownloadErrorKind.MissingVolume -> getString(R.string.dl_error_missing_volume, error.detail.orEmpty())
     DownloadErrorKind.Unsupported -> getString(R.string.dl_error_unsupported, error.detail.orEmpty())
     DownloadErrorKind.NoLink -> getString(R.string.dl_error_no_link)
     DownloadErrorKind.StreamLost -> getString(R.string.dl_error_stream_lost)

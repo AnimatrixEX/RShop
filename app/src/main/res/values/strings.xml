@@ -179,6 +179,7 @@
     <string name="dl_error_directory_lost">accès au dossier des jeux perdu, choisissez-le à nouveau</string>
     <string name="dl_error_unsafe_archive">archive refusée (chemins dangereux ou taille excessive)</string>
     <string name="dl_error_corrupt">archive endommagée ou illisible</string>
+    <string name="dl_error_missing_volume">archive en plusieurs parties : il manque %1$s (téléchargez toutes les parties)</string>
     <string name="dl_error_unsupported">format %1$s non pris en charge</string>
     <string name="dl_error_no_link">aucun lien de téléchargement utilisable pour ce jeu</string>
     <string name="dl_error_stream_lost">transfert depuis le navigateur interrompu, relance-le depuis la page du jeu</string>
@@ -342,6 +343,11 @@
     <string name="library_storage_games">%1$s utilisés par les jeux</string>
     <string name="library_storage_free">%1$s libres sur %2$s</string>
     <string name="library_storage_others">Autres</string>
+    <string name="badge_syncing">Synchronisation en cours</string>
+    <string name="badge_update">Mise à jour de RShop disponible</string>
+    <string name="library_storage_free_short">%1$s libres</string>
+    <string name="library_storage_collapse">Replier le stockage</string>
+    <string name="library_storage_expand">Déplier le stockage</string>
     <string name="library_format">Format : %1$s</string>
     <string name="source_speed">Vitesse : %1$s</string>
     <string name="source_speed_careful">prudente</string>
@@ -401,6 +407,9 @@
     <string name="details_several_files">Plusieurs fichiers</string>
     <string name="details_one_file">Un seul fichier</string>
     <string name="details_parts_hint">Ces fichiers semblent être les parties d\'un même jeu (disques, bin + cue). Ils seront installés ensemble.</string>
+    <string name="details_all_hint">Le jeu puis ses mises à jour et DLC, téléchargés à la suite et rangés avec le jeu.</string>
+    <string name="details_add_files">Ajouter des fichiers</string>
+    <string name="details_add_hint">Les fichiers choisis (mise à jour, DLC…) sont rangés avec le jeu, sans le remplacer.</string>
     <plurals name="details_download_all">
         <item quantity="one">Tout télécharger (%d fichier)</item>
         <item quantity="other">Tout télécharger (%d fichiers)</item>

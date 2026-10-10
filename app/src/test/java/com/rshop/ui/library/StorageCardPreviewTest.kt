@@ -42,10 +42,10 @@ class StorageCardPreviewTest {
 
     private fun usage(vararg parts: Pair<String, Long>) = parts.map { PlatformUsage(it.first, it.second, 3) }
 
-    private fun shoot(name: String, usage: StorageUsage) {
+    private fun shoot(name: String, usage: StorageUsage, collapsed: Boolean = false) {
         composeRule.setContent {
             RShopTheme {
-                Box(Modifier.width(860.dp).padding(16.dp)) { StorageCard(usage) }
+                Box(Modifier.width(860.dp).padding(16.dp)) { StorageCard(usage, collapsed = collapsed, onToggle = {}) }
             }
         }
         composeRule.waitForIdle()
@@ -69,8 +69,12 @@ class StorageCardPreviewTest {
     )
 
     @Test
-    fun severalFolders() = shoot(
-        "storage-several",
+    fun severalFolders() = shoot("storage-several", several)
+
+    @Test
+    fun severalFoldersCompact() = shoot("storage-several-compact", several, collapsed = true)
+
+    private val several =
         StorageUsage(
             gamesBytes = 70 * gb,
             folders = listOf(
@@ -80,6 +84,5 @@ class StorageCardPreviewTest {
                 FolderUsage(null, 2 * gb, usage("NES" to 2 * gb), null, 0),
             ),
             platformOrder = listOf("PS2", "Switch", "GBA", "SNES"),
-        ),
-    )
+        )
 }

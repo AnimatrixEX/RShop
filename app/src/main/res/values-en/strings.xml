@@ -171,6 +171,7 @@
     <string name="dl_error_directory_lost">access to the games folder was lost, choose it again</string>
     <string name="dl_error_unsafe_archive">archive refused (unsafe paths or excessive size)</string>
     <string name="dl_error_corrupt">damaged or unreadable archive</string>
+    <string name="dl_error_missing_volume">archive in several parts: %1$s is missing (download every part)</string>
     <string name="dl_error_unsupported">%1$s format not supported</string>
     <string name="dl_error_no_link">no usable download link for this game</string>
     <string name="dl_error_stream_lost">browser transfer interrupted, start it again from the game page</string>
@@ -332,6 +333,11 @@
     <string name="library_storage_games">%1$s used by games</string>
     <string name="library_storage_free">%1$s free of %2$s</string>
     <string name="library_storage_others">Others</string>
+    <string name="badge_syncing">Sync in progress</string>
+    <string name="badge_update">RShop update available</string>
+    <string name="library_storage_free_short">%1$s free</string>
+    <string name="library_storage_collapse">Fold storage</string>
+    <string name="library_storage_expand">Unfold storage</string>
     <string name="library_format">Format: %1$s</string>
     <string name="source_speed">Speed: %1$s</string>
     <string name="source_speed_careful">careful</string>
@@ -391,6 +397,9 @@
     <string name="details_several_files">Several files</string>
     <string name="details_one_file">Single file</string>
     <string name="details_parts_hint">These files look like the parts of one game (discs, bin + cue). They will be installed together.</string>
+    <string name="details_all_hint">The game, then its updates and DLC, downloaded one after another and stored with the game.</string>
+    <string name="details_add_files">Add files</string>
+    <string name="details_add_hint">The chosen files (update, DLC…) are stored with the game, without replacing it.</string>
     <plurals name="details_download_all">
         <item quantity="one">Download all (%d file)</item>
         <item quantity="other">Download all (%d files)</item>

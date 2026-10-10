@@ -15,6 +15,7 @@ import com.rshop.data.sync.sourceIdOf
 import com.rshop.data.work.AppNotifications
 import com.rshop.domain.model.DownloadStatus
 import com.rshop.domain.repository.SettingsRepository
+import com.rshop.installation.ArchiveVolumes
 import com.rshop.installation.GameInstaller
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -121,16 +122,37 @@ class DownloadWorker @AssistedInject constructor(
         if ((row.expectedSha256 != null || row.expectedMd5 != null) && !row.verified) {
             row = verify(row, file)
         }
-        install(row, file)
+        // A volume of a split archive ("Game.part1.rar") waits for the others: the archive is
+        // extracted once, from its first volume, when the last one is downloaded.
+        if (ArchiveVolumes.waitsForMore(row.fileName, plannedNames(row))) {
+            Timber.i("Volume %s kept until the archive is complete", row.fileName)
+            return row
+        }
+        val volumes = ArchiveVolumes.siblings(file)
+        // The first file installed of this game: the volumes before it installed nothing.
+        val installRow = if (volumes.size > 1) row.copy(partIndex = (row.partIndex - (volumes.size - 1)).coerceAtLeast(0)) else row
+        install(installRow, volumes.first())
         return row
     }
 
+    /** Names of the game's files still to fetch after [row]: the planned ones, then those added meanwhile. */
+    private suspend fun plannedNames(row: DownloadEntity): List<String> =
+        (DownloadOptionsJson.decode(row.extraParts) + dao.additions(gameId).flatMap { DownloadOptionsJson.decode(it.parts) })
+            .map { it.fileName ?: it.url.substringBefore('?').substringAfterLast('/') }
+
     /** The row for the next file of the game, saved, or null when [row] was the last one. */
     private suspend fun nextPart(row: DownloadEntity): DownloadEntity? {
-        val parts = DownloadOptionsJson.decode(row.extraParts)
+        // Files the player added meanwhile (an update, a DLC) come after the ones already planned.
+        val added = dao.additions(gameId)
+        added.lastOrNull()?.let { dao.deleteAdditions(gameId, it.id) }
+        val parts = DownloadOptionsJson.decode(row.extraParts) + added.flatMap { DownloadOptionsJson.decode(it.parts) }
         val next = parts.firstOrNull() ?: return null
-        // The file just installed is not needed any more (unless the user keeps archives).
-        if (settings.settings.first().deleteArchivesAfterInstall) File(row.tempPath).delete()
+        // The file just installed is not needed any more (unless the user keeps archives). The volumes
+        // of a split archive stay until its last one is in and the whole archive is extracted.
+        if (settings.settings.first().deleteArchivesAfterInstall) {
+            val remaining = parts.map { it.fileName ?: it.url.substringBefore('?').substringAfterLast('/') }
+            if (!ArchiveVolumes.waitsForMore(row.fileName, remaining)) ArchiveVolumes.siblings(File(row.tempPath)).forEach { it.delete() }
+        }
         var fileName = DownloadPolicy.fileName(next.url.toHttpUrl(), row.title)
         if (fileName == row.fileName) fileName = "${row.partIndex + 2}-$fileName"
         val advanced = row.copy(
@@ -152,6 +174,7 @@ class DownloadWorker @AssistedInject constructor(
             requestUserAgent = null,
             extraParts = DownloadOptionsJson.encode(parts.drop(1)),
             partIndex = row.partIndex + 1,
+            partCount = row.partIndex + 1 + parts.size,
             updatedAt = clock.millis(),
         )
         dao.upsert(advanced)

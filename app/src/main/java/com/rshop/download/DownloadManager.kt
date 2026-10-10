@@ -10,6 +10,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.rshop.data.database.DownloadOptionsJson
 import com.rshop.data.database.dao.DownloadDao
+import com.rshop.data.database.entity.DownloadAdditionEntity
 import com.rshop.data.database.entity.DownloadEntity
 import com.rshop.data.source.SourceRepository
 import com.rshop.data.storage.GamesDirectoryManager
@@ -98,7 +99,9 @@ class DownloadManager @Inject constructor(
     /**
      * Queues the game's download. [optionUrl] picks one of [Game.downloadOptions] (format, disc…);
      * null takes the first one. [moreUrls] are further files of the same game (other discs, bin +
-     * cue), fetched and installed one after the other into the same game.
+     * cue), fetched and installed one after the other into the same game. With [addToInstall] the
+     * files (an update, a DLC) join the game already installed, or the game's download under way,
+     * instead of replacing it.
      */
     suspend fun start(
         gameId: String,
@@ -106,11 +109,13 @@ class DownloadManager @Inject constructor(
         moreUrls: List<String> = emptyList(),
         /** Games folder chosen by the player; null keeps the game where it is installed, else the default folder. */
         targetDirectory: String? = null,
+        addToInstall: Boolean = false,
     ): StartResult {
         if (targetDirectory != null) chosenFolders[gameId] = targetDirectory
-        dao.get(gameId)?.let { existing ->
-            if (DownloadStatus.valueOf(existing.state).isActive) return StartResult.Started
-        }
+        val existing = dao.get(gameId)
+        val unfinished = existing != null && DownloadStatus.valueOf(existing.state) != DownloadStatus.Completed
+        if (addToInstall && unfinished) return addToRunning(existing!!, listOfNotNull(optionUrl) + moreUrls)
+        if (existing != null && DownloadStatus.valueOf(existing.state).isActive) return StartResult.Started
         if (directoryManager.state.first() !is GamesDirectoryState.Available) return StartResult.NoGamesDirectory
 
         val game = try {
@@ -175,9 +180,55 @@ class DownloadManager @Inject constructor(
                 updatedAt = now,
                 extraParts = DownloadOptionsJson.encode(extras),
                 partCount = 1 + extras.size,
+                addsToInstall = addToInstall,
             ),
         )
         enqueue(game.id)
+        return StartResult.Started
+    }
+
+    /**
+     * Files added to a game whose download is not finished: queued for the worker, which installs
+     * them after the files already planned. A paused or failed download is started again.
+     */
+    private suspend fun addToRunning(row: DownloadEntity, urls: List<String>): StartResult {
+        val game = try {
+            gameWithDownloadLink(row.gameId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return StartResult.Failed(e.toDownloadError())
+        } ?: return StartResult.Failed(DownloadError(DownloadErrorKind.NoLink))
+        val planned = setOf(row.url) + DownloadOptionsJson.decode(row.extraParts).map { it.url } +
+            dao.additions(row.gameId).flatMap { DownloadOptionsJson.decode(it.parts) }.map { it.url }
+        val added = urls.distinct().filter { it !in planned }.mapNotNull { wanted -> game.downloadOptions.firstOrNull { it.url == wanted } }
+        if (added.isEmpty()) return StartResult.Started
+        added.firstOrNull { it.viaPage }?.let { return StartResult.OpenInBrowser(it.url) }
+        val config = sources.get(game.sourceId)
+            ?: return StartResult.Failed(DownloadError(DownloadErrorKind.Rejected, "game does not belong to a configured source"))
+        val source = sources.createSource(config)
+        try {
+            for (option in added) {
+                val url = option.url.toHttpUrlOrNull() ?: throw DownloadException.Rejected("invalid link ${option.url}")
+                DownloadPolicy.check(url, DownloadPolicy.fileName(url, game.title)) { source.acceptsDownloadUrl(it) }
+            }
+        } catch (e: DownloadException) {
+            return StartResult.Failed(e.toDownloadError())
+        }
+        val parts = DownloadOptionsJson.encode(added) ?: return StartResult.Started
+        dao.insertAddition(DownloadAdditionEntity(gameId = row.gameId, parts = parts))
+        // The download may have just finished without seeing them: they become a download of their own.
+        val current = dao.get(row.gameId)
+        if (current == null || DownloadStatus.valueOf(current.state) == DownloadStatus.Completed) {
+            val queued = dao.additions(row.gameId).flatMap { DownloadOptionsJson.decode(it.parts) }
+            dao.deleteAdditions(row.gameId)
+            if (queued.isEmpty()) return StartResult.Started
+            return start(row.gameId, queued.first().url, queued.drop(1).map { it.url }, addToInstall = true)
+        }
+        when (DownloadStatus.valueOf(current.state)) {
+            DownloadStatus.Paused, DownloadStatus.Failed -> resume(row.gameId)
+            else -> Unit
+        }
         return StartResult.Started
     }
 
@@ -364,6 +415,7 @@ class DownloadManager @Inject constructor(
     suspend fun cancel(gameId: String) {
         val row = dao.get(gameId) ?: return
         dao.delete(gameId)
+        dao.deleteAdditions(gameId)
         workManager.cancelUniqueWork(workName(gameId))
         browserStreams.discard(gameId)
         tracker.clear(gameId)

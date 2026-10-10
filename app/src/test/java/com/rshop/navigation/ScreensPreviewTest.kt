@@ -47,6 +47,8 @@ class ScreensPreviewTest {
                 android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
                 0f,
             )
+            // The app reads WorkManager as it starts (sync state on the Settings button).
+            WorkManagerTestInitHelper.initializeTestWorkManager(ApplicationProvider.getApplicationContext())
         }
     }
 
@@ -59,7 +61,6 @@ class ScreensPreviewTest {
 
     @Before
     fun setUp() {
-        WorkManagerTestInitHelper.initializeTestWorkManager(ApplicationProvider.getApplicationContext())
         hiltRule.inject()
         runBlocking { demoCatalogSeeder.seedIfEmpty() }
         composeRule.waitForIdle()

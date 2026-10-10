@@ -7,8 +7,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusProperties
@@ -54,6 +54,10 @@ import timber.log.Timber
  * "Featured": a few popular games turning by themselves, console-dashboard style. It stops
  * turning while a controller is on it or a finger drags it. With a controller, LEFT on the
  * leftmost button / RIGHT on the cover (nothing further that way) turn the page.
+ *
+ * Kept light for handhelds: a turn fades the banner out and in around an instant page change
+ * (two full banners sliding frame by frame froze some devices), and the bar under it moves in
+ * steps instead of every frame. A finger can still drag the pages.
  */
 @Composable
 fun FeaturedCarousel(
@@ -74,27 +78,35 @@ fun FeaturedCarousel(
     val requesters = remember(games.size) { List(games.size) { FocusRequester() } }
     var refocusPage by remember { mutableStateOf<Int?>(null) }
 
-    // Time left before the next turn, shown by the bar under the banner. It freezes while the
-    // carousel is held (controller on it, finger dragging) and resumes from where it stopped.
-    val progress = remember { Animatable(0f) }
+    // Time before the next turn, shown by the bar under the banner, in steps of PROGRESS_STEP_MS.
+    // It freezes while the carousel is held (controller on it, finger dragging) and resumes from
+    // where it stopped.
+    var progress by remember { mutableFloatStateOf(0f) }
     var progressPage by remember { mutableIntStateOf(-1) }
+    val fade = remember { Animatable(1f) }
     val dragged by pagerState.interactionSource.collectIsDraggedAsState()
     val context = LocalContext.current
+    // "Remove animations" (accessibility, tests): pages change without fading.
+    val fades = remember { !animationsDisabled(context) }
+
+    suspend fun showPage(page: Int) {
+        if (fades) fade.animateTo(0f, tween(FADE_OUT_MS))
+        pagerState.scrollToPage(page)
+        if (fades) fade.animateTo(1f, tween(FADE_IN_MS))
+    }
+
     LaunchedEffect(pagerState.settledPage, focused, dragged, games.size) {
         if (progressPage != pagerState.settledPage) {
-            progress.snapTo(0f)
+            progress = 0f
             progressPage = pagerState.settledPage
         }
         if (focused || dragged || games.size < 2) return@LaunchedEffect
-        val remaining = ((1f - progress.value) * autoTurnMillis).toLong()
-        if (animationsDisabled(context)) {
-            // "Remove animations" (accessibility, tests): a still bar, same timing.
-            delay(remaining)
-        } else {
-            progress.animateTo(1f, tween(durationMillis = remaining.toInt(), easing = LinearEasing))
+        while (progress < 1f) {
+            delay(PROGRESS_STEP_MS)
+            progress = (progress + PROGRESS_STEP_MS.toFloat() / autoTurnMillis).coerceAtMost(1f)
         }
-        // Its own coroutine: the scroll it starts must not cancel it through this effect's keys.
-        scope.launch { pagerState.animateScrollToPage((pagerState.settledPage + 1) % games.size) }
+        // Its own coroutine: the page change must not cancel it through this effect's keys.
+        scope.launch { showPage((pagerState.settledPage + 1) % games.size) }
     }
     // A page turned with the controller: its button takes the focus over.
     LaunchedEffect(refocusPage, pagerState.settledPage) {
@@ -109,7 +121,7 @@ fun FeaturedCarousel(
     fun turn(step: Int) {
         val target = (pagerState.currentPage + step).mod(games.size)
         refocusPage = target
-        scope.launch { pagerState.animateScrollToPage(target) }
+        scope.launch { showPage(target) }
     }
 
     Column(
@@ -137,6 +149,7 @@ fun FeaturedCarousel(
     ) {
         HorizontalPager(
             state = pagerState,
+            modifier = Modifier.graphicsLayer { alpha = fade.value },
             pageSpacing = 16.dp,
             key = { games[it].id },
         ) { page ->
@@ -163,7 +176,7 @@ fun FeaturedCarousel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             ) {
                 repeat(games.size) { index ->
-                    PageDot(selected = index == pagerState.currentPage, progress = { progress.value })
+                    PageDot(selected = index == pagerState.currentPage, progress = { progress })
                 }
             }
         }
@@ -187,6 +200,10 @@ private fun PageDot(selected: Boolean, progress: () -> Float) {
             },
     )
 }
+
+private const val PROGRESS_STEP_MS = 500L
+private const val FADE_OUT_MS = 150
+private const val FADE_IN_MS = 250
 
 private fun animationsDisabled(context: android.content.Context): Boolean =
     android.provider.Settings.Global.getFloat(context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f

@@ -87,7 +87,9 @@ private fun HomeContent(
     }
 
     Box(Modifier.fillMaxSize()) {
-        Backdrop(highlighted = highlighted ?: state.featured.getOrNull(pagerState.currentPage))
+        // The settled page, not the current one: the blurred full-screen art changes once, after a
+        // turn, never in the middle of it (a heavy redraw on handhelds).
+        Backdrop(highlighted = highlighted ?: state.featured.getOrNull(pagerState.settledPage))
 
         // Wait for the first real state: if the list were composed without the hero, the
         // LazyColumn would keep "Recently added" pinned on top and insert the hero off-screen.

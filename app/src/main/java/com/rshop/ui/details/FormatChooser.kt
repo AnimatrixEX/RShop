@@ -49,8 +49,9 @@ import com.rshop.ui.util.formatSize
 
 /**
  * Lets the player pick the file a game page offers (formats, discs, regions), or several at once
- * for a game made of more than one file. When the files look like parts of one game (disc 1,
- * disc 2; bin + cue) "download all" comes first.
+ * for a game made of more than one file. "Download all" comes first when the game's files look like
+ * parts of one game (disc 1, disc 2; bin + cue) or there is one, and it takes the game's updates
+ * and DLC too. [adding]: files added to an installed game, so "download all" is its updates and DLC.
  */
 @Composable
 fun FormatChooserDialog(
@@ -59,12 +60,21 @@ fun FormatChooserDialog(
     onPick: (DownloadOption) -> Unit,
     onPickMany: (List<DownloadOption>) -> Unit,
     onDismiss: () -> Unit,
+    adding: Boolean = false,
 ) {
     val first = remember { FocusRequester() }
-    // Every file of the game is listed, whatever its type. "Download all" only concerns the files
-    // that look like parts of the game itself (discs, bin + cue), not pictures or updates.
+    // Every file of the game is listed, whatever its type. "Download all" is the game itself (its
+    // parts: discs, bin + cue) followed by its updates and DLC; pictures and notes stay out.
     val mains = remember(options) { options.filterNot { it.isUpdate || it.isExtra } }
-    val allAreParts = remember(mains) { GameParts.looksLikeParts(mains) }
+    val addOns = remember(options) { options.filter { it.isUpdate && !it.isExtra } }
+    val all = remember(mains, addOns, adding) {
+        when {
+            adding -> addOns
+            mains.size == 1 || GameParts.looksLikeParts(mains) -> mains + addOns
+            else -> emptyList()
+        }
+    }
+    val allAreParts = all.size > 1 || (adding && all.isNotEmpty())
     var several by remember { mutableStateOf(false) }
     var chosen by remember { mutableStateOf(emptySet<String>()) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -76,18 +86,23 @@ fun FormatChooserDialog(
                 .padding(24.dp),
         ) {
             Text(
-                stringResource(if (several) R.string.details_choose_files else R.string.details_choose_file),
+                stringResource(if (adding) R.string.details_add_files else if (several) R.string.details_choose_files else R.string.details_choose_file),
                 style = MaterialTheme.typography.labelMedium,
                 color = RShopColors.AccentBright,
             )
             Text(title, style = MaterialTheme.typography.titleLarge)
             if (allAreParts && !several) {
                 Spacer(Modifier.height(10.dp))
-                Text(stringResource(R.string.details_parts_hint), style = MaterialTheme.typography.bodySmall, color = RShopColors.TextSecondary)
+                val hint = when {
+                    adding -> R.string.details_add_hint
+                    addOns.isNotEmpty() -> R.string.details_all_hint
+                    else -> R.string.details_parts_hint
+                }
+                Text(stringResource(hint), style = MaterialTheme.typography.bodySmall, color = RShopColors.TextSecondary)
                 Spacer(Modifier.height(10.dp))
                 ConsoleButton(
-                    pluralStringResource(R.plurals.details_download_all, mains.size, mains.size),
-                    onClick = { onPickMany(mains) },
+                    pluralStringResource(R.plurals.details_download_all, all.size, all.size),
+                    onClick = { onPickMany(all) },
                     modifier = Modifier.focusRequester(first),
                 )
             }

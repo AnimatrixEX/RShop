@@ -77,8 +77,9 @@ class GameInstaller @Inject constructor(
 
                 val previous = installedDao.get(download.gameId)
                 val previousUris = previous?.documentUri?.let(::urisOf).orEmpty().toSet()
-                // The second file of a game (disc 2…) joins what the first one installed.
-                val append = download.partIndex > 0 && previous != null
+                // The second file of a game (disc 2…), or a file added to the installed game (an
+                // update, a DLC), joins what is already there.
+                val append = (download.partIndex > 0 || download.addsToInstall) && previous != null
                 // Readmes and pictures next to the game are left behind; the game's own files go
                 // straight into the console folder, whatever their number (bin + cue, several discs).
                 val items = result.topLevelNames.filterNot { FileFormats.isExtra(it) }.ifEmpty { result.topLevelNames.toList() }

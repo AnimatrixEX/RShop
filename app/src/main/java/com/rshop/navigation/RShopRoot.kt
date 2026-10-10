@@ -53,7 +53,7 @@ fun RShopRoot(tabSwitches: Flow<Int>, searchRequests: Flow<Unit> = emptyFlow()) 
     }
 
     val root: RootViewModel = hiltViewModel()
-    val updateAvailable by root.updateAvailable.collectAsStateWithLifecycle()
+    val settingsBadge by root.settingsBadge.collectAsStateWithLifecycle()
     val searchSignal = remember { SearchSignal() }
     LaunchedEffect(searchRequests) {
         searchRequests.collect {
@@ -89,7 +89,7 @@ fun RShopRoot(tabSwitches: Flow<Int>, searchRequests: Flow<Unit> = emptyFlow()) 
             ConsoleTopBar(
                 selected = currentTab,
                 onSelect = { navController.navigateToTab(it) },
-                settingsBadge = updateAvailable,
+                settingsBadge = settingsBadge,
             )
         }
         RShopNavHost(navController = navController, modifier = Modifier.weight(1f))

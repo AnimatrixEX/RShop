@@ -206,6 +206,20 @@ data class DownloadEntity(
     /** Which file of the game this row is, from 0, out of [partCount]. */
     @ColumnInfo(name = "part_index", defaultValue = "0") val partIndex: Int = 0,
     @ColumnInfo(name = "part_count", defaultValue = "1") val partCount: Int = 1,
+    /** The files join the game already installed (an update, a DLC) instead of replacing it. */
+    @ColumnInfo(name = "adds_to_install", defaultValue = "0") val addsToInstall: Boolean = false,
+)
+
+/**
+ * Files the player added to a game's download while it was running (an update, a DLC), as JSON
+ * (see DownloadOptionsJson). Kept apart from the download row, which the worker rewrites as it
+ * goes; the worker takes them when it moves on to the game's next file.
+ */
+@Entity(tableName = "download_additions", indices = [Index("game_id")])
+data class DownloadAdditionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "game_id") val gameId: String,
+    val parts: String,
 )
 
 data class GameWithScreenshots(

@@ -11,12 +11,14 @@ import com.rshop.data.storage.GamesFolder
 import com.rshop.installation.DeviceSpace
 import com.rshop.download.DownloadManager
 import com.rshop.download.StartResult
+import com.rshop.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -77,7 +79,16 @@ sealed interface LibraryEvent {
 class LibraryViewModel @Inject constructor(
     private val library: LibraryRepository,
     private val downloads: DownloadManager,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
+
+    /** The storage card is folded to its compact form; remembered across launches. */
+    val storageCollapsed: StateFlow<Boolean> = settings.settings.map { it.storageCollapsed }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun onToggleStorage() {
+        viewModelScope.launch { settings.setStorageCollapsed(!storageCollapsed.value) }
+    }
 
     private val platformFilter = MutableStateFlow<String?>(null)
     private val sort = MutableStateFlow(LibrarySort.Title)

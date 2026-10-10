@@ -68,6 +68,7 @@ class DataStoreSettingsRepository @Inject constructor(
                 readPagesAhead = prefs[Keys.ReadPagesAhead] ?: false,
                 lastUpdateCheckAt = prefs[Keys.LastUpdateCheckAt] ?: 0L,
                 syncPaused = prefs[Keys.SyncPaused] ?: false,
+                storageCollapsed = prefs[Keys.StorageCollapsed] ?: false,
                 theme = ThemeSettings(
                     base = prefs[Keys.ThemeBase].toEnum(ThemeBase.Night),
                     accent = prefs[Keys.ThemeAccent].toEnum(ThemeAccent.Blue),
@@ -122,6 +123,10 @@ class DataStoreSettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.AutoCheckUpdates] = enabled }
     }
 
+    override suspend fun setStorageCollapsed(collapsed: Boolean) {
+        dataStore.edit { it[Keys.StorageCollapsed] = collapsed }
+    }
+
     override suspend fun setSyncPaused(paused: Boolean) {
         dataStore.edit { it[Keys.SyncPaused] = paused }
     }
@@ -156,6 +161,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val WifiOnly = booleanPreferencesKey("wifi_only")
         val DeleteArchives = booleanPreferencesKey("delete_archives_after_install")
         val SyncPaused = booleanPreferencesKey("sync_paused")
+        val StorageCollapsed = booleanPreferencesKey("storage_collapsed")
         val PauseOnLowBattery = booleanPreferencesKey("pause_on_low_battery")
         val MinFreeSpaceMb = intPreferencesKey("min_free_space_mb")
         val AutoCheckUpdates = booleanPreferencesKey("auto_check_updates")

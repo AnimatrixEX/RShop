@@ -23,6 +23,7 @@ fun Throwable.toDownloadError(): DownloadError = when (this) {
     is InstallException.UnsafeEntry, is InstallException.TooLarge, is InstallException.TooManyEntries ->
         DownloadError(DownloadErrorKind.UnsafeArchive, message)
     is InstallException.UnsupportedFormat -> DownloadError(DownloadErrorKind.Unsupported, format)
+    is InstallException.MissingVolume -> DownloadError(DownloadErrorKind.MissingVolume, volume)
     is InstallException.Corrupt, is InstallException.Empty -> DownloadError(DownloadErrorKind.Corrupt, message)
     is InstallException.Storage -> DownloadError(DownloadErrorKind.Storage, message)
     is DownloadException.QuotaExceeded -> DownloadError(DownloadErrorKind.Quota, reason)

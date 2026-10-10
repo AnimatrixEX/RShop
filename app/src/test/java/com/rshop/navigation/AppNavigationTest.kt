@@ -51,6 +51,8 @@ class AppNavigationTest {
                 android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
                 0f,
             )
+            // The app reads WorkManager as it starts (sync state on the Settings button).
+            WorkManagerTestInitHelper.initializeTestWorkManager(ApplicationProvider.getApplicationContext())
         }
     }
 
@@ -79,7 +81,6 @@ class AppNavigationTest {
 
     @Before
     fun setUp() {
-        WorkManagerTestInitHelper.initializeTestWorkManager(ApplicationProvider.getApplicationContext())
         hiltRule.inject()
         // HiltTestApplication does not run RShopApp.onCreate, so seed the demo catalogue here.
         runBlocking { demoCatalogSeeder.seedIfEmpty() }

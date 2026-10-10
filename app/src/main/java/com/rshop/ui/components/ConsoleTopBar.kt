@@ -25,6 +25,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import com.rshop.R
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -52,17 +57,23 @@ import com.rshop.ui.theme.liquidGlass
 import com.rshop.ui.theme.Dimens
 import com.rshop.ui.theme.RShopColors
 
+/** The yellow mark on the Settings button. */
+enum class SettingsBadge { None, Syncing, Update }
+
+private val BadgeYellow = Color(0xFFFFD23F)
+
 @Composable
 fun ConsoleTopBar(
     selected: TopLevelDestination?,
     onSelect: (TopLevelDestination) -> Unit,
     modifier: Modifier = Modifier,
-    /** A dot on the Settings button: something there needs attention (a new version). */
-    settingsBadge: Boolean = false,
+    /** A mark on the Settings button: a sync running, or a new version to install. */
+    settingsBadge: SettingsBadge = SettingsBadge.None,
 ) {
     // Switching tabs with L1/R1: the ring moves to the selected tab instead of staying on the
     // previous one. A new screen with its own focus target takes it right after (one frame later).
     val requesters = remember { TopLevelDestination.entries.associateWith { FocusRequester() } }
+    val updateLabel = stringResource(R.string.badge_update)
     val inputMode = LocalInputModeManager.current.inputMode
     LaunchedEffect(selected) {
         if (inputMode == InputMode.Keyboard && selected != null) runCatching { requesters.getValue(selected).requestFocus() }
@@ -140,14 +151,32 @@ fun ConsoleTopBar(
                     else -> RShopColors.TextSecondary
                 },
             )
-            if (settingsBadge) {
+            if (settingsBadge != SettingsBadge.None) {
                 Box(
                     Modifier
                         .align(Alignment.TopEnd)
-                        .padding(9.dp)
-                        .size(10.dp)
-                        .background(RShopColors.Warning, CircleShape),
-                )
+                        .padding(top = 3.dp, end = 3.dp)
+                        .size(17.dp)
+                        .background(BadgeYellow, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when (settingsBadge) {
+                        // Still, not spinning: a turning icon would redraw the bar at every frame.
+                        SettingsBadge.Syncing -> Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.badge_syncing),
+                            tint = Color.Black,
+                            modifier = Modifier.size(13.dp),
+                        )
+                        else -> Text(
+                            "!",
+                            color = Color.Black,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.semantics { contentDescription = updateLabel },
+                        )
+                    }
+                }
             }
         }
     }
