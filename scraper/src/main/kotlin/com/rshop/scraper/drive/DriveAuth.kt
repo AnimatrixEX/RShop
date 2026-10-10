@@ -2,6 +2,7 @@ package com.rshop.scraper.drive
 
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
+import okhttp3.Request
 import okhttp3.Response
 
 /**
@@ -27,18 +28,30 @@ class DriveAuthInterceptor(
     private val appliesTo: (HttpUrl) -> Boolean = ::isDriveApi,
 ) : Interceptor {
 
+    /**
+     * With both a key and an account: listings go with the key, exactly as without an account,
+     * because a signed-in account only lists what is in its own Drive (a folder shared by link and
+     * never opened lists as empty); downloads go with the account, whose download quota is its own.
+     * To read a private folder, the user signs in without a key.
+     */
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         if (!appliesTo(request.url)) return chain.proceed(request)
-        val resourceKey = request.url.queryParameter(RESOURCE_KEY_PARAM)
         val creds = credentials()
+        val media = request.url.queryParameter("alt") == "media"
+        val withAccount = creds?.bearerToken != null && (media || creds.apiKey == null)
+        return chain.proceed(authorize(request, creds, withAccount))
+    }
+
+    private fun authorize(request: Request, creds: DriveCredentials?, withAccount: Boolean): Request {
+        val resourceKey = request.url.queryParameter(RESOURCE_KEY_PARAM)
         val builder = request.newBuilder()
         val url = request.url.newBuilder().removeAllQueryParameters(RESOURCE_KEY_PARAM).apply {
-            if (creds?.bearerToken == null) creds?.apiKey?.let { setQueryParameter("key", it) }
+            if (!withAccount) creds?.apiKey?.let { setQueryParameter("key", it) }
         }.build()
         builder.url(url)
         when {
-            creds?.bearerToken != null -> builder.header("Authorization", "Bearer ${creds.bearerToken}")
+            withAccount -> builder.header("Authorization", "Bearer ${creds?.bearerToken}")
             creds != null -> {
                 creds.androidPackage?.let { builder.header("X-Android-Package", it) }
                 creds.androidCert?.let { builder.header("X-Android-Cert", it) }
@@ -48,7 +61,7 @@ class DriveAuthInterceptor(
             val fileId = request.url.pathSegments.getOrNull(3)
             if (fileId != null) builder.header(RESOURCE_KEYS_HEADER, "$fileId/$resourceKey")
         }
-        return chain.proceed(builder.build())
+        return builder.build()
     }
 
     companion object {

@@ -189,6 +189,48 @@ class DriveSourceTest {
     }
 
     @Test
+    fun `with a key and an account, listings use the key and downloads the account`() = runTest {
+        val (tree, root) = sample
+        FakeDrive(tree).use { drive ->
+            // Like Drive: the account sees nothing of a folder shared by link that it never opened.
+            drive.accountListsNothing = true
+            // A sub-folder the link does not open makes its whole batch refused: it is read again folder by folder, with the key.
+            val playStation = tree.files.first { it.name == "PlayStation" }.id
+            val ff7 = tree.files.first { it.name == "Final Fantasy VII" }.id
+            drive.refused += ff7
+            val config = DriveConfig(DriveConfig.idFor(root), "Drive", root)
+            val api = drive.api(key = FakeDrive.KEY, bearer = FakeDrive.TOKEN)
+            val games = DriveSource(config, api).crawl().toList().flatMap { it.games }
+            assertEquals(listOf("Advance Wars", "Golden Sun"), games.map { it.title }.sorted())
+            assertTrue(drive.requests.all { it.url.queryParameter("key") == FakeDrive.KEY && it.headers["Authorization"] == null })
+            assertTrue(drive.requests.any { playStation in it.url.queryParameter("q").orEmpty() })
+
+            drive.requests.clear()
+            val client = okhttp3.OkHttpClient.Builder()
+                .addInterceptor(DriveAuthInterceptor({ DriveCredentials(FakeDrive.KEY, bearerToken = FakeDrive.TOKEN) }, appliesTo = { true }))
+                .build()
+            val fileId = tree.files.first { it.name == "Golden Sun.7z" }.id
+            client.newCall(okhttp3.Request.Builder().url(api.mediaUrl(fileId)).build()).execute().use { assertEquals(200, it.code) }
+            val media = drive.requests.single()
+            assertEquals("Bearer ${FakeDrive.TOKEN}", media.headers["Authorization"])
+            assertEquals(null, media.url.queryParameter("key"))
+        }
+    }
+
+    @Test
+    fun `a rate limit on the key is waited out, never asked again with the account`() = runTest {
+        val (tree, root) = sample
+        FakeDrive(tree).use { drive ->
+            drive.accountListsNothing = true
+            drive.failure = 403 to "userRateLimitExceeded"
+            val source = DriveSource(DriveConfig(DriveConfig.idFor(root), "Drive", root), drive.api(key = FakeDrive.KEY, bearer = FakeDrive.TOKEN))
+            expect<ScraperException.Busy> { source.inspect() }
+            assertTrue(drive.requests.isNotEmpty())
+            assertTrue(drive.requests.none { it.headers["Authorization"] != null })
+        }
+    }
+
+    @Test
     fun `a download resolves to the media link with its real name`() = runTest {
         val (tree, root) = sample
         FakeDrive(tree).use { drive ->

@@ -73,6 +73,11 @@ class RShopApp : Application(), SingletonImageLoader.Factory, Configuration.Prov
         super.onCreate()
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
+        } else {
+            // Release: warnings and errors only, so a failure on a player's device can be read with adb.
+            Timber.plant(object : Timber.DebugTree() {
+                override fun isLoggable(tag: String?, priority: Int) = priority >= android.util.Log.WARN
+            })
         }
         notifications.createChannels()
         // The UI shows the local database at once and refreshes itself when these complete.

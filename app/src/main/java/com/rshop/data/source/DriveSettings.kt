@@ -120,12 +120,13 @@ class DriveSettings @Inject constructor(
     }
 
     /**
-     * For OkHttp interceptors (never on the main thread): the signed-in account when there is one,
-     * else the API key, else null.
+     * For OkHttp interceptors (never on the main thread): the signed-in account and the API key,
+     * whichever are there, else null.
      */
     fun credentials(): DriveCredentials? {
         if (!loaded.isCompleted) runBlocking { loaded.await() }
-        bearerToken()?.let { return DriveCredentials(bearerToken = it) }
+        // Both when there are both: the interceptor lists with the key and downloads with the account.
+        bearerToken()?.let { return keyCredentials?.copy(bearerToken = it) ?: DriveCredentials(bearerToken = it) }
         return keyCredentials
     }
 

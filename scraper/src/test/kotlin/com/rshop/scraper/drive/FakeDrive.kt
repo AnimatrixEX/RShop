@@ -58,6 +58,9 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
     /** Folders that refuse to be listed (not shared with the link). */
     val refused = mutableSetOf<String>()
 
+    /** As Drive does for a signed-in account: a folder shared by link and never opened lists as empty. */
+    @Volatile var accountListsNothing = false
+
     /** Set to answer every request with this error (status, reason). */
     @Volatile var failure: Pair<Int, String>? = null
 
@@ -71,7 +74,7 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
                 val signedIn = request.headers["Authorization"] == "Bearer $TOKEN"
                 if (!signedIn && url.queryParameter("key") != KEY) return error(400, "keyInvalid")
                 return when {
-                    segments == listOf("drive", "v3", "files") -> list(url.queryParameter("q").orEmpty(), url.queryParameter("pageToken"))
+                    segments == listOf("drive", "v3", "files") -> list(url.queryParameter("q").orEmpty(), url.queryParameter("pageToken"), signedIn)
                     segments.size == 4 && segments[2] == "files" -> {
                         val file = tree.files.firstOrNull { it.id == segments[3] } ?: return error(404, "notFound")
                         if (url.queryParameter("alt") == "media") MockResponse.Builder().body("bytes-of-${file.name}").build() else json(fileJson(file))
@@ -83,9 +86,10 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
         server.start()
     }
 
-    private fun list(q: String, token: String?): MockResponse {
+    private fun list(q: String, token: String?, signedIn: Boolean): MockResponse {
         val parents = Regex("'([^']+)' in parents").findAll(q).map { it.groupValues[1] }.toSet()
         if (parents.any { it in refused }) return error(403, "insufficientFilePermissions")
+        if (signedIn && accountListsNothing) return json(JsonObject(mapOf("files" to JsonArray(emptyList()))))
         val all = tree.files.filter { f -> f.parents.any { it in parents } }.sortedBy { it.name }
         val start = token?.toInt() ?: 0
         val page = all.drop(start).take(pageLimit)
@@ -116,7 +120,7 @@ class FakeDrive(val tree: TreeBuilder, var pageLimit: Int = 1000) : AutoCloseabl
     val apiBase get() = server.url("/drive/v3/")
 
     fun api(key: String? = KEY, bearer: String? = null): DriveApi {
-        val creds = if (bearer != null) DriveCredentials(bearerToken = bearer) else key?.let { DriveCredentials(it, "com.rshop", "AB12") }
+        val creds = DriveCredentials(key, key?.let { "com.rshop" }, key?.let { "AB12" }, bearer).takeIf { key != null || bearer != null }
         val client = OkHttpClient.Builder()
             .addInterceptor(DriveAuthInterceptor({ creds }, appliesTo = { it.encodedPath.startsWith("/drive/v3/") }))
             .build()

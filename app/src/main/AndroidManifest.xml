@@ -15,6 +15,12 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.gamepad" android:required="false" />
 
+    <!-- Package visibility: Play Services checks that the Play Store is there before the device-account sign-in. -->
+    <queries>
+        <package android:name="com.android.vending" />
+        <package android:name="com.google.android.gms" />
+    </queries>
+
     <application
         android:name=".RShopApp"
         android:allowBackup="false"
