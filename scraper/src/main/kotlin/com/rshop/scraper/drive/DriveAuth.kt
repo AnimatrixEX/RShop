@@ -26,6 +26,8 @@ data class DriveCredentials(
 class DriveAuthInterceptor(
     private val credentials: () -> DriveCredentials?,
     private val appliesTo: (HttpUrl) -> Boolean = ::isDriveApi,
+    /** Google refused this access token (401): forget it, so the next [credentials] bring a fresh one. */
+    private val onTokenRejected: (String) -> Unit = {},
 ) : Interceptor {
 
     /**
@@ -40,7 +42,15 @@ class DriveAuthInterceptor(
         val creds = credentials()
         val media = request.url.queryParameter("alt") == "media"
         val withAccount = creds?.bearerToken != null && (media || creds.apiKey == null)
-        return chain.proceed(authorize(request, creds, withAccount))
+        val response = chain.proceed(authorize(request, creds, withAccount))
+        val token = creds?.bearerToken
+        if (!withAccount || token == null || response.code != 401) return response
+        // An access token can end before its announced time (revoked, or handed out from a cache
+        // already old): asked once more with a fresh one.
+        onTokenRejected(token)
+        val fresh = credentials()?.takeIf { it.bearerToken != null && it.bearerToken != token } ?: return response
+        response.close()
+        return chain.proceed(authorize(request, fresh, withAccount = true))
     }
 
     private fun authorize(request: Request, creds: DriveCredentials?, withAccount: Boolean): Request {

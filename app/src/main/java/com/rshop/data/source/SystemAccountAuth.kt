@@ -70,6 +70,15 @@ class SystemAccountAuth @Inject constructor(
 
     suspend fun authorize(): Result = withContext(Dispatchers.IO) { authorizeBlocking() }
 
+    /** Makes Play Services forget [token], so the next authorization hands out a new one. Blocking. */
+    fun clearTokenBlocking(token: String) {
+        try {
+            com.google.android.gms.auth.GoogleAuthUtil.clearToken(context, token)
+        } catch (e: Exception) {
+            Timber.w(e, "Cannot clear the refused Google token")
+        }
+    }
+
     /** Reads the answer of the consent screen. */
     fun fromIntent(data: Intent?): Result = try {
         toResult(Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(data))

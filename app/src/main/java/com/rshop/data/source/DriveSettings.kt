@@ -186,6 +186,20 @@ class DriveSettings @Inject constructor(
         }
     }
 
+    /**
+     * Google refused [token] (401) before the time it was given for: it is dropped, here and in Play
+     * Services' cache for the account of the device, so the next request gets a new one.
+     */
+    fun rejectToken(token: String) {
+        synchronized(refreshLock) {
+            if (accessToken == token) {
+                accessToken = null
+                accessExpiresAt = 0
+            }
+        }
+        if (deviceAccount) systemAuth.clearTokenBlocking(token)
+    }
+
     /** Keeps that the player agreed to use the account of the device; the token itself stays in memory. */
     suspend fun saveDeviceSignIn(token: String, email: String?) {
         dataStore.edit { prefs ->

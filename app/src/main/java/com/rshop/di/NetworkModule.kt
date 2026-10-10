@@ -30,7 +30,7 @@ object NetworkModule {
             // Session cookies set by download pages are sent back, as a browser would.
             .cookieJar(MemoryCookieJar())
             // The user's Drive API key, added to Drive API requests only.
-            .addInterceptor(DriveAuthInterceptor(driveSettings::credentials))
+            .addInterceptor(DriveAuthInterceptor(driveSettings::credentials, onTokenRejected = driveSettings::rejectToken))
             .addNetworkInterceptor { chain ->
                 // A User-Agent set by the caller (downloads started from the in-app browser) is kept.
                 val request = chain.request()
