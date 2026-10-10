@@ -83,10 +83,19 @@ internal object GameFiles {
         return n in CONTAINER_NAMES || LETTERS.matches(n)
     }
 
-    /** A sub-folder of a game folder holding the game's patch: "Update", "Updates", "Patch", "Mise à jour". */
-    fun isUpdateFolderName(name: String): Boolean = UPDATE_FOLDER.matches(name.trim())
+    /**
+     * A sub-folder of a game folder holding the game's add-ons: "Update", "Updates v1.2", "Patch",
+     * "Mise à jour", "DLC", "DLC (3)", "Add-ons" ("DLC Quest" is a game, not a DLC folder).
+     */
+    fun isUpdateFolderName(name: String): Boolean = UPDATE_FOLDER.matches(name.trim()) || DLC_FOLDER.matches(name.trim())
 
     private val UPDATE_FOLDER = Regex("(?i)(?:updates?|patch(?:e?s)?|maj|mises?\\s+[àa]\\s+jour)(?:[\\s_.-].*)?")
+    private val DLC_FOLDER = Regex("(?i)(?:dlcs?|add-?ons?)(?:\\s*[\\d(\\[].*)?")
+
+    /** A name that holds no title: a Switch id, a version, a long number ("1942" is a game). */
+    fun isTitleless(title: String): Boolean = TITLE_ID.matches(title.replace(" ", ""))
+
+    private val TITLE_ID = Regex("(?i)[0-9a-f]{16}|v\\d+(?:\\.\\d+)*|\\d+(?:\\.\\d+)+|\\d{5,}")
 
     private val LETTERS = Regex("[a-z0-9#]|[a-z0-9#]\\s*[-–]\\s*[a-z0-9#]|0\\s*[-–]\\s*9")
 }

@@ -103,6 +103,32 @@ class DriveCatalogWalkerTest {
     }
 
     @Test
+    fun `update and DLC folders found without their game are named after the game folder`() = runTest {
+        val (t, root) = tree("Switch") {
+            // Only the update is shared, not the game.
+            folder("Against the Storm", it) { g ->
+                folder("Update v1.17 (v131072)", g) { u -> file("Against the Storm v1.17[010062F01F2CC800][131072][UPD].nsp", u) }
+            }
+            // The game and a DLC folder next to it: one game with its add-ons, not a game called "DLC".
+            folder("Hades", it) { g ->
+                file("Hades [01000D200AC0C000][v0].nsp", g)
+                folder("DLC", g) { d -> file("Hades Soundtrack [01000D200AC0D001][v0].nsp", d) }
+            }
+            // A folder named by an id.
+            folder("Celeste", it) { g ->
+                folder("01002B30028F6000", g) { i -> file("Celeste.nsp", i) }
+                file("cover.jpg", g)
+            }
+            folder("DLC Quest", it) { g -> file("DLC Quest.nsp", g) }
+        }
+        val games = walker(t).games(t.byId(root), "Switch")
+        assertEquals(listOf("Against the Storm", "Celeste", "DLC Quest", "Hades"), games.map { it.title }.sorted())
+        assertEquals(listOf("Hades Soundtrack [01000D200AC0D001][v0].nsp"), games.first { it.title == "Hades" }.updates.map { it.name })
+        assertTrue(GameFiles.isUpdateFolderName("DLC (3)") && !GameFiles.isUpdateFolderName("DLC Quest"))
+        assertTrue(GameFiles.isTitleless("01002B30028F6000") && GameFiles.isTitleless("v1.2") && !GameFiles.isTitleless("1942"))
+    }
+
+    @Test
     fun `a folder of several games is not one game`() = runTest {
         val (t, root) = tree("NES") {
             folder("Homebrew", it) { h ->

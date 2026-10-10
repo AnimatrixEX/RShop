@@ -75,6 +75,8 @@ class DriveCatalogWalker(
      */
     suspend fun scanGames(console: DriveFile, platform: String?, onGames: suspend (List<DriveGame>) -> Unit) = coroutineScope {
         val visited = hashSetOf(console.id)
+        // The game folder above each folder of the walk, for an add-on folder reached on its own.
+        val parentNames = HashMap<String, String>()
         var level = listOf(console)
         var depth = 0
         while (level.isNotEmpty()) {
@@ -109,11 +111,15 @@ class DriveCatalogWalker(
                     val others = offered.filterNot { GameFiles.isGameFile(it.name) }.sortedBy { it.name }
                     // Updates and DLC next to the game in its folder are its add-ons, not other games.
                     val (bases, addOns) = splitRoles(files)
-                    val game = DriveGame(folder.id, DriveNaming.parse(folder.name, isFile = false).title, platform, bases, updates = addOns, others = others)
+                    val game = DriveGame(folder.id, folderTitle(folder, parentNames[folder.id]), platform, bases, updates = addOns, others = others)
                     if (updateFolders.isEmpty()) games += game else withUpdates += game to updateFolders
                 } else {
                     games += gamesOfFiles(files, platform)
-                    if (depth < maxDepth) subfolders.filterTo(next) { visited.add(it.id) }
+                    if (depth < maxDepth) {
+                        val added = subfolders.filter { visited.add(it.id) }
+                        next += added
+                        if (depth > 0 && !GameFiles.isGroupingName(folder.name)) added.forEach { parentNames[it.id] = folder.name }
+                    }
                 }
             }
             if (withUpdates.isNotEmpty()) games += attachUpdates(withUpdates)
@@ -130,6 +136,16 @@ class DriveCatalogWalker(
         return pending.map { (game, folders) ->
             game.copy(updates = game.updates + folders.flatMap { updateFiles(listed[it.id].orEmpty()) })
         }
+    }
+
+    /**
+     * The game's title from its folder's name; an "Update" or "DLC" folder found without its game, or
+     * a folder named by an id or a version, takes the name of the game folder above it.
+     */
+    private fun folderTitle(folder: DriveFile, parentName: String?): String {
+        val own = DriveNaming.parse(folder.name, isFile = false).title
+        if (parentName == null || (!GameFiles.isUpdateFolderName(folder.name) && !GameFiles.isTitleless(own))) return own
+        return DriveNaming.parse(parentName, isFile = false).title
     }
 
     companion object {
