@@ -3,6 +3,7 @@ package com.rshop.scraper
 import com.rshop.scraper.model.CatalogPage
 import com.rshop.scraper.model.CatalogSection
 import com.rshop.scraper.model.DownloadInfo
+import com.rshop.scraper.remote.RemoteUrl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import okhttp3.HttpUrl
@@ -25,6 +26,9 @@ interface GameSource {
 
     /** Whether a file may be fetched from [url] for this source (its own hosts only). */
     fun acceptsDownloadUrl(url: HttpUrl): Boolean
+
+    /** Whether a file may be fetched from the FTP/SFTP address [url] for this source; only server sources say yes. */
+    fun acceptsRemoteUrl(url: RemoteUrl): Boolean = false
 
     /** Page of the game on the source, sent as Referer with its downloads; null when it has none. */
     fun gamePageUrl(gameId: String): String? = null

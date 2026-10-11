@@ -4,7 +4,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ensureActive
+import com.rshop.scraper.GameSource
+import com.rshop.scraper.remote.RemoteUrl
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
@@ -120,6 +123,28 @@ object DownloadPolicy {
     fun check(url: HttpUrl, fileName: String, allowedHost: (HttpUrl) -> Boolean) {
         if (url.scheme != "https" && url.scheme != "http") throw DownloadException.Rejected("Unsupported URL scheme ${url.scheme}")
         if (!allowedHost(url)) throw DownloadException.Rejected("Host ${url.host} is not allowed for this source")
+        checkExtension(fileName)
+    }
+
+    /** Name of the file a link points to, whether it is a web link or an FTP/SFTP one; null when it is neither. */
+    fun fileNameOf(link: String, fallback: String): String? {
+        link.toHttpUrlOrNull()?.let { return fileName(it, fallback) }
+        val remote = RemoteUrl.parse(link) ?: return null
+        return com.rshop.installation.SafeEntryPath.sanitizeName(remote.fileName.ifBlank { fallback }, fallback)
+    }
+
+    /**
+     * [check] for a link of either kind: a web link must be on a host [source] allows (or [alsoAllowed], for a
+     * download page the worker resolves later), an FTP/SFTP link must be on the source's own server.
+     */
+    fun checkLink(link: String, fileName: String, source: GameSource, alsoAllowed: Boolean = false) {
+        link.toHttpUrlOrNull()?.let { return check(it, fileName) { url -> source.acceptsDownloadUrl(url) || alsoAllowed } }
+        val remote = RemoteUrl.parse(link) ?: throw DownloadException.Rejected("invalid link $link")
+        if (!source.acceptsRemoteUrl(remote)) throw DownloadException.Rejected("Server ${remote.host} is not allowed for this source")
+        checkExtension(fileName)
+    }
+
+    private fun checkExtension(fileName: String) {
         val extension = fileName.substringAfterLast('.', "").lowercase()
         if (extension in blockedExtensions) throw DownloadException.Rejected("File type .$extension is not allowed")
     }

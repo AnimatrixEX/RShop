@@ -25,6 +25,8 @@ fun Context.sourceErrorText(error: SourceError): String = when (error.kind) {
     SourceErrorKind.ApiKey -> getString(R.string.error_drive_key) + (error.detail?.let { " ($it)" } ?: "")
     SourceErrorKind.Quota -> quotaText(error.detail)
     SourceErrorKind.NoConsole -> getString(R.string.error_drive_no_console)
+    SourceErrorKind.Login -> getString(R.string.error_login)
+    SourceErrorKind.HostKey -> getString(if (error.detail == "changed") R.string.error_host_key_changed else R.string.error_host_key_unknown)
     SourceErrorKind.Unknown -> getString(R.string.error_unknown)
 }
 

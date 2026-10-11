@@ -6,11 +6,14 @@ import com.rshop.data.sync.toDomain
 import com.rshop.domain.repository.GameRepository
 import com.rshop.scraper.analysis.SiteAnalysis
 import com.rshop.scraper.config.DriveConfig
+import com.rshop.scraper.config.FtpConfig
+import com.rshop.scraper.config.JsonApiConfig
 import com.rshop.scraper.config.ScraperConfig
 import com.rshop.scraper.config.SourceConfig
 import com.rshop.scraper.drive.DriveInspection
 import com.rshop.scraper.drive.DriveLink
 import com.rshop.scraper.model.CatalogSection
+import com.rshop.scraper.remote.FtpInspection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import timber.log.Timber
@@ -26,6 +29,7 @@ class SourceManager @Inject constructor(
     private val scheduler: SyncScheduler,
     private val status: SyncStatusStore,
     private val clock: Clock,
+    private val remoteCredentials: RemoteCredentials,
 ) {
     val configs = sources.configs
 
@@ -43,8 +47,32 @@ class SourceManager @Inject constructor(
         return draft.copy(name = inspection.name.ifBlank { draft.name }) to inspection
     }
 
+    /**
+     * Connects to an FTP, FTPS or SFTP server with the given login and reads its console folders, before it is added.
+     * The password is kept (encrypted) under the source's id so the connection can be made; it is dropped again when the
+     * attempt fails and no source was saved. Throws [com.rshop.scraper.ScraperException.HostKeyUnknown] the first time
+     * an SFTP server is met: the caller shows the fingerprint and, if the user trusts it, calls again with it.
+     */
+    suspend fun inspectServer(draft: FtpConfig, password: String?): FtpInspection {
+        val previous = sources.get(draft.id) != null
+        // A password typed for an attempt that was never saved must not linger.
+        pendingServerId?.takeIf { it != draft.id && sources.get(it) == null }?.let { remoteCredentials.remove(it) }
+        pendingServerId = draft.id
+        remoteCredentials.setPassword(draft.id, password)
+        try {
+            return sources.createFtpSource(draft).inspect()
+        } catch (e: Throwable) {
+            if (!previous) remoteCredentials.remove(draft.id)
+            throw e
+        }
+    }
+
+    /** The server whose password was stored for an analysis that is not a source yet. */
+    private var pendingServerId: String? = null
+
     /** Adds a source, or updates the one of the same site, then syncs it. */
     suspend fun add(config: SourceConfig) {
+        if (pendingServerId == config.id) pendingServerId = null
         val previous = sources.get(config.id)
         sources.save(config)
         if (previous == null) status.remove(config.id)
@@ -101,16 +129,20 @@ class SourceManager @Inject constructor(
      * keep their old console until the sync that follows rewrites them.
      */
     suspend fun setDrivePlatform(sourceId: String, platform: String) {
-        val config = sources.get(sourceId) as? DriveConfig ?: return
         require(platform.isNotBlank()) { "Choose a console" }
-        sources.save(config.copy(platform = platform.trim(), enabledSections = null))
+        val updated = when (val config = sources.get(sourceId)) {
+            is DriveConfig -> config.copy(platform = platform.trim(), enabledSections = null)
+            is FtpConfig -> config.copy(platform = platform.trim(), enabledSections = null)
+            else -> return
+        }
+        sources.save(updated)
         scheduler.syncNow(sourceId, restart = true, full = true)
     }
 
     /** Switches the source to the next [SyncSpeed]; it applies from the next sync. */
     suspend fun cycleSpeed(sourceId: String) {
         val config = sources.get(sourceId) ?: return
-        sources.save(config.withInterval(SyncSpeed.of(config.minRequestIntervalMs).next(allowTurbo = config is DriveConfig).intervalMs))
+        sources.save(config.withInterval(SyncSpeed.of(config.minRequestIntervalMs).next(allowTurbo = config is DriveConfig || config is FtpConfig).intervalMs))
     }
 
     /** Stops that source's sync; games already read are kept. */
@@ -122,7 +154,7 @@ class SourceManager @Inject constructor(
      * no source has a search. A failing site does not stop the others.
      */
     suspend fun searchRemote(query: String): Int? {
-        val searchable = sources.all().filter { (it as? ScraperConfig)?.searchUrl != null }
+        val searchable = sources.all().filter { it.searchUrl() != null }
         if (searchable.isEmpty()) return null
         var found = 0
         var lastError: Exception? = null
@@ -141,4 +173,11 @@ class SourceManager @Inject constructor(
         if (found == 0 && lastError != null) throw lastError
         return found
     }
+}
+
+/** The remote search URL of a source, null when it has none (Drive, or a site without search). */
+fun SourceConfig.searchUrl(): String? = when (this) {
+    is ScraperConfig -> searchUrl
+    is JsonApiConfig -> searchUrl
+    else -> null
 }

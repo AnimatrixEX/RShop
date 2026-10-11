@@ -38,11 +38,14 @@ class BackupManager @Inject constructor(
 ) {
     suspend fun export(): String {
         val current = settings.settings.first()
+        val grouped = Backup.sourcesOf(sourceRepository.all())
         val backup = Backup(
             appVersion = BuildConfig.VERSION_NAME,
             createdAt = clock.millis(),
-            sources = Backup.sourcesOf(sourceRepository.all()).first,
-            driveSources = Backup.sourcesOf(sourceRepository.all()).second,
+            sources = grouped.sources,
+            driveSources = grouped.driveSources,
+            jsonSources = grouped.jsonSources,
+            ftpSources = grouped.ftpSources,
             favorites = games.observeFavorites().first().map { BackupGame(it.id, it.title, it.platform) },
             lists = lists.snapshot().map { list -> BackupList(list.name, list.games.map { BackupGame(it.id, it.title, it.platform) }) },
             settings = BackupSettings(

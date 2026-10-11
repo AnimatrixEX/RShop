@@ -17,6 +17,8 @@ import com.rshop.domain.model.DownloadStatus
 import com.rshop.domain.repository.SettingsRepository
 import com.rshop.installation.ArchiveVolumes
 import com.rshop.installation.GameInstaller
+import com.rshop.scraper.remote.RemoteFileProvider
+import com.rshop.scraper.remote.RemoteUrl
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
@@ -62,6 +64,7 @@ class DownloadWorker @AssistedInject constructor(
         client = okHttpClient.newBuilder().cache(null).cookieJar(CookieJar.NO_COOKIES).build(),
         userAgent = "RShop/${BuildConfig.VERSION_NAME} (Android)",
     )
+    private val remoteDownloader = RemoteFileDownloader()
     private var lastDbWrite = 0L
     private var lastNotification = 0L
 
@@ -153,7 +156,7 @@ class DownloadWorker @AssistedInject constructor(
             val remaining = parts.map { it.fileName ?: it.url.substringBefore('?').substringAfterLast('/') }
             if (!ArchiveVolumes.waitsForMore(row.fileName, remaining)) ArchiveVolumes.siblings(File(row.tempPath)).forEach { it.delete() }
         }
-        var fileName = DownloadPolicy.fileName(next.url.toHttpUrl(), row.title)
+        var fileName = DownloadPolicy.fileNameOf(next.url, row.title) ?: throw DownloadException.Rejected("invalid link ${next.url}")
         if (fileName == row.fileName) fileName = "${row.partIndex + 2}-$fileName"
         val advanced = row.copy(
             url = next.url,
@@ -203,9 +206,13 @@ class DownloadWorker @AssistedInject constructor(
             // The game page is where the first link was clicked.
             val gamePage = source.gamePageUrl(row.gameId.substringAfter(':'))
             val info = source.resolveDownload(row.url, referer = gamePage)
-            val url = info.url.toHttpUrl()
-            val fileName = DownloadPolicy.fileName(info.fileName, url, row.title, info.contentType)
-            DownloadPolicy.check(url, fileName) { source.acceptsDownloadUrl(it) }
+            val remote = RemoteUrl.parse(info.url)
+            val fileName = if (remote != null) {
+                com.rshop.installation.SafeEntryPath.sanitizeName(info.fileName ?: remote.fileName, row.title)
+            } else {
+                DownloadPolicy.fileName(info.fileName, info.url.toHttpUrl(), row.title, info.contentType)
+            }
+            DownloadPolicy.checkLink(info.url, fileName, source)
             DownloadPolicy.checkContentType(info.contentType)
             val target = File(file.parentFile, fileName)
             row = row.copy(
@@ -224,6 +231,7 @@ class DownloadWorker @AssistedInject constructor(
         val validators = ResumeValidators(row.etag, row.lastModified).takeIf { it.ifRange != null }
         val margin = settings.settings.first().minFreeSpaceMb * BYTES_PER_MB
         checkGamesFolderSpace(row, margin)
+        if (RemoteUrl.parse(row.url) != null) return downloadRemote(row, file, margin)
         val outcome = downloader.download(
             spaceMargin = margin,
             url = row.url.toHttpUrl(),
@@ -246,6 +254,27 @@ class DownloadWorker @AssistedInject constructor(
         if (done.requestCookie == null) return done
         // The browser cookies are not kept beyond the file they were given for.
         return done.copy(requestCookie = null).also { dao.upsert(it) }
+    }
+
+    /** The file of an FTP, FTPS or SFTP server, read through the source that owns the address. */
+    private suspend fun downloadRemote(start: DownloadEntity, file: File, margin: Long): DownloadEntity {
+        var row = start
+        val config = sources.get(sourceIdOf(row.gameId)) ?: throw DownloadException.Rejected("The game's source was removed")
+        val provider = sources.createSource(config) as? RemoteFileProvider ?: throw DownloadException.Rejected("This source cannot serve FTP/SFTP files")
+        val outcome = remoteDownloader.download(
+            provider = provider,
+            url = row.url,
+            target = file,
+            validator = row.etag,
+            spaceMargin = margin,
+            onStarted = { validator, total ->
+                row = row.copy(etag = validator, totalBytes = total ?: row.totalBytes)
+                dao.upsert(row.copy(state = DownloadStatus.Downloading.name, updatedAt = clock.millis()))
+            },
+            onProgress = { downloaded, total -> onDownloadProgress(row.title, downloaded, total) },
+        )
+        dao.updateProgress(gameId, outcome.totalBytes, outcome.totalBytes, clock.millis())
+        return dao.get(gameId) ?: throw CancellationException("Download removed")
     }
 
     /**

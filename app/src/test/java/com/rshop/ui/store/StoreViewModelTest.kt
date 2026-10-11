@@ -65,13 +65,14 @@ class StoreViewModelTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val clock = fixedClock()
         val status = SyncStatusStore(context, clock)
-        val sources = SourceRepository(context, OkHttpClient(), backgroundScope, com.rshop.data.source.DriveSettings(context, com.rshop.data.artwork.SecretCipher(), backgroundScope, com.rshop.data.source.SystemAccountAuth(context)))
+        val sources = SourceRepository(context, OkHttpClient(), backgroundScope, com.rshop.data.source.DriveSettings(context, com.rshop.data.artwork.SecretCipher(), backgroundScope, com.rshop.data.source.SystemAccountAuth(context)), com.rshop.data.source.RemoteCredentials(context, com.rshop.data.artwork.SecretCipher()))
         val sourceManager = SourceManager(
             sources = sources,
             games = db.repository(),
             scheduler = SyncScheduler(context, status, sources, clock, DataStoreSettingsRepository(context), DownloadCountScheduler(context)),
             status = status,
             clock = clock,
+            remoteCredentials = com.rshop.data.source.RemoteCredentials(context, com.rshop.data.artwork.SecretCipher()),
         )
         val vm = StoreViewModel(
             savedStateHandle = SavedStateHandle(mapOf("genre" to genre, "platform" to null)),

@@ -8,6 +8,7 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.rshop.data.source.SourceManager
 import com.rshop.data.source.displayNames
+import com.rshop.data.source.searchUrl
 import com.rshop.data.sync.SourceError
 import com.rshop.data.sync.toSourceError
 import com.rshop.domain.model.CatalogFilter
@@ -113,7 +114,7 @@ class StoreViewModel @Inject constructor(
             platforms = platforms,
             resultCount = count,
             isLoading = false,
-            canSearchRemote = configs.any { (it as? com.rshop.scraper.config.ScraperConfig)?.searchUrl != null },
+            canSearchRemote = configs.any { it.searchUrl() != null },
             remoteSearch = remote,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StoreUiState(genre = route.genre, platform = route.platform))

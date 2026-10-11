@@ -22,7 +22,10 @@ import com.rshop.data.source.DriveKeyStatus
 import com.rshop.data.source.DriveSettings
 import com.rshop.data.source.GoogleSignIn
 import com.rshop.data.source.SignInState
+import com.rshop.scraper.ScraperException
 import com.rshop.scraper.config.DriveConfig
+import com.rshop.scraper.config.FtpConfig
+import com.rshop.scraper.remote.RemoteUrl
 import com.rshop.scraper.config.ScraperConfig
 import com.rshop.scraper.config.SourceConfig
 import com.rshop.scraper.drive.DriveLink
@@ -63,7 +66,8 @@ data class AnalysisSummary(
 
 /** What a shared Drive folder holds: its console folders, or none (the user then names the console). */
 data class DriveSummary(
-    val config: DriveConfig,
+    /** A Drive folder or an FTP/SFTP server: both are read as console folders full of game files. */
+    val config: SourceConfig,
     val sections: List<CatalogSection>,
 )
 
@@ -77,6 +81,9 @@ sealed interface AnalysisState {
     /** A Drive link was given but no Drive API key is entered yet. */
     data object DriveKeyNeeded : AnalysisState
     data class DriveDone(val summary: DriveSummary) : AnalysisState
+
+    /** An SFTP server met for the first time: its key [fingerprint] must be confirmed by the user. */
+    data class ServerHostKey(val config: FtpConfig, val fingerprint: String) : AnalysisState
 }
 
 /** Who the console-name dialog is choosing for: the Drive being added, or a Drive source already added. */
@@ -111,6 +118,9 @@ data class SourceSetupUiState(
     /** Console of every game of the Drive being added, when it has no console folders. */
     val drivePlatform: String? = null,
     val platformPicker: PlatformTarget? = null,
+    /** Login for the FTP/SFTP address typed in [url]; blank user means anonymous. */
+    val serverUser: String = "",
+    val serverPassword: String = "",
 )
 
 @HiltViewModel
@@ -206,6 +216,10 @@ class SourceSetupViewModel @Inject constructor(
 
     fun onUrlChange(value: String) = _state.update { it.copy(url = value) }
 
+    fun onServerUserChange(value: String) = _state.update { it.copy(serverUser = value) }
+
+    fun onServerPasswordChange(value: String) = _state.update { it.copy(serverPassword = value) }
+
     fun analyze() {
         val url = _state.value.url.trim()
         if (url.isEmpty()) {
@@ -215,9 +229,12 @@ class SourceSetupViewModel @Inject constructor(
         analysisJob?.cancel()
         _state.update { it.copy(analysis = AnalysisState.Running, analysisConsoles = null, drivePlatform = null) }
         val drive = DriveLink.parse(url) != null
+        val server = RemoteUrl.parse(url)
         analysisJob = viewModelScope.launch {
             val result = try {
-                if (drive) {
+                if (server != null) {
+                    inspectServer(server, trustedKey = null)
+                } else if (drive) {
                     if (driveSettings.awaitCredentials() == null) {
                         AnalysisState.DriveKeyNeeded
                     } else {
@@ -240,18 +257,67 @@ class SourceSetupViewModel @Inject constructor(
         }
     }
 
+    /** Connects to the server with the typed login; [trustedKey] is the SFTP key fingerprint the user just confirmed. */
+    private suspend fun inspectServer(address: RemoteUrl, trustedKey: String?): AnalysisState {
+        val user = _state.value.serverUser.trim().ifEmpty { FtpConfig.ANONYMOUS }
+        val password = _state.value.serverPassword.takeIf { it.isNotEmpty() }
+        val draft = FtpConfig(
+            id = FtpConfig.idFor(address.protocol, address.host, address.port, user, address.path),
+            name = address.host,
+            protocol = address.protocol,
+            host = address.host,
+            port = if (address.port == address.protocol.defaultPort) 0 else address.port,
+            username = user,
+            rootPath = address.path,
+            hostKeyFingerprint = trustedKey,
+        )
+        return try {
+            val inspection = sourceManager.inspectServer(draft, password)
+            AnalysisState.DriveDone(DriveSummary(draft.copy(name = inspection.name.ifBlank { draft.name }), inspection.consoles))
+        } catch (e: ScraperException.HostKeyUnknown) {
+            AnalysisState.ServerHostKey(draft, e.fingerprint)
+        }
+    }
+
+    /** The user checked the fingerprint of the SFTP server and trusts it: the connection is made again with that key pinned. */
+    fun trustServerKey() {
+        val pending = _state.value.analysis as? AnalysisState.ServerHostKey ?: return
+        val address = RemoteUrl.parse(_state.value.url.trim()) ?: return
+        analysisJob?.cancel()
+        _state.update { it.copy(analysis = AnalysisState.Running) }
+        analysisJob = viewModelScope.launch {
+            val result = try {
+                inspectServer(address, pending.fingerprint)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "Server analysis failed for %s", address)
+                AnalysisState.Failed(e.toSourceError())
+            }
+            _state.update { it.copy(analysis = result) }
+        }
+    }
+
+    private fun SourceConfig.withPlatform(platform: String): SourceConfig = when (this) {
+        is DriveConfig -> copy(platform = platform)
+        is FtpConfig -> copy(platform = platform)
+        else -> this
+    }
+
     fun useAnalyzedSource() {
         (_state.value.analysis as? AnalysisState.DriveDone)?.summary?.let { drive ->
             val chosen = _state.value.analysisConsoles
             val platform = _state.value.drivePlatform
             val config = when {
-                drive.sections.isEmpty() -> drive.config.copy(platform = platform ?: return)
+                drive.sections.isEmpty() -> drive.config.withPlatform(platform ?: return)
                 chosen == null -> drive.config
-                else -> drive.config.copy(enabledSections = drive.sections.map { it.url }.filter { it in chosen })
+                else -> drive.config.withEnabledSections(drive.sections.map { it.url }.filter { it in chosen })
             }
             runBusy {
                 sourceManager.add(config)
-                _state.update { it.copy(url = "", analysis = AnalysisState.Idle, analysisConsoles = null, drivePlatform = null, message = SourceMessage.Saved) }
+                _state.update {
+                    it.copy(url = "", analysis = AnalysisState.Idle, analysisConsoles = null, drivePlatform = null, serverUser = "", serverPassword = "", message = SourceMessage.Saved)
+                }
             }
             return
         }

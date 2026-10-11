@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -56,6 +57,8 @@ class BackupTest {
             createdAt = 1_700_000_000_000,
             sources = listOf(source),
             driveSources = listOf(com.rshop.scraper.config.DriveConfig("gdrive-0123456789", "Drive", "1AbCdEfGhIjKlMnOp", platform = "Wii")),
+            jsonSources = listOf(com.rshop.scraper.config.JsonApiConfig("api", "API", "https://example.org/api/", "games?page={page}", detailsUrl = "games/{id}")),
+            ftpSources = listOf(com.rshop.scraper.config.FtpConfig("sftp-nas-123456", "NAS", com.rshop.scraper.remote.RemoteProtocol.Sftp, "nas.local", username = "me", rootPath = "/Roms")),
             favorites = listOf(BackupGame("demo:/a", "Alpha", "NES")),
             lists = listOf(BackupList("To finish", listOf(BackupGame("demo:/b", "Beta")))),
             settings = BackupSettings(wifiOnly = false, themeAccent = "Orange", language = "fr"),
@@ -64,7 +67,9 @@ class BackupTest {
         val read = BackupCodec.decode(BackupCodec.encode(backup))
 
         assertEquals(backup, read)
-        assertEquals(listOf("Demo", "Drive"), read.allSources.map { it.name })
+        assertEquals(listOf("Demo", "Drive", "API", "NAS"), read.allSources.map { it.name })
+        // A password has no place in a backup.
+        assertFalse(BackupCodec.encode(backup).contains("password", ignoreCase = true))
     }
 
     @Test

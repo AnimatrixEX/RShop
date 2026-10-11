@@ -4,8 +4,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * What every catalogue source has in common, whatever it reads: a website ([ScraperConfig]) or a
- * Google Drive folder ([DriveConfig]). The rest of the app only needs this much; anything more
+ * What every catalogue source has in common, whatever it reads: a website ([ScraperConfig]), a
+ * Google Drive folder ([DriveConfig]) or a JSON API ([JsonApiConfig]) or an FTP/SFTP server ([FtpConfig]). The rest of the app only needs this much; anything more
  * specific is asked with a type check.
  */
 interface SourceConfig {
@@ -35,7 +35,12 @@ interface SourceConfig {
         /** Reads a stored source; files written before Drive existed have no type and are websites. */
         fun fromJson(json: String): SourceConfig {
             val type = ScraperConfig.JSON.parseToJsonElement(json).jsonObject["type"]?.jsonPrimitive?.content
-            return if (type == DriveConfig.TYPE) DriveConfig.fromJson(json) else ScraperConfig.fromJson(json)
+            return when (type) {
+                DriveConfig.TYPE -> DriveConfig.fromJson(json)
+                JsonApiConfig.TYPE -> JsonApiConfig.fromJson(json)
+                FtpConfig.TYPE -> FtpConfig.fromJson(json)
+                else -> ScraperConfig.fromJson(json)
+            }
         }
     }
 }

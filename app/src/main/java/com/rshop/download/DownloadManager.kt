@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import com.rshop.scraper.remote.RemoteUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import timber.log.Timber
 import java.io.File
@@ -131,8 +132,10 @@ class DownloadManager @Inject constructor(
             ?: game.downloadOptions.firstOrNull()
             ?: game.downloadUrl?.let { DownloadOption(url = it, sha256 = game.sha256, sizeBytes = game.sizeBytes, viaPage = game.downloadViaPage) }
             ?: return StartResult.Failed(DownloadError(DownloadErrorKind.NoLink))
-        val url = option.url.toHttpUrlOrNull() ?: return StartResult.Failed(DownloadError(DownloadErrorKind.NoLink))
-        if (option.viaPage) return StartResult.OpenInBrowser(url.toString())
+        // A web link, or an FTP/SFTP address on the source's own server.
+        val link = (option.url.toHttpUrlOrNull()?.toString() ?: RemoteUrl.parse(option.url)?.toString())
+            ?: return StartResult.Failed(DownloadError(DownloadErrorKind.NoLink))
+        if (option.viaPage) return StartResult.OpenInBrowser(link)
         val extras = moreUrls.distinct().filter { it != option.url }
             .mapNotNull { wanted -> game.downloadOptions.firstOrNull { it.url == wanted } }
         // A file behind a site page needs the browser; the others of the game follow once it is done.
@@ -140,14 +143,14 @@ class DownloadManager @Inject constructor(
         val config = sources.get(game.sourceId)
             ?: return StartResult.Failed(DownloadError(DownloadErrorKind.Rejected, "game does not belong to a configured source"))
         val source = sources.createSource(config)
-        val fileName = DownloadPolicy.fileName(url, game.title)
+        val fileName = DownloadPolicy.fileNameOf(link, game.title) ?: return StartResult.Failed(DownloadError(DownloadErrorKind.NoLink))
         try {
             // Every link is resolved by the worker first (download pages, redirects, real file
             // name); the resolved URL and name are checked again there.
-            DownloadPolicy.check(url, if (option.viaPage) "$fileName.page" else fileName) { source.acceptsDownloadUrl(it) || option.viaPage }
+            DownloadPolicy.checkLink(link, if (option.viaPage) "$fileName.page" else fileName, source, alsoAllowed = option.viaPage)
             for (extra in extras) {
-                val extraUrl = extra.url.toHttpUrlOrNull() ?: throw DownloadException.Rejected("invalid link ${extra.url}")
-                DownloadPolicy.check(extraUrl, DownloadPolicy.fileName(extraUrl, game.title)) { source.acceptsDownloadUrl(it) }
+                val extraName = DownloadPolicy.fileNameOf(extra.url, game.title) ?: throw DownloadException.Rejected("invalid link ${extra.url}")
+                DownloadPolicy.checkLink(extra.url, extraName, source)
             }
         } catch (e: DownloadException) {
             return StartResult.Failed(e.toDownloadError())
@@ -160,7 +163,7 @@ class DownloadManager @Inject constructor(
                 title = game.title,
                 platform = game.platform,
                 coverUrl = game.coverUrl,
-                url = url.toString(),
+                url = link,
                 // Always resolved before the transfer, even "direct" links: a link that answers
                 // with a web page is followed like a download page instead of failing.
                 viaPage = true,
@@ -209,8 +212,8 @@ class DownloadManager @Inject constructor(
         val source = sources.createSource(config)
         try {
             for (option in added) {
-                val url = option.url.toHttpUrlOrNull() ?: throw DownloadException.Rejected("invalid link ${option.url}")
-                DownloadPolicy.check(url, DownloadPolicy.fileName(url, game.title)) { source.acceptsDownloadUrl(it) }
+                val name = DownloadPolicy.fileNameOf(option.url, game.title) ?: throw DownloadException.Rejected("invalid link ${option.url}")
+                DownloadPolicy.checkLink(option.url, name, source)
             }
         } catch (e: DownloadException) {
             return StartResult.Failed(e.toDownloadError())

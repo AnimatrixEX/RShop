@@ -7,12 +7,18 @@ import com.rshop.scraper.ScraperLog
 import com.rshop.scraper.analysis.SiteAnalyzer
 import com.rshop.scraper.GameSource
 import com.rshop.scraper.config.DriveConfig
+import com.rshop.scraper.config.FtpConfig
+import com.rshop.scraper.config.JsonApiConfig
 import com.rshop.scraper.config.ScraperConfig
 import com.rshop.scraper.config.SourceConfig
 import com.rshop.scraper.drive.DriveApi
 import com.rshop.scraper.drive.DriveSource
 import com.rshop.scraper.http.HtmlFetcher
+import com.rshop.scraper.http.JsonFetcher
 import com.rshop.scraper.http.RateLimiter
+import com.rshop.scraper.json.JsonApiSource
+import com.rshop.scraper.remote.FtpSource
+import com.rshop.scraper.remote.RemoteConnector
 import com.rshop.scraper.website.WebsiteSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +50,7 @@ class SourceRepository @Inject constructor(
     okHttpClient: OkHttpClient,
     @ApplicationScope scope: CoroutineScope,
     private val driveSettings: DriveSettings,
+    private val remoteCredentials: RemoteCredentials,
 ) {
     private val dir = File(context.filesDir, "source/sources")
     /** Single-source storage of earlier versions, moved into [dir] on first start. */
@@ -77,11 +84,23 @@ class SourceRepository @Inject constructor(
         log = TimberScraperLog,
     )
 
+    private val jsonFetcher = JsonFetcher(
+        client = client,
+        userAgent = "RShop/${BuildConfig.VERSION_NAME} (Android; catalogue reader)",
+        rateLimiter = rateLimiter,
+        log = TimberScraperLog,
+    )
+
     fun createSource(config: SourceConfig): GameSource = when (config) {
         is ScraperConfig -> WebsiteSource(config, fetcher, TimberScraperLog)
         is DriveConfig -> createDriveSource(config)
+        is JsonApiConfig -> JsonApiSource(config, jsonFetcher, TimberScraperLog)
+        is FtpConfig -> createFtpSource(config)
         else -> error("Unknown source type ${config::class.simpleName}")
     }
+
+    /** The password is read from [RemoteCredentials] each time a connection is made, never kept in the source. */
+    fun createFtpSource(config: FtpConfig) = FtpSource(config, RemoteConnector(config) { remoteCredentials.password(config.id) }, TimberScraperLog)
 
     /** The Drive API key comes from [DriveSettings]; it is added to each request by the client. */
     fun createDriveSource(config: DriveConfig) = DriveSource(
@@ -102,6 +121,7 @@ class SourceRepository @Inject constructor(
     }
 
     suspend fun remove(id: String) {
+        remoteCredentials.remove(id)
         loaded.await()
         withContext(Dispatchers.IO) { File(dir, "$id.json").delete() }
         state.update { list -> list.filterNot { it.id == id } }

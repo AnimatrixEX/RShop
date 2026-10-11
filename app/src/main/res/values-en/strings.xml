@@ -94,7 +94,7 @@
     <string name="source_setup_title">Catalogue sources</string>
     <string name="source_url_label">Site address</string>
     <string name="source_url_hint">https://example.org/roms</string>
-    <string name="source_url_help">A page listing games, a page listing consoles, or the share link of a Google Drive folder.</string>
+    <string name="source_url_help">A page listing games, a page listing consoles, the share link of a Google Drive folder, or the address of a server (ftp://, ftps:// or sftp://).</string>
     <string name="source_analyze">Analyze</string>
     <string name="source_analyzing">Analyzing the site…</string>
     <string name="source_analysis_failed">Analysis failed: %1$s</string>
@@ -562,4 +562,16 @@
     <string name="library_storage_unknown_folder">Folder removed or unavailable</string>
     <string name="error_quota_file">Google limits downloads of this file (too many recent downloads, by everybody): try again in a few hours</string>
     <string name="error_quota_project">the Google API key reached its quota (it is shared by everyone using it): try again later, or use your own key or your Google account</string>
+
+    <string name="server_source_label">%1$s server · %2$s</string>
+    <string name="server_login_title">Server login</string>
+    <string name="server_user_label">User name</string>
+    <string name="server_password_label">Password</string>
+    <string name="server_plain_warning">Plain FTP is not encrypted: the password and the files travel in clear on the network. Prefer FTPS or SFTP.</string>
+    <string name="server_trust_title">Trust %1$s?</string>
+    <string name="server_trust_body">First connection to this SFTP server. Check that the fingerprint of its key is the one its administrator gives: if it changes later, RShop will refuse to connect.</string>
+    <string name="server_trust_button">Trust and continue</string>
+    <string name="error_login">user name or password refused by the server</string>
+    <string name="error_host_key_changed">the server’s identity changed: remove the source and add it again if you trust it</string>
+    <string name="error_host_key_unknown">server identity not confirmed</string>
 </resources>

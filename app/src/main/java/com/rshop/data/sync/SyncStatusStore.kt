@@ -22,7 +22,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Why a sync or a page read failed, in terms the UI can explain. */
-enum class SourceErrorKind { Network, AccessDenied, Robots, Structure, Http, InvalidContent, NoSource, ApiKey, Quota, NoConsole, Unknown }
+enum class SourceErrorKind { Network, AccessDenied, Robots, Structure, Http, InvalidContent, NoSource, ApiKey, Quota, NoConsole, Login, HostKey, Unknown }
 
 data class SourceError(val kind: SourceErrorKind, val detail: String?)
 
@@ -32,6 +32,9 @@ fun Throwable.toSourceError(): SourceError = when (this) {
     is ScraperException.ApiKeyRejected -> SourceError(SourceErrorKind.ApiKey, detail)
     is ScraperException.QuotaExceeded -> SourceError(SourceErrorKind.Quota, detail)
     is ScraperException.StructureChanged if message.orEmpty().contains("no console folder") -> SourceError(SourceErrorKind.NoConsole, null)
+    is ScraperException.LoginFailed -> SourceError(SourceErrorKind.Login, detail)
+    is ScraperException.HostKeyChanged -> SourceError(SourceErrorKind.HostKey, "changed")
+    is ScraperException.HostKeyUnknown -> SourceError(SourceErrorKind.HostKey, "unknown")
     is ScraperException.AccessDenied -> SourceError(SourceErrorKind.AccessDenied, listOfNotNull("HTTP $code", detail).joinToString(" - "))
     is ScraperException.BlockedByRobots -> SourceError(SourceErrorKind.Robots, url)
     is ScraperException.StructureChanged -> SourceError(SourceErrorKind.Structure, message)

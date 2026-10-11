@@ -46,6 +46,18 @@ sealed class ScraperException(message: String, cause: Throwable? = null) : Excep
     class QuotaExceeded(val url: String, val detail: String?) :
         ScraperException("Quota exceeded for $url" + (detail?.let { ": $it" } ?: ""))
 
+    /** An FTP/SFTP server refused the user name or password. Never bypassed. */
+    class LoginFailed(val host: String, val detail: String?) :
+        ScraperException("Login refused by $host" + (detail?.let { ": $it" } ?: ""))
+
+    /** An SFTP server whose identity was never confirmed: [fingerprint] is shown to the user, who decides to trust it or not. */
+    class HostKeyUnknown(val host: String, val fingerprint: String) :
+        ScraperException("The identity of $host is not confirmed yet ($fingerprint)")
+
+    /** An SFTP server presents another key than the one the user trusted: possibly an impostor, never accepted silently. */
+    class HostKeyChanged(val host: String, val expected: String, val actual: String) :
+        ScraperException("The identity of $host changed (expected $expected, got $actual)")
+
     /** A CAPTCHA or anti-bot challenge stands in the way. Never bypassed: the user must use a browser. */
     class Captcha(val url: String) : ScraperException("CAPTCHA or anti-bot check at $url: open it in a browser")
 }

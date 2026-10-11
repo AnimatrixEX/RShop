@@ -100,7 +100,7 @@
     <string name="source_setup_title">Sources du catalogue</string>
     <string name="source_url_label">Adresse du site</string>
     <string name="source_url_hint">https://exemple.org/roms</string>
-    <string name="source_url_help">Page listant les jeux, page listant les consoles, ou lien de partage d’un dossier Google Drive.</string>
+    <string name="source_url_help">Page listant les jeux, page listant les consoles, lien de partage d’un dossier Google Drive, ou adresse d’un serveur (ftp://, ftps:// ou sftp://).</string>
     <string name="source_analyze">Analyser</string>
     <string name="source_analyzing">Analyse du site…</string>
     <string name="source_analysis_failed">Analyse impossible : %1$s</string>
@@ -572,4 +572,16 @@
     <string name="library_storage_unknown_folder">Dossier retiré ou inaccessible</string>
     <string name="error_quota_file">Google limite les téléchargements de ce fichier (trop de téléchargements récents, par tout le monde) : réessayez dans quelques heures</string>
     <string name="error_quota_project">la clé API Google a atteint son quota (elle est partagée par tous ceux qui l\'utilisent) : réessayez plus tard, ou utilisez votre propre clé ou votre compte Google</string>
+
+    <string name="server_source_label">Serveur %1$s · %2$s</string>
+    <string name="server_login_title">Connexion au serveur</string>
+    <string name="server_user_label">Nom d’utilisateur</string>
+    <string name="server_password_label">Mot de passe</string>
+    <string name="server_plain_warning">FTP non chiffré : le mot de passe et les fichiers circulent en clair sur le réseau. Préférez FTPS ou SFTP.</string>
+    <string name="server_trust_title">Faire confiance à %1$s ?</string>
+    <string name="server_trust_body">Première connexion à ce serveur SFTP. Vérifiez que l’empreinte de sa clé est bien celle que donne son administrateur : si elle change plus tard, RShop refusera de s’y connecter.</string>
+    <string name="server_trust_button">Faire confiance et continuer</string>
+    <string name="error_login">identifiant ou mot de passe refusé par le serveur</string>
+    <string name="error_host_key_changed">l’identité du serveur a changé : retirez la source puis ajoutez-la de nouveau si vous lui faites confiance</string>
+    <string name="error_host_key_unknown">identité du serveur non confirmée</string>
 </resources>

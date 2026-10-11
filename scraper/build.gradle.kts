@@ -21,8 +21,12 @@ dependencies {
     implementation(libs.jsoup)
     api(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.commons.net)
+    implementation(libs.jsch)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.sshd.sftp)
+    testImplementation(libs.ftpserver.core)
 }

@@ -18,6 +18,7 @@ Made for Retroid, Ayn, Anbernic and similar devices (16:9, gamepad), and works o
 
 - **Store**: instant search (plus the source site's own search), filters by platform, genre and source, sorting, lazy loading for huge catalogues. Remembered filters: hide installed games, hide demos/betas. The filter rows fold away behind one *Filters* button.
 - **Several sources** synced in the background into a local database, so the app works offline. Later syncs only look for new games. For sites organised by console, you choose which consoles to fetch.
+- **Source types**: websites, **Google Drive** folders, **FTP / FTPS / SFTP** servers and **JSON APIs** (see below). Server passwords are stored encrypted and never leave the device.
 - **Downloads** in the background: progress, speed, pause/resume/cancel (also from the notification), retry, SHA-256 check when the site publishes one. They wait while the battery is low and refuse to fill the device (free space to keep is a setting).
 - **Installation** into the folder you pick (Storage Access Framework): zip, 7z, RAR/RAR5, tar, tar.gz, tar.xz…, protected against path traversal and zip bombs. Games with several formats let you choose; games made of several files (discs, bin + cue) can be downloaded and installed together.
 - **Built-in browser** (GeckoView) for sites with intermediate pages: the file you click is captured and installed by the app.
@@ -49,6 +50,18 @@ Requires Android 13+ and an **arm64** CPU. About 200 MB, mostly GeckoView.
 
 **Google Drive folder as a source**: paste the share link of a folder shared with *Anyone with the link*. RShop reads it through the Drive API. Two ways in, both set up once in the sources screen with your own free Google Cloud project: **sign in with your Google account** (works for private folders and folders shared with you; create an OAuth client of type *Desktop app*, add your address as a test user, paste its ID and secret, tap *Sign in with Google* — the answer comes back to a one-shot loopback server, read-only Drive access only; while the Cloud app is in *Testing* the sign-in expires every 7 days) or an **API key** for a folder shared with *Anyone with the link*. Secrets are stored encrypted. Sub-folders named after a console (`GBA`, `PlayStation 2`, `Mega Drive`…) become consoles, even below container folders such as `Roms/`. Files are games, files of one title (discs, cue + bin) are grouped, and a folder of one game's files is one game. For a Drive that only holds game folders, RShop asks which console they belong to. Drive gives only names, so covers, screenshots and descriptions come from SteamGridDB, Libretro and Wikipedia. Installing a game lists every file of its folder, whatever the type (the files of an `Update`/`Patch` sub-folder included); pick one or several, they are installed like any other download. Downloads are checked against Drive's MD5. When Drive's download quota for a file is exceeded, the download fails with a clear message: wait and try again.
 
+**FTP, FTPS or SFTP server as a source**: paste `ftp://`, `ftps://` or `sftp://host/path` in the sources screen, then enter the user name and password (leave the name empty for anonymous FTP). Console folders and game folders are read the same way as a Google Drive; files are streamed with resume. Passwords are stored encrypted on the device, never in the source file, an export or a backup. SFTP asks you to confirm the server key fingerprint the first time and refuses the connection if it ever changes; FTPS checks the server certificate against Android's trust store (a self-signed one is refused); plain FTP shows a warning because nothing is encrypted. SFTP uses a password (no private key yet).
+
+**JSON API as a source**: for a server you control (or one that documents its API), import a `type: "json"` configuration (*Add a source → Import a config file*). It names the list URL (`{page}` or `{offset}`), the details URL (`{id}`), optional search URL (`{query}`), and which JSON path holds each field; the defaults match this shape, so `baseUrl`, `listUrl` and `detailsUrl` are enough:
+
+```json
+{ "type": "json", "id": "my-api", "name": "My catalogue",
+  "baseUrl": "https://example.com/api/", "listUrl": "games?page={page}", "detailsUrl": "games/{id}",
+  "searchUrl": "games?q={query}" }
+```
+
+A list page is `{"games": [{"id": "zelda", "title": "Zelda", "cover": "…", "platform": "GBA", "size": 1048576}], "hasNext": true}`; a game is `{"game": {"id": "zelda", "title": "Zelda", "description": "…", "screenshots": ["…"], "downloads": [{"url": "files/zelda.zip", "sha256": "…"}]}}`. Download links must stay on the API host unless `allowedDownloadHosts` lists others.
+
 **Covers** come from the free [Libretro thumbnails](https://thumbnails.libretro.com/) for the consoles it knows, and from [SteamGridDB](https://www.steamgriddb.com/) if you add your own free API key (*Settings → Covers*, stored encrypted on the device). Other games get a generated thumbnail.
 
 ## Build
@@ -78,4 +91,4 @@ MVVM, repositories, coroutines/Flow. HTML parsing never touches the UI: `Scraper
 
 ## Status
 
-Version 0.2.3, personal project, tested on a Retroid Pocket 6. The game launcher is deliberately out of scope: RShop is a store and installer only.
+Version 0.2.4, personal project, tested on a Retroid Pocket 6. The game launcher is deliberately out of scope: RShop is a store and installer only.

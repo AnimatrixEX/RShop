@@ -1,6 +1,8 @@
 package com.rshop.data.backup
 
 import com.rshop.scraper.config.DriveConfig
+import com.rshop.scraper.config.FtpConfig
+import com.rshop.scraper.config.JsonApiConfig
 import com.rshop.scraper.config.ScraperConfig
 import com.rshop.scraper.config.SourceConfig
 import kotlinx.serialization.Serializable
@@ -21,17 +23,25 @@ data class Backup(
     val sources: List<ScraperConfig> = emptyList(),
     /** Google Drive sources, apart so that older versions still read the website ones. */
     val driveSources: List<DriveConfig> = emptyList(),
+    /** JSON API sources, apart for the same reason. */
+    val jsonSources: List<JsonApiConfig> = emptyList(),
+    /** FTP, FTPS and SFTP servers. Their passwords are not in the backup: they are entered again. */
+    val ftpSources: List<FtpConfig> = emptyList(),
     val favorites: List<BackupGame> = emptyList(),
     val lists: List<BackupList> = emptyList(),
     val settings: BackupSettings = BackupSettings(),
 ) {
-    val allSources: List<SourceConfig> get() = sources + driveSources
+    val allSources: List<SourceConfig> get() = sources + driveSources + jsonSources + ftpSources
 
     companion object {
         const val FORMAT = 1
 
-        fun sourcesOf(all: List<SourceConfig>): Pair<List<ScraperConfig>, List<DriveConfig>> =
-            all.filterIsInstance<ScraperConfig>() to all.filterIsInstance<DriveConfig>()
+        fun sourcesOf(all: List<SourceConfig>): Backup = Backup(
+            sources = all.filterIsInstance<ScraperConfig>(),
+            driveSources = all.filterIsInstance<DriveConfig>(),
+            jsonSources = all.filterIsInstance<JsonApiConfig>(),
+            ftpSources = all.filterIsInstance<FtpConfig>(),
+        )
     }
 }
 

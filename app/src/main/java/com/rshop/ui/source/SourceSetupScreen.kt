@@ -70,6 +70,9 @@ import com.rshop.ui.theme.RShopColors
 import com.rshop.ui.util.sourceErrorText
 import com.rshop.data.source.DriveKeyStatus
 import com.rshop.scraper.config.DriveConfig
+import com.rshop.scraper.config.FtpConfig
+import com.rshop.scraper.config.SourceConfig
+import com.rshop.scraper.remote.RemoteUrl
 import com.rshop.scraper.config.ScraperConfig
 import com.rshop.scraper.drive.DriveLink
 
@@ -167,7 +170,7 @@ fun SourceSetupScreen(
                     onRescan = { viewModel.syncSource(source.config.id, full = true) },
                     onSpeed = { viewModel.cycleSpeed(source.config.id) },
                     onConsoles = { viewModel.openConsolePicker(source.config.id) },
-                    onPlatform = { viewModel.openPlatformPicker(PlatformTarget.Source(source.config.id, (source.config as? DriveConfig)?.platform)) },
+                    onPlatform = { viewModel.openPlatformPicker(PlatformTarget.Source(source.config.id, source.config.platformOrNull())) },
                     onStop = { viewModel.stopSync(source.config.id) },
                     onExport = {
                         viewModel.onExportRequested(source.config.id)
@@ -185,6 +188,17 @@ fun SourceSetupScreen(
                     onAnalyze = viewModel::analyze,
                     onImport = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 )
+            }
+            RemoteUrl.parse(state.url.trim())?.let { address ->
+                item {
+                    ServerLoginCard(
+                        protocol = address.protocol,
+                        user = state.serverUser,
+                        password = state.serverPassword,
+                        onUserChange = viewModel::onServerUserChange,
+                        onPasswordChange = viewModel::onServerPasswordChange,
+                    )
+                }
             }
             val showKey = driveKey.configured || driveKey.clientConfigured || driveKey.signedIn ||
                 state.analysis == AnalysisState.DriveKeyNeeded || DriveLink.parse(state.url) != null || sources.any { it.config is DriveConfig }
@@ -213,6 +227,7 @@ fun SourceSetupScreen(
                     onChooseConsoles = viewModel::openAnalysisConsolePicker,
                     onChoosePlatform = { viewModel.openPlatformPicker(PlatformTarget.Analysis) },
                     onUse = viewModel::useAnalyzedSource,
+                    onTrust = viewModel::trustServerKey,
                 )
             }
         }
@@ -317,6 +332,7 @@ private fun SourceCard(
         Text(
             when (config) {
                 is DriveConfig -> stringResource(R.string.drive_source_label) + (config.platform?.let { " · $it" } ?: "")
+                is FtpConfig -> config.location + (config.platform?.let { " · $it" } ?: "")
                 else -> config.location
             },
             style = MaterialTheme.typography.bodyMedium,
@@ -369,9 +385,9 @@ private fun SourceCard(
             )
             // Only for sources organised by console; a Drive of game folders has one console to name.
             when {
-                config is DriveConfig && config.platform != null ->
+                config.platformOrNull() != null ->
                     ConsoleButton(stringResource(R.string.drive_platform_button), onClick = onPlatform, style = ConsoleButtonStyle.Secondary)
-                config is DriveConfig || (config as? ScraperConfig)?.sections != null ->
+                config is DriveConfig || config is FtpConfig || (config as? ScraperConfig)?.sections != null ->
                     ConsoleButton(stringResource(R.string.source_consoles), onClick = onConsoles, style = ConsoleButtonStyle.Secondary)
             }
             ConsoleButton(stringResource(R.string.source_export_short), onClick = onExport, style = ConsoleButtonStyle.Secondary)
@@ -440,6 +456,7 @@ private fun AnalysisResult(
     onChooseConsoles: () -> Unit,
     onChoosePlatform: () -> Unit,
     onUse: () -> Unit,
+    onTrust: () -> Unit,
 ) {
     when (state) {
         AnalysisState.DriveKeyNeeded -> Text(
@@ -447,6 +464,7 @@ private fun AnalysisResult(
             modifier = Modifier.padding(horizontal = Dimens.ScreenPadding),
             color = RShopColors.Warning,
         )
+        is AnalysisState.ServerHostKey -> ServerTrustCard(state.config.host, state.fingerprint, busy, onTrust)
         is AnalysisState.DriveDone -> DriveSummaryView(state.summary, busy, chosenConsoles, drivePlatform, onChooseConsoles, onChoosePlatform, onUse)
         AnalysisState.Idle -> Unit
         AnalysisState.Running -> Text(
@@ -561,7 +579,15 @@ private fun DriveSummaryView(
         SectionHeader(stringResource(R.string.source_result_title))
         Column(Modifier.padding(horizontal = Dimens.ScreenPadding)) {
             Text(summary.config.name, style = MaterialTheme.typography.titleLarge)
-            Text(stringResource(R.string.drive_source_label), color = RShopColors.TextSecondary)
+            Text(
+                (summary.config as? FtpConfig)?.let { stringResource(R.string.server_source_label, it.protocol.scheme.uppercase(), it.host) }
+                    ?: stringResource(R.string.drive_source_label),
+                color = RShopColors.TextSecondary,
+            )
+            if ((summary.config as? FtpConfig)?.protocol?.encrypted == false) {
+                Spacer(Modifier.height(4.dp))
+                Text(stringResource(R.string.server_plain_warning), style = MaterialTheme.typography.bodySmall, color = RShopColors.Warning)
+            }
             Spacer(Modifier.height(8.dp))
             if (summary.sections.isEmpty()) {
                 Text(stringResource(R.string.drive_no_console_found), style = MaterialTheme.typography.bodyMedium)
@@ -612,4 +638,11 @@ private fun DriveSummaryView(
             }
         }
     }
+}
+
+/** The console named for a source that has no console folders (Drive, FTP, SFTP); null for the others or when none was named. */
+private fun SourceConfig.platformOrNull(): String? = when (this) {
+    is DriveConfig -> platform
+    is FtpConfig -> platform
+    else -> null
 }
