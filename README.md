@@ -53,27 +53,4 @@ Requires Android 13+ and an **arm64** CPU. About 200 MB, mostly GeckoView.
 
 The scraper (`:scraper`, pure JVM) respects `robots.txt`, rate-limits its requests, **never bypasses** CAPTCHAs, anti-bot protection, DRM, paywalls or logins, never silently downloads executables, and validates URLs, sizes, file types, hashes and extraction paths. Only add sources whose content you are allowed to use; you are responsible for what you download.
 
-## Build
-
-JDK 17+ (tested with 21) and the Android SDK (API 37).
-
-```bash
-./gradlew installDebug                           # debug APK (com.rshop.debug)
-./gradlew :scraper:test :app:testDebugUnitTest   # tests
-./gradlew :app:assembleRelease                   # release APK (arm64)
-```
-
-The debug build has a small fictional catalogue and allows cleartext HTTP to `localhost` only. To sign the release APK, set `RSHOP_KEYSTORE`, `RSHOP_KEYSTORE_PASSWORD`, `RSHOP_KEY_ALIAS` and `RSHOP_KEY_PASSWORD` in `~/.gradle/gradle.properties`. A fictional test site: `python tools/testsite/server.py --rate 4`, then `adb reverse tcp:8099 tcp:8099` and use `http://localhost:8099/consoles`.
-
-## Architecture
-
-```
-app/       Kotlin · Compose · Material 3 · Hilt · Room · WorkManager · Coil · GeckoView
- ├─ data/ domain/ download/ installation/ ui/
-scraper/   pure JVM: GameSource → WebsiteSource, DriveSource, JsonApiSource, FtpSource (FTP/FTPS/SFTP)
-tools/testsite/   local test site
-```
-
-MVVM, repositories, coroutines/Flow. Source parsing never touches the UI: `source → parser → model → local database → UI`.
-
 Version 0.2.4, personal project, tested on a Retroid Pocket 6. The game launcher is deliberately out of scope.
