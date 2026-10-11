@@ -25,7 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -67,16 +69,23 @@ fun FocusableSurface(
     content: @Composable BoxScope.(focused: Boolean) -> Unit,
 ) {
     val focused by interactionSource.collectIsFocusedAsState()
-    val scale by animateFloatAsState(
+    // Every animated value below is a State that is only read where it is used, in the layer or the draw
+    // phase: when the focus moves, the two cards concerned redraw for the length of the animation but do
+    // not recompose (nor rebuild their modifiers) at every frame, which a screen of cards cannot afford.
+    val scale = animateFloatAsState(
         targetValue = if (focused) focusedScale else 1f,
         animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMediumLow),
         label = "focusScale",
     )
-    val ringAlpha by animateFloatAsState(if (focused) 1f else 0f, label = "focusRing")
+    val ringAlpha = animateFloatAsState(if (focused && focusRing) 1f else 0f, label = "focusRing")
     val look = ActiveTheme.look
-    val elevation by animateDpAsState(if (focused && glow) 18.dp else look.restingElevation, label = "focusElevation")
-    val shadowColor = if (focused && glow) RShopColors.Accent else Color.Black
-    val background by animateColorAsState(if (focused) focusedContainerColor else containerColor, label = "focusBackground")
+    val raised = animateFloatAsState(if (focused && glow) 1f else 0f, label = "focusElevation")
+    val density = LocalDensity.current
+    val restingElevationPx = with(density) { look.restingElevation.toPx() }
+    val raisedElevationPx = with(density) { FocusElevation.toPx() }
+    val ringWidthPx = with(density) { Dimens.FocusBorder.toPx() * 2 } // half of it is cut by the clip below
+    // Only the surfaces that change color with the focus animate one.
+    val fill = if (containerColor != focusedContainerColor) animateColorAsState(if (focused) focusedContainerColor else containerColor, label = "focusBackground") else null
 
     // Moving the focus scrolls the list just enough to show the item itself, which leaves the
     // headers above the first item and the notes under the last one out of reach. Asking for a
@@ -84,7 +93,6 @@ fun FocusableSurface(
     val bringIntoView = remember { BringIntoViewRequester() }
     // Plain holder, not state: laying out hundreds of cards must not recompose each of them once more.
     val measured = remember { IntArray(2) }
-    val density = LocalDensity.current
     LaunchedEffect(focused) {
         if (focused && measured[0] > 0) {
             val horizontal = with(density) { FocusScrollMarginHorizontal.toPx() }
@@ -99,12 +107,24 @@ fun FocusableSurface(
             .bringIntoViewRequester(bringIntoView)
             .zIndex(if (focused) 1f else 0f)
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
+                scaleX = scale.value
+                scaleY = scale.value
+                val lift = raised.value
+                shadowElevation = restingElevationPx + (raisedElevationPx - restingElevationPx) * lift
+                this.shape = shape
+                clip = false
+                val shadowColor = if (lift > 0f) RShopColors.Accent else Color.Black
+                ambientShadowColor = shadowColor
+                spotShadowColor = shadowColor
             }
-            .shadow(elevation, shape, clip = false, ambientColor = shadowColor, spotColor = shadowColor)
             .clip(shape)
-            .background(background)
+            .then(
+                when {
+                    fill != null -> Modifier.drawBehind { drawRect(fill.value) }
+                    containerColor.alpha > 0f -> Modifier.background(containerColor)
+                    else -> Modifier
+                },
+            )
             .then(
                 when {
                     !showEdge -> Modifier
@@ -113,7 +133,17 @@ fun FocusableSurface(
                     else -> Modifier
                 },
             )
-            .then(if (focusRing) Modifier.border(Dimens.FocusBorder, RShopColors.Focus.copy(alpha = ringAlpha), shape) else Modifier)
+            .then(
+                if (focusRing) {
+                    Modifier.drawWithContent {
+                        drawContent()
+                        val alpha = ringAlpha.value
+                        if (alpha > 0f) drawOutline(shape.createOutline(size, layoutDirection, this), RShopColors.Focus.copy(alpha = alpha), style = Stroke(ringWidthPx))
+                    }
+                } else {
+                    Modifier
+                },
+            )
             .then(
                 if (onLongClick != null) {
                     Modifier.combinedClickable(interactionSource = interactionSource, indication = ripple(), onClick = onClick, onLongClick = onLongClick)
@@ -144,5 +174,6 @@ fun FocusableSurface(
     }
 }
 
+private val FocusElevation = 18.dp
 private val FocusScrollMarginHorizontal = 24.dp
 private val FocusScrollMarginVertical = 112.dp

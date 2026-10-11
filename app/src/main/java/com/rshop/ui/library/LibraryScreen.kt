@@ -227,7 +227,7 @@ private fun LibraryGrid(
                 }
             }
         }
-        itemsIndexed(state.games, key = { _, game -> game.gameId }) { index, game ->
+        itemsIndexed(state.games, key = { _, game -> game.gameId }, contentType = { _, _ -> "game" }) { index, game ->
             InstalledCard(
                 game,
                 onClick = { onSelect(game) },

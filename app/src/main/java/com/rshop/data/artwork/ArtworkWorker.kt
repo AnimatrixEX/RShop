@@ -43,7 +43,8 @@ class ArtworkWorker @AssistedInject constructor(
                 val covers = resolver.resolvePending(BATCH)
                 val infos = metadata.resolvePending(BATCH)
                 if (covers == 0 && infos == 0) return Result.success()
-                // Each round refreshes the screens that watch the catalogue: not more than a few times a second.
+                // Each round writes the catalogue, which makes the Store reload its list and Home its shelves:
+                // a pause of a couple of seconds keeps the screens calm while thousands of covers come in.
                 delay(BREATH_MS)
             }
             scheduler.schedule(continuation = true)
@@ -61,7 +62,7 @@ class ArtworkWorker @AssistedInject constructor(
 
     private companion object {
         const val BATCH = 200
-        const val BREATH_MS = 400L
+        const val BREATH_MS = 2_000L
         /** Well under WorkManager's 10-minute limit for plain workers. */
         const val ROUND_MS = 7 * 60_000L
         const val MAX_RETRIES = 3

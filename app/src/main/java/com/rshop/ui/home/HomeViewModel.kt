@@ -9,6 +9,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -47,22 +48,23 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
 
     // The site's download counters drive popularity, so these are the most downloaded games.
-    private val featured = repository.observePopular(FEATURED_COUNT)
+    // Room re-emits after any write to the table, even when this query's result is the same: the screen only hears real changes.
+    private val featured = repository.observePopular(FEATURED_COUNT).distinctUntilChanged()
 
     private val shelves = combine(
-        repository.observeRecentlyAdded(SHELF_SIZE),
-        repository.observePopular(SHELF_SIZE),
-        repository.observeRecentlyUpdated(SHELF_SIZE),
+        repository.observeRecentlyAdded(SHELF_SIZE).distinctUntilChanged(),
+        repository.observePopular(SHELF_SIZE).distinctUntilChanged(),
+        repository.observeRecentlyUpdated(SHELF_SIZE).distinctUntilChanged(),
         ::Shelves,
     )
 
     private val personal = combine(
-        repository.observeRecentlyViewed(SHELF_SIZE),
-        repository.observeFavorites(),
+        repository.observeRecentlyViewed(SHELF_SIZE).distinctUntilChanged(),
+        repository.observeFavorites().distinctUntilChanged(),
         ::Personal,
     )
 
-    private val facets = combine(repository.observeGenres(), repository.observePlatforms(), ::Pair)
+    private val facets = combine(repository.observeGenres().distinctUntilChanged(), repository.observePlatforms().distinctUntilChanged(), ::Pair)
 
     val uiState: StateFlow<HomeUiState> = combine(
         featured,
@@ -82,7 +84,7 @@ class HomeViewModel @Inject constructor(
             genres = genres,
             platforms = platforms,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+    }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     fun onToggleFavorite(game: Game, isFavorite: Boolean) {
         viewModelScope.launch { repository.setFavorite(game.id, !isFavorite) }

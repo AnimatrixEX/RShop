@@ -246,7 +246,7 @@ fun StoreScreen(
                 }
             }
         }
-        items(count = games.itemCount, key = games.itemKey { it.id }) { index ->
+        items(count = games.itemCount, key = games.itemKey { it.id }, contentType = { "game" }) { index ->
             games[index]?.let { game ->
                 GameCard(
                     game = game,

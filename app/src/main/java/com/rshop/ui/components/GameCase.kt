@@ -1,7 +1,7 @@
 package com.rshop.ui.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +27,9 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
@@ -106,7 +109,8 @@ fun GameCase(
         Box(
             Modifier
                 .casePart(spine = false, angle = { turned.value + sway.value }, lift = { lift.value }, cameraPx = camera)
-                .clip(RoundedCornerShape(2.dp))
+                // A rectangle clip: a rounded one on a turned layer is far dearer, for corners 2dp wide.
+                .clip(RectangleShape)
                 .drawWithContent {
                     drawContent()
                     // Light sliding across the plastic: a bright diagonal band, brighter when the box faces the player.
@@ -119,7 +123,7 @@ fun GameCase(
                         ),
                     )
                 }
-                .border(1.dp, Color.White.copy(alpha = 0.38f), RoundedCornerShape(2.dp)),
+                .border(1.dp, Color.White.copy(alpha = 0.38f), RectangleShape),
             content = front,
         )
     }
@@ -146,6 +150,10 @@ private fun Modifier.casePart(spine: Boolean, angle: () -> Float, lift: () -> Fl
         val raise = LIFT.dp.toPx()
         layout(parentWidth, parentHeight) {
             placeable.placeWithLayer(left, top) {
+                // The face is painted flat into its own texture, and only that picture is turned. Painted straight
+                // under the perspective, its clip, rim and rotated title became paths rasterized on the CPU, anew at
+                // every frame of the sway: after a few seconds the render thread sat at 100% with frames of seconds.
+                compositingStrategy = CompositingStrategy.Offscreen
                 rotationY = if (spine) angle() - 90f else angle()
                 transformOrigin = TransformOrigin(if (spine) 1f else 0f, 0.5f)
                 cameraDistance = cameraPx
@@ -161,19 +169,20 @@ private fun Modifier.casePart(spine: Boolean, angle: () -> Float, lift: () -> Fl
  */
 @Composable
 private fun rememberSway(active: Boolean): State<Float> {
-    val sway = remember { Animatable(0f) }
+    // A plain float, not an Animatable: a grid holds dozens of boxes and only one of them ever sways.
+    val sway = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(active) {
         if (active) {
-            sway.snapTo(-SWAY)
+            sway.floatValue = -SWAY
             repeat(SWINGS) { i ->
-                sway.animateTo(if (i % 2 == 0) SWAY else -SWAY, tween(1400, easing = FastOutSlowInEasing))
+                animate(sway.floatValue, if (i % 2 == 0) SWAY else -SWAY, animationSpec = tween(1400, easing = FastOutSlowInEasing)) { value, _ -> sway.floatValue = value }
             }
-            sway.animateTo(0f, tween(900, easing = FastOutSlowInEasing))
-        } else {
-            sway.snapTo(0f)
+            animate(sway.floatValue, 0f, animationSpec = tween(900, easing = FastOutSlowInEasing)) { value, _ -> sway.floatValue = value }
+        } else if (sway.floatValue != 0f) {
+            sway.floatValue = 0f
         }
     }
-    return sway.asState()
+    return sway
 }
 
 /** Text running bottom to top, for a spine; it is laid out along the height it is given. */
