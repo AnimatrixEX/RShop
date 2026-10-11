@@ -2,9 +2,9 @@
 
 **A game store for Android handhelds.** Browse a catalogue, download, install and manage games, with a console-style interface built for controllers.
 
-RShop is **only a store and a download/install manager**. It does not launch games (that stays with your frontend or emulators) and it ships **no catalogue**: you add the sites whose content you have the right to download (homebrew, your own creations, freely licensed content, your own server…).
+RShop is **only a store and a download/install manager**. It does not launch games (that stays with your frontend or emulators) and it ships **no catalogue**: you add sources whose content you have the right to download (homebrew, your own creations, freely licensed content, your own server…).
 
-Made for Retroid, Ayn, Anbernic and similar devices (16:9, gamepad), and works on any Android 13+ phone or tablet.
+Made for Retroid, Ayn, Anbernic and similar devices (16:9, gamepad); works on any Android 13+ phone or tablet.
 
 | Home | Game page |
 |---|---|
@@ -16,53 +16,42 @@ Made for Retroid, Ayn, Anbernic and similar devices (16:9, gamepad), and works o
 
 ## Features
 
-- **Store**: instant search (plus the source site's own search), filters by platform, genre and source, sorting, lazy loading for huge catalogues. Remembered filters: hide installed games, hide demos/betas. The filter rows fold away behind one *Filters* button.
-- **Several sources** synced in the background into a local database, so the app works offline. Later syncs only look for new games. For sites organised by console, you choose which consoles to fetch.
-- **Source types**: websites, **Google Drive** folders, **FTP / FTPS / SFTP** servers and **JSON APIs** (see below). Server passwords are stored encrypted and never leave the device.
-- **Downloads** in the background: progress, speed, pause/resume/cancel (also from the notification), retry, SHA-256 check when the site publishes one. They wait while the battery is low and refuse to fill the device (free space to keep is a setting).
-- **Installation** into the folder you pick (Storage Access Framework): zip, 7z, RAR/RAR5, tar, tar.gz, tar.xz…, protected against path traversal and zip bombs. Games with several formats let you choose; games made of several files (discs, bin + cue) can be downloaded and installed together.
-- **Built-in browser** (GeckoView) for sites with intermediate pages: the file you click is captured and installed by the app.
-- **Favorites, custom lists, library** of installed games with sorting, update and delete.
-- **Screenshots and descriptions without the source**: when a source gives none, screenshots (and the title screen) come from the free Libretro thumbnails and the description from the game's Wikipedia article (credited, CC BY-SA). Both can be switched off in *Settings → Covers*.
-- **Complete game pages**: descriptions, files and download counters are read in the background for your favorites and the most popular games (Wi-Fi only if you chose so), and for the game you rest on with the controller.
-- **Controller first**: visible focus, L1/R1 tabs, Y for a game menu, X for search, button hints.
-- **Several games folders** (internal storage, SD card…): add as many as you like in *Settings → Storage*, pick a default; each install asks which folder the game goes to. The settings are split into tabs (Catalogue, Storage, Downloads, Cover art, Appearance, App).
-- **Backup**: save and restore sources, favorites, lists and settings as one JSON file.
-- **Customisation**: screen styles (dark, OLED, slate, twilight, **Glass** frosted surfaces, a **PlayStation Store** blue, a light **eShop** with red bands), accent colors, text size, flat covers or **3D game boxes** (turned on the shelf, facing you when selected), French / English.
-- **In-app update**: *Settings → About → Check for updates* downloads the latest GitHub release (SHA-256 checked) and hands it to Android's installer. The app also looks once a day (can be turned off) and shows a dot on Settings when a version is available.
-
-## Responsible use
-
-The scraper is a standalone module (`:scraper`, pure JVM). It respects `robots.txt`, rate-limits its requests, **never bypasses** CAPTCHAs, anti-bot protection, DRM, paywalls or logins, never silently downloads executables, and validates URLs, sizes, file types, hashes and extraction paths.
-
-Only add sources whose content you are allowed to use. You are responsible for what you download.
+- **Sources**: websites, Google Drive folders, FTP / FTPS / SFTP servers and JSON APIs, synced in the background into a local database (works offline; later syncs only look for new games; you choose which consoles to fetch).
+- **Store**: instant search, filters (platform, genre, source, hide installed/demos), sorting, lazy loading for huge catalogues.
+- **Downloads**: background, pause/resume/cancel (also from the notification), retry, SHA-256 / MD5 check, battery and free-space guards.
+- **Installation** into the folder(s) you pick (Storage Access Framework): zip, 7z, RAR/RAR5, tar and variants, protected against path traversal and zip bombs. Several formats or files per game (discs, bin + cue, updates) can be chosen and installed together.
+- **Built-in browser** (GeckoView) for sites with intermediate pages: the file you click is captured and installed.
+- **Favorites, custom lists, library** with update and delete; backup/restore of sources, lists and settings as one JSON file.
+- **Covers, screenshots, descriptions** from the source, else from [Libretro thumbnails](https://thumbnails.libretro.com/), [SteamGridDB](https://www.steamgriddb.com/) (your own free key) and Wikipedia (credited, CC BY-SA).
+- **Controller first**: visible focus, L1/R1 tabs, Y game menu, X search, button hints.
+- **Themes**: dark, OLED, slate, twilight, Glass, PlayStation Store, eShop (light and dark), accent colors, text size, flat covers or 3D game boxes; French / English.
+- **In-app update** from GitHub releases (SHA-256 checked), once a day or on demand.
 
 ## Install
 
-1. Download `app-release.apk` from [Releases](../../releases) and open it (allow installs from your file manager or browser if asked).
-2. On first launch: *Settings → Games folder*, then *Settings → Catalogue sources → Add a source*.
-
-With [Obtainium](https://github.com/ImranR98/Obtainium): [add RShop](obtainium://add/https://github.com/AnimatrixEX/RShop) for automatic updates.
+1. Download `app-release.apk` from [Releases](../../releases) and open it. Or use [Obtainium](https://github.com/ImranR98/Obtainium): [add RShop](obtainium://add/https://github.com/AnimatrixEX/RShop).
+2. *Settings → Storage* to pick a games folder, then *Settings → Catalogue → Sources → Add a source*.
 
 Requires Android 13+ and an **arm64** CPU. About 200 MB, mostly GeckoView.
 
-**Adding a source**: paste the address of a page listing games (or consoles). RShop analyses the site and proposes a configuration with a preview; you can also import/export the JSON config (`ScraperConfig`) for tricky sites.
+## Adding sources
 
-**Google Drive folder as a source**: paste the share link of a folder shared with *Anyone with the link*. RShop reads it through the Drive API. Two ways in, both set up once in the sources screen with your own free Google Cloud project: **sign in with your Google account** (works for private folders and folders shared with you; create an OAuth client of type *Desktop app*, add your address as a test user, paste its ID and secret, tap *Sign in with Google* — the answer comes back to a one-shot loopback server, read-only Drive access only; while the Cloud app is in *Testing* the sign-in expires every 7 days) or an **API key** for a folder shared with *Anyone with the link*. Secrets are stored encrypted. Sub-folders named after a console (`GBA`, `PlayStation 2`, `Mega Drive`…) become consoles, even below container folders such as `Roms/`. Files are games, files of one title (discs, cue + bin) are grouped, and a folder of one game's files is one game. For a Drive that only holds game folders, RShop asks which console they belong to. Drive gives only names, so covers, screenshots and descriptions come from SteamGridDB, Libretro and Wikipedia. Installing a game lists every file of its folder, whatever the type (the files of an `Update`/`Patch` sub-folder included); pick one or several, they are installed like any other download. Downloads are checked against Drive's MD5. When Drive's download quota for a file is exceeded, the download fails with a clear message: wait and try again.
+- **Website**: paste the address of a page listing games (or consoles). RShop analyses it and proposes a configuration with a preview. The JSON config (`ScraperConfig`) can be imported/exported for tricky sites.
+- **Google Drive**: paste the share link of a folder. Set up once, with your own free Google Cloud project, either a **Google sign-in** (private or shared-with-you folders; OAuth client of type *Desktop app*, you as test user; expires every 7 days while the Cloud app is in *Testing*) or an **API key** (folders shared with *Anyone with the link*). Console-named sub-folders (`GBA`, `PlayStation 2`…) become consoles; a Drive of game folders only asks which console. Drive gives only names, so artwork comes from the services above.
+- **FTP / FTPS / SFTP**: paste `ftp://`, `ftps://` or `sftp://host/path` and enter the login (empty user = anonymous). Read like a Drive, downloads resume. Passwords are stored encrypted, never in a source file, export or backup. SFTP asks you to confirm the server key fingerprint the first time and refuses it if it changes; FTPS checks the certificate against Android's trust store; plain FTP shows a warning. SFTP is password-only for now.
+- **JSON API**: import a `type: "json"` config (*Add a source → Import a config file*). `baseUrl`, `listUrl` (`{page}` or `{offset}`) and `detailsUrl` (`{id}`) are enough with the default field names; `searchUrl` (`{query}`) is optional, and each field's JSON path can be overridden.
 
-**FTP, FTPS or SFTP server as a source**: paste `ftp://`, `ftps://` or `sftp://host/path` in the sources screen, then enter the user name and password (leave the name empty for anonymous FTP). Console folders and game folders are read the same way as a Google Drive; files are streamed with resume. Passwords are stored encrypted on the device, never in the source file, an export or a backup. SFTP asks you to confirm the server key fingerprint the first time and refuses the connection if it ever changes; FTPS checks the server certificate against Android's trust store (a self-signed one is refused); plain FTP shows a warning because nothing is encrypted. SFTP uses a password (no private key yet).
+  ```json
+  { "type": "json", "id": "my-api", "name": "My catalogue",
+    "baseUrl": "https://example.com/api/", "listUrl": "games?page={page}", "detailsUrl": "games/{id}",
+    "searchUrl": "games?q={query}" }
+  ```
 
-**JSON API as a source**: for a server you control (or one that documents its API), import a `type: "json"` configuration (*Add a source → Import a config file*). It names the list URL (`{page}` or `{offset}`), the details URL (`{id}`), optional search URL (`{query}`), and which JSON path holds each field; the defaults match this shape, so `baseUrl`, `listUrl` and `detailsUrl` are enough:
+  A list page looks like `{"games": [{"id": "zelda", "title": "Zelda", "cover": "…", "platform": "GBA", "size": 1048576}], "hasNext": true}` and a game like `{"game": {"id": "zelda", "title": "Zelda", "description": "…", "screenshots": ["…"], "downloads": [{"url": "files/zelda.zip", "sha256": "…"}]}}`. Downloads must stay on the API host unless `allowedDownloadHosts` lists others.
 
-```json
-{ "type": "json", "id": "my-api", "name": "My catalogue",
-  "baseUrl": "https://example.com/api/", "listUrl": "games?page={page}", "detailsUrl": "games/{id}",
-  "searchUrl": "games?q={query}" }
-```
+## Responsible use
 
-A list page is `{"games": [{"id": "zelda", "title": "Zelda", "cover": "…", "platform": "GBA", "size": 1048576}], "hasNext": true}`; a game is `{"game": {"id": "zelda", "title": "Zelda", "description": "…", "screenshots": ["…"], "downloads": [{"url": "files/zelda.zip", "sha256": "…"}]}}`. Download links must stay on the API host unless `allowedDownloadHosts` lists others.
-
-**Covers** come from the free [Libretro thumbnails](https://thumbnails.libretro.com/) for the consoles it knows, and from [SteamGridDB](https://www.steamgriddb.com/) if you add your own free API key (*Settings → Covers*, stored encrypted on the device). Other games get a generated thumbnail.
+The scraper (`:scraper`, pure JVM) respects `robots.txt`, rate-limits its requests, **never bypasses** CAPTCHAs, anti-bot protection, DRM, paywalls or logins, never silently downloads executables, and validates URLs, sizes, file types, hashes and extraction paths. Only add sources whose content you are allowed to use; you are responsible for what you download.
 
 ## Build
 
@@ -74,21 +63,17 @@ JDK 17+ (tested with 21) and the Android SDK (API 37).
 ./gradlew :app:assembleRelease                   # release APK (arm64)
 ```
 
-The debug build includes a small fictional catalogue and allows cleartext HTTP to `localhost` only. To sign the release APK, set `RSHOP_KEYSTORE`, `RSHOP_KEYSTORE_PASSWORD`, `RSHOP_KEY_ALIAS` and `RSHOP_KEY_PASSWORD` in `~/.gradle/gradle.properties`.
-
-A local fictional site for testing: `python tools/testsite/server.py --rate 4`, then `adb reverse tcp:8099 tcp:8099` and use `http://localhost:8099/consoles`.
+The debug build has a small fictional catalogue and allows cleartext HTTP to `localhost` only. To sign the release APK, set `RSHOP_KEYSTORE`, `RSHOP_KEYSTORE_PASSWORD`, `RSHOP_KEY_ALIAS` and `RSHOP_KEY_PASSWORD` in `~/.gradle/gradle.properties`. A fictional test site: `python tools/testsite/server.py --rate 4`, then `adb reverse tcp:8099 tcp:8099` and use `http://localhost:8099/consoles`.
 
 ## Architecture
 
 ```
 app/       Kotlin · Compose · Material 3 · Hilt · Room · WorkManager · Coil · GeckoView
  ├─ data/ domain/ download/ installation/ ui/
-scraper/   pure JVM (Jsoup, OkHttp): GameSource, WebsiteSource, SiteAnalyzer, ScraperConfig, DriveSource (Drive API v3)
+scraper/   pure JVM: GameSource → WebsiteSource, DriveSource, JsonApiSource, FtpSource (FTP/FTPS/SFTP)
 tools/testsite/   local test site
 ```
 
-MVVM, repositories, coroutines/Flow. HTML parsing never touches the UI: `Scraper → Website adapter → Parser → model → local database → UI`.
+MVVM, repositories, coroutines/Flow. Source parsing never touches the UI: `source → parser → model → local database → UI`.
 
-## Status
-
-Version 0.2.4, personal project, tested on a Retroid Pocket 6. The game launcher is deliberately out of scope: RShop is a store and installer only.
+Version 0.2.4, personal project, tested on a Retroid Pocket 6. The game launcher is deliberately out of scope.
