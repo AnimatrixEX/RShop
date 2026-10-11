@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en" data-theme="night" data-accent="blue">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RShop, the game store for Android handhelds</title>
+<meta name="description" content="RShop is a console-style store and download manager for Android handhelds: browse a catalogue, download, install, controller first. Free, open source, Android 13+.">
+<meta name="theme-color" content="#0A0D13">
+<link rel="canonical" href="https://animatrixex.github.io/RShop/">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="RShop, the game store for Android handhelds">
+<meta property="og:description" content="Browse, download and install games into your emulator folders. Built for controllers: Retroid, Ayn, Anbernic and any Android 13+ device.">
+<meta property="og:url" content="https://animatrixex.github.io/RShop/">
+<meta property="og:image" content="https://animatrixex.github.io/RShop/assets/img/social.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="assets/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"RShop","applicationCategory":"GameApplication","operatingSystem":"Android 13+","offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"},"downloadUrl":"https://github.com/AnimatrixEX/RShop/releases/latest/download/app-release.apk","softwareVersion":"0.2.5","url":"https://animatrixex.github.io/RShop/"}
+</script>
+<style>
+@font-face{font-family:"Bricolage Grotesque";src:url(assets/fonts/bricolage-grotesque.woff2) format("woff2");font-weight:600 800;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url(assets/fonts/instrument-sans.woff2) format("woff2");font-weight:400 600;font-display:swap}
+
+:root{
+  --bg:#0A0D13; --surface:#121722; --raised:#1A2130; --line:#2E3850;
+  --text:#F2F4F8; --text2:#9AA4B6;
+  --accent:#2E6BF2; --accent-hi:#6E9DFF; --on-accent:#fff;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --wrap:1120px; --gutter:clamp(20px,5vw,40px);
+  color-scheme:dark;
+}
+html[data-theme="oled"]{--bg:#000;--surface:#0B0B0E;--raised:#15161B;--line:#2A2C35;--text:#F2F4F8;--text2:#9EA3AE}
+html[data-theme="slate"]{--bg:#15171A;--surface:#1D2024;--raised:#262A30;--line:#3B414B;--text:#F1F3F5;--text2:#A3A9B3}
+html[data-theme="twilight"]{--bg:#0E0A16;--surface:#171123;--raised:#211830;--line:#3A2C52;--text:#F4F0FA;--text2:#A99FBC}
+html[data-accent="blue"]{--accent:#2E6BF2;--accent-hi:#6E9DFF}
+html[data-accent="violet"]{--accent:#7C4DFF;--accent-hi:#A98BFF}
+html[data-accent="cyan"]{--accent:#0A7A88;--accent-hi:#4FD6E3}
+html[data-accent="green"]{--accent:#137A46;--accent-hi:#5BDB9E}
+html[data-accent="orange"]{--accent:#B84E12;--accent-hi:#FFA66E}
+html[data-accent="pink"]{--accent:#D03380;--accent-hi:#FF80B7}
+
+html[lang="fr"] [lang="en"],html[lang="en"] [lang="fr"]{display:none!important}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text2);font:400 1.0625rem/1.65 var(--body);transition:background-color .25s,color .25s}
+img{display:block;max-width:100%;height:auto}
+a{color:var(--accent-hi);text-underline-offset:.2em}
+h1,h2,h3{font-family:var(--display);color:var(--text);margin:0;font-optical-sizing:auto}
+p{margin:0 0 1em;max-width:62ch}
+:focus-visible{outline:3px solid var(--text);outline-offset:3px;border-radius:6px}
+.wrap{width:min(var(--wrap),100% - 2*var(--gutter));margin-inline:auto}
+section{scroll-margin-top:84px}
+.skip{position:absolute;left:-999px;top:8px;background:var(--text);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:20}
+.skip:focus{left:8px}
+
+/* Top bar, the same as the app's: brand, tabs between two shoulder badges */
+.bar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.bar .wrap{display:flex;align-items:center;gap:28px;height:68px}
+.brand{font:800 1.7rem/1 var(--display);color:var(--text);text-decoration:none;letter-spacing:-.03em}
+.brand span{color:var(--accent-hi)}
+.tabs{display:flex;align-items:center;gap:6px;margin-inline:auto}
+.tabs a{position:relative;padding:8px 12px;color:var(--text2);text-decoration:none;font-weight:500;border-radius:8px;transition:color .15s}
+.tabs a:hover{color:var(--text)}
+.tabs a[aria-current="true"]{color:var(--text)}
+.tabs a[aria-current="true"]::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:3px;border-radius:2px;background:var(--accent-hi)}
+.shoulder{font:600 .72rem/1 var(--body);color:var(--text2);background:none;border:1.5px solid var(--line);border-radius:999px;padding:5px 9px;cursor:pointer;transition:color .15s,border-color .15s}
+.shoulder:hover{color:var(--text);border-color:var(--text2)}
+.bar-end{display:flex;align-items:center;gap:12px}
+.lang{display:flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden}
+.lang button{font:600 .8rem/1 var(--body);background:none;color:var(--text2);border:0;padding:7px 11px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--raised);color:var(--text)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:10px;min-height:54px;padding:0 28px;border-radius:999px;border:1.5px solid transparent;background:var(--accent);color:var(--on-accent);font:700 1.05rem/1 var(--display);text-decoration:none;cursor:pointer;transition:transform .15s,background-color .25s,border-color .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn:focus-visible{transform:scale(1.04)}
+.btn svg{width:22px;height:22px;flex:none}
+.btn.quiet{background:var(--raised);color:var(--text);border-color:var(--line)}
+.btn.small{min-height:40px;padding:0 18px;font-size:.92rem}
+
+/* Hero */
+.hero{padding:clamp(48px,9vw,104px) 0 0}
+.hero h1{font-size:clamp(2.5rem,6.4vw,5.2rem);font-weight:800;line-height:.98;letter-spacing:-.035em;max-width:16ch}
+.hero .lead{font-size:clamp(1.1rem,1.6vw,1.3rem);margin:26px 0 34px;max-width:46ch}
+.actions{display:flex;flex-wrap:wrap;gap:14px}
+.facts{display:flex;flex-wrap:wrap;gap:6px 26px;list-style:none;margin:26px 0 0;padding:0;font-size:.95rem}
+.facts b{color:var(--text);font-weight:600}
+.frame{border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--surface);box-shadow:0 30px 80px -30px rgb(0 0 0/.7)}
+.hero .frame{margin-top:clamp(40px,6vw,72px);animation:rise .8s cubic-bezier(.2,.7,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(28px) scale(.985)}to{opacity:1;transform:none}}
+
+/* Sections */
+.block{padding:clamp(72px,11vw,136px) 0 0}
+.block h2{font-size:clamp(2rem,4vw,3.1rem);font-weight:700;line-height:1.04;letter-spacing:-.025em;margin-bottom:22px;max-width:18ch}
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(32px,6vw,72px);align-items:center}
+.split.flip > :first-child{order:2}
+.points{list-style:none;margin:30px 0 0;padding:0;display:grid;gap:16px}
+.points li{padding-left:18px;border-left:2px solid var(--line);max-width:56ch}
+.points b{color:var(--text);font-weight:600}
+figure{margin:0}
+figcaption{font-size:.9rem;margin-top:12px;padding-inline:4px}
+
+dl.sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 clamp(28px,5vw,64px);margin:40px 0 0}
+dl.sources div{border-top:1px solid var(--line);padding:22px 0 28px}
+dl.sources dt{font:700 1.35rem/1.2 var(--display);color:var(--text);margin-bottom:8px;letter-spacing:-.01em}
+dl.sources dd{margin:0;max-width:44ch}
+.note{margin-top:8px;padding:18px 22px;border-radius:14px;background:var(--surface);border:1px solid var(--line);max-width:none}
+
+/* Controller keys */
+.keys{display:flex;flex-wrap:wrap;gap:14px 30px;margin:34px 0 0;padding:26px 28px;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.key{display:flex;align-items:center;gap:10px;color:var(--text);font-weight:500}
+.cap{min-width:38px;height:38px;padding:0 11px;display:inline-grid;place-items:center;border:1.5px solid var(--line);border-radius:999px;font:700 .85rem/1 var(--body);color:var(--text2);background:var(--raised);transition:background-color .1s,color .1s,border-color .1s}
+.cap.on{background:var(--accent);border-color:var(--accent-hi);color:var(--on-accent)}
+
+/* Themes */
+.picker{display:grid;gap:22px;margin-top:30px}
+.picker h3{font:600 .95rem/1 var(--body);color:var(--text2);margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{display:inline-flex;align-items:center;gap:9px;min-height:44px;padding:0 18px 0 12px;border:1.5px solid var(--line);border-radius:999px;background:var(--surface);color:var(--text);font:500 .95rem/1 var(--body);cursor:pointer;transition:border-color .15s,background-color .25s}
+.chip:hover{border-color:var(--text2)}
+.chip[aria-checked="true"]{border-color:var(--accent-hi);background:var(--raised)}
+.swatch{width:20px;height:20px;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--text) 35%,transparent);background:var(--sw)}
+.chip.dot{padding:0;width:44px;justify-content:center}
+.chip.dot .swatch{width:24px;height:24px;border:0}
+
+/* Install */
+.steps{counter-reset:s;list-style:none;margin:30px 0 0;padding:0;display:grid;gap:18px}
+.steps li{counter-increment:s;display:grid;grid-template-columns:44px 1fr;gap:16px;align-items:start;max-width:56ch}
+.steps li::before{content:counter(s);display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--raised);border:1.5px solid var(--line);color:var(--text);font:700 1.1rem/1 var(--display)}
+.steps b{color:var(--text);font-weight:600}
+.panel{padding:clamp(22px,3vw,34px);background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.panel h3{font-size:1.25rem;margin-bottom:14px}
+.panel .actions{margin:6px 0 22px}
+code{font:500 .86rem/1.5 ui-monospace,"Cascadia Mono",Consolas,monospace;color:var(--text);word-break:break-all}
+.hash{display:block;margin:4px 0 14px;padding:10px 12px;background:var(--raised);border-radius:8px}
+.label{font-size:.9rem;color:var(--text2);margin:0}
+
+footer{margin-top:clamp(80px,12vw,150px);border-top:1px solid var(--line);padding:36px 0 56px;font-size:.95rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:12px 36px;align-items:center}
+footer p{margin:0;max-width:none}
+footer nav{display:flex;flex-wrap:wrap;gap:8px 24px;margin-left:auto}
+
+/* Controller hints, only when a gamepad is connected */
+.padbar{position:fixed;left:50%;bottom:16px;transform:translate(-50%,24px);opacity:0;pointer-events:none;display:flex;gap:22px;padding:10px 20px;background:color-mix(in srgb,var(--raised) 94%,transparent);border:1px solid var(--line);border-radius:999px;color:var(--text);font-size:.9rem;transition:opacity .2s,transform .2s;z-index:15;white-space:nowrap}
+.padbar span{display:flex;align-items:center;gap:8px}
+.padbar .cap{min-width:30px;height:30px;font-size:.75rem}
+html.has-pad .padbar{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:900px){
+  .tabs,.shoulder{display:none}
+  .bar-end{margin-left:auto}
+  .split,.split.flip{grid-template-columns:minmax(0,1fr)}
+  .split.flip > :first-child{order:0}
+  dl.sources{grid-template-columns:minmax(0,1fr)}
+  footer nav{margin-left:0}
+}
+@media (max-width:520px){
+  .bar .wrap{gap:12px}
+  .bar .btn.small{display:none}
+  .btn{width:100%;justify-content:center}
+  .keys{padding:20px}
+  .padbar{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#home"><span lang="en">Skip to content</span><span lang="fr">Aller au contenu</span></a>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#home" aria-label="RShop"><span>R</span>Shop</a>
+    <nav class="tabs" aria-label="Sections">
+      <button class="shoulder" type="button" data-step="-1" aria-label="Previous section / Section précédente">L1</button>
+      <a href="#home"><span lang="en">Home</span><span lang="fr">Accueil</span></a>
+      <a href="#store">Store</a>
+      <a href="#sources">Sources</a>
+      <a href="#controller"><span lang="en">Controller</span><span lang="fr">Manette</span></a>
+      <a href="#themes"><span lang="en">Themes</span><span lang="fr">Thèmes</span></a>
+      <a href="#download"><span lang="en">Download</span><span lang="fr">Télécharger</span></a>
+      <button class="shoulder" type="button" data-step="1" aria-label="Next section / Section suivante">R1</button>
+    </nav>
+    <div class="bar-end">
+      <div class="lang" role="group" aria-label="Language / Langue">
+        <button type="button" data-lang="fr" aria-pressed="false">FR</button>
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      </div>
+      <a class="btn small" href="https://github.com/AnimatrixEX/RShop/releases/latest/download/app-release.apk" data-apk>
+        <span lang="en">Download</span><span lang="fr">Télécharger</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="home" class="hero">
+    <div class="wrap">
+      <h1>
+        <span lang="en">The game store for your handheld.</span>
+        <span lang="fr">Le store de jeux de ta console portable.</span>
+      </h1>
+      <p class="lead">
+        <span lang="en">Browse a catalogue, download games and install them straight into your emulator folders. Made for controllers, at home on Retroid, Ayn and Anbernic.</span>
+        <span lang="fr">Parcours un catalogue, télécharge des jeux et installe-les directement dans tes dossiers d'émulation. Pensé pour la manette, à l'aise sur Retroid, Ayn et Anbernic.</span>
+      </p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/AnimatrixEX/RShop/releases/latest/download/app-release.apk" data-apk>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+          <span lang="en">Download for Android</span><span lang="fr">Télécharger pour Android</span>
+        </a>
+        <a class="btn quiet" href="obtainium://add/https://github.com/AnimatrixEX/RShop">
+          <span lang="en">Add to Obtainium</span><span lang="fr">Ajouter à Obtainium</span>
+        </a>
+      </div>
+      <ul class="facts">
+        <li><span lang="en">Version</span><span lang="fr">Version</span> <b data-version>0.2.5</b></li>
+        <li><b data-size>198 MB</b></li>
+        <li><b>Android 13+</b></li>
+        <li><b>arm64</b></li>
+        <li><span lang="en">Free and open source</span><span lang="fr">Gratuit et open source</span></li>
+      </ul>
+      <figure class="frame">
+        <img src="assets/img/home.webp" width="1600" height="896" alt="RShop home screen: shelves of 3D game boxes under a tab bar" data-alt-en="RShop home screen: shelves of 3D game boxes under a tab bar" data-alt-fr="Écran d'accueil de RShop : des étagères de boîtiers 3D sous une barre d'onglets" fetchpriority="high">
+      </figure>
+    </div>
+  </section>
+
+  <section id="store" class="block">
+    <div class="wrap split">
+      <div>
+        <h2><span lang="en">From the shelf to your folder.</span><span lang="fr">Du rayon à ton dossier.</span></h2>
+        <p lang="en">Open a game and press Install. RShop downloads in the background, checks the file, unpacks it into the folder you picked and tells you when it is ready for your emulator.</p>
+        <p lang="fr">Ouvre un jeu et appuie sur Installer. RShop télécharge en arrière-plan, vérifie le fichier, le décompresse dans le dossier que tu as choisi et te prévient quand il est prêt pour ton émulateur.</p>
+        <ul class="points">
+          <li lang="en"><b>Pause, resume, cancel</b> from the app or from the notification.</li>
+          <li lang="fr"><b>Pause, reprise, annulation</b> depuis l'app ou depuis la notification.</li>
+          <li lang="en"><b>Every file is checked</b> with its SHA-256 when the source gives one, and downloads stop before the battery or the free space runs out.</li>
+          <li lang="fr"><b>Chaque fichier est vérifié</b> avec son SHA-256 quand la source en fournit un, et les téléchargements s'arrêtent avant que la batterie ou l'espace libre ne manque.</li>
+          <li lang="en"><b>zip, 7z, RAR, tar</b> and their variants are unpacked safely, with protection against path traversal and zip bombs.</li>
+          <li lang="fr"><b>zip, 7z, RAR, tar</b> et leurs variantes sont décompressés en sécurité, protégés contre les chemins piégés et les bombes de décompression.</li>
+          <li lang="en"><b>Discs and extras</b>: several formats or files per game (bin and cue, discs, updates) install together.</li>
+          <li lang="fr"><b>Disques et extras</b> : plusieurs formats ou fichiers par jeu (bin et cue, disques, mises à jour) s'installent ensemble.</li>
+        </ul>
+      </div>
+      <figure class="frame">
+        <img src="assets/img/details.webp" width="1600" height="896" loading="lazy" alt="A game page with its details and the Install button" data-alt-en="A game page with its details and the Install button" data-alt-fr="La page d'un jeu avec ses détails et le bouton Installer">
+      </figure>
+    </div>
+  </section>
+
+  <section id="sources" class="block">
+    <div class="wrap">
+      <div class="split flip">
+        <div>
+          <h2><span lang="en">You bring the catalogue.</span><span lang="fr">Tu apportes le catalogue.</span></h2>
+          <p lang="en">RShop ships with no games and no catalogue. Add sources whose content you have the right to download: homebrew, your own creations, freely licensed games, your own server. They sync into a local database, so the store keeps working offline.</p>
+          <p lang="fr">RShop ne contient ni jeux ni catalogue. Ajoute des sources dont tu as le droit de télécharger le contenu : homebrew, tes propres créations, jeux sous licence libre, ton propre serveur. Elles se synchronisent dans une base locale : le store reste utilisable hors ligne.</p>
+        </div>
+        <figure class="frame">
+          <img src="assets/img/sources.webp" width="1600" height="896" loading="lazy" alt="The sources screen, with sync status for each source" data-alt-en="The sources screen, with sync status for each source" data-alt-fr="L'écran des sources, avec l'état de synchronisation de chacune">
+        </figure>
+      </div>
+      <dl class="sources">
+        <div>
+          <dt><span lang="en">Websites</span><span lang="fr">Sites web</span></dt>
+          <dd lang="en">Paste a page that lists games. RShop analyses it, proposes a setup and shows a preview before you accept. It respects robots.txt and rate limits.</dd>
+          <dd lang="fr">Colle une page qui liste des jeux. RShop l'analyse, propose une configuration et affiche un aperçu avant que tu valides. Il respecte robots.txt et limite son débit.</dd>
+        </div>
+        <div>
+          <dt>Google Drive</dt>
+          <dd lang="en">Paste a folder's share link. Sign in with your Google account or use your own API key. Sub-folders named after consoles become consoles.</dd>
+          <dd lang="fr">Colle le lien de partage d'un dossier. Connecte-toi avec ton compte Google ou utilise ta propre clé d'API. Les sous-dossiers nommés d'après des consoles deviennent des consoles.</dd>
+        </div>
+        <div>
+          <dt>FTP, FTPS, SFTP</dt>
+          <dd lang="en">Your NAS or your server. Passwords are stored encrypted and never leave the device in a backup. SFTP pins the server key and refuses it if it changes.</dd>
+          <dd lang="fr">Ton NAS ou ton serveur. Les mots de passe sont chiffrés et ne sortent jamais de l'appareil dans une sauvegarde. SFTP épingle la clé du serveur et la refuse si elle change.</dd>
+        </div>
+        <div>
+          <dt>JSON API</dt>
+          <dd lang="en">Describe your own endpoint in a small config file: the list, the details and where each field sits in the JSON.</dd>
+          <dd lang="fr">Décris ton propre point d'accès dans un petit fichier de configuration : la liste, les détails et l'emplacement de chaque champ dans le JSON.</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="controller" class="block">
+    <div class="wrap">
+      <h2><span lang="en">Built for a controller.</span><span lang="fr">Pensé pour la manette.</span></h2>
+      <p lang="en">Every screen works without touching the screen. The focus is always visible and comes back where you left it. Covers, 3D game boxes and text are sized for a handheld held at arm's length, or a TV.</p>
+      <p lang="fr">Chaque écran se parcourt sans toucher l'écran. Le focus est toujours visible et revient là où tu l'avais laissé. Jaquettes, boîtiers 3D et textes sont dimensionnés pour une console tenue à bout de bras, ou pour une TV.</p>
+      <div class="keys" role="group" aria-label="Controller buttons / Boutons de la manette">
+        <span class="key"><span class="cap" data-btn="4">L1</span><span class="cap" data-btn="5">R1</span><span lang="en">Change tab</span><span lang="fr">Changer d'onglet</span></span>
+        <span class="key"><span class="cap" data-btn="0">A</span><span lang="en">Select</span><span lang="fr">Valider</span></span>
+        <span class="key"><span class="cap" data-btn="1">B</span><span lang="en">Back</span><span lang="fr">Retour</span></span>
+        <span class="key"><span class="cap" data-btn="3">Y</span><span lang="en">Game menu</span><span lang="fr">Menu du jeu</span></span>
+        <span class="key"><span class="cap" data-btn="2">X</span><span lang="en">Search</span><span lang="fr">Recherche</span></span>
+      </div>
+      <p class="label" style="margin-top:16px">
+        <span lang="en">This page answers to a controller too: plug one in, press a button, and the keys above light up.</span>
+        <span lang="fr">Cette page répond aussi à une manette : branches-en une, appuie sur un bouton, et les touches ci-dessus s'allument.</span>
+      </p>
+    </div>
+  </section>
+
+  <section id="themes" class="block">
+    <div class="wrap split">
+      <div>
+        <h2><span lang="en">Your store, your colours.</span><span lang="fr">Ton store à tes couleurs.</span></h2>
+        <p lang="en">Dark, OLED, slate and twilight, plus glass, PlayStation Store and eShop looks, seven accent colours and flat covers or 3D boxes. Try four of them on this page.</p>
+        <p lang="fr">Sombre, OLED, ardoise et crépuscule, plus les styles verre, PlayStation Store et eShop, sept couleurs d'accent, des jaquettes plates ou des boîtiers 3D. Essaie-en quatre sur cette page.</p>
+        <div class="picker">
+          <div>
+            <h3><span lang="en">Background</span><span lang="fr">Fond</span></h3>
+            <div class="chips" role="radiogroup" aria-label="Background / Fond" data-group="theme">
+              <button class="chip" role="radio" aria-checked="true" data-value="night" style="--sw:#1A2130"><span class="swatch"></span>Night</button>
+              <button class="chip" role="radio" aria-checked="false" data-value="oled" style="--sw:#000"><span class="swatch"></span>OLED</button>
+              <button class="chip" role="radio" aria-checked="false" data-value="slate" style="--sw:#262A30"><span class="swatch"></span>Slate</button>
+              <button class="chip" role="radio" aria-checked="false" data-value="twilight" style="--sw:#211830"><span class="swatch"></span>Twilight</button>
+            </div>
+          </div>
+          <div>
+            <h3><span lang="en">Accent</span><span lang="fr">Accent</span></h3>
+            <div class="chips" role="radiogroup" aria-label="Accent" data-group="accent">
+              <button class="chip dot" role="radio" aria-checked="true" data-value="blue" aria-label="Blue / Bleu" style="--sw:#3D7BFF"><span class="swatch"></span></button>
+              <button class="chip dot" role="radio" aria-checked="false" data-value="violet" aria-label="Violet" style="--sw:#7C4DFF"><span class="swatch"></span></button>
+              <button class="chip dot" role="radio" aria-checked="false" data-value="cyan" aria-label="Cyan" style="--sw:#4FD6E3"><span class="swatch"></span></button>
+              <button class="chip dot" role="radio" aria-checked="false" data-value="green" aria-label="Green / Vert" style="--sw:#5BDB9E"><span class="swatch"></span></button>
+              <button class="chip dot" role="radio" aria-checked="false" data-value="orange" aria-label="Orange" style="--sw:#FFA66E"><span class="swatch"></span></button>
+              <button class="chip dot" role="radio" aria-checked="false" data-value="pink" aria-label="Pink / Rose" style="--sw:#FF80B7"><span class="swatch"></span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figure class="frame">
+        <img src="assets/img/theme.webp" width="1600" height="896" loading="lazy" alt="The appearance settings: backgrounds, accent colours, cover style" data-alt-en="The appearance settings: backgrounds, accent colours, cover style" data-alt-fr="Les réglages d'apparence : fonds, couleurs d'accent, style des jaquettes">
+      </figure>
+    </div>
+  </section>
+
+  <section id="download" class="block">
+    <div class="wrap split">
+      <div>
+        <h2><span lang="en">Install RShop.</span><span lang="fr">Installe RShop.</span></h2>
+        <ol class="steps">
+          <li lang="en"><span><b>Download the APK</b> below and open it. Android asks once to allow installs from your browser or file manager.</span></li>
+          <li lang="fr"><span><b>Télécharge l'APK</b> ci-dessous et ouvre-le. Android te demande une fois d'autoriser les installations depuis ton navigateur ou ton gestionnaire de fichiers.</span></li>
+          <li lang="en"><span>In <b>Settings, Storage</b>, pick the folder where games go.</span></li>
+          <li lang="fr"><span>Dans <b>Réglages, Stockage</b>, choisis le dossier où iront les jeux.</span></li>
+          <li lang="en"><span>In <b>Settings, Catalogue, Sources</b>, add your first source.</span></li>
+          <li lang="fr"><span>Dans <b>Réglages, Catalogue, Sources</b>, ajoute ta première source.</span></li>
+        </ol>
+      </div>
+      <div class="panel">
+        <h3><span lang="en">Latest version</span><span lang="fr">Dernière version</span> <span data-version>0.2.5</span></h3>
+        <div class="actions">
+          <a class="btn" href="https://github.com/AnimatrixEX/RShop/releases/latest/download/app-release.apk" data-apk>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            <span lang="en">Download APK</span><span lang="fr">Télécharger l'APK</span>
+          </a>
+        </div>
+        <p class="label"><span lang="en">Android 13 or later, arm64 processor, about <span data-size>198 MB</span> (most of it is the built-in browser).</span><span lang="fr">Android 13 ou plus, processeur arm64, environ <span data-size>198 Mo</span> (surtout le navigateur intégré).</span></p>
+        <p class="label" style="margin-top:14px"><span lang="en">Prefer automatic updates? Obtainium follows the GitHub releases for you, and RShop can also update itself from its settings.</span><span lang="fr">Tu préfères les mises à jour automatiques ? Obtainium suit les releases GitHub pour toi, et RShop sait aussi se mettre à jour depuis ses réglages.</span></p>
+        <h3 style="margin-top:26px"><span lang="en">Check what you downloaded</span><span lang="fr">Vérifie ce que tu as téléchargé</span></h3>
+        <p class="label" style="margin-bottom:0">SHA-256 APK</p>
+        <code class="hash" data-sha>013882b58bc919cf5108f1211715327d1f2261c31c58c0514eeb9c90d769fe11</code>
+        <p class="label" style="margin-bottom:0"><span lang="en">Signing certificate SHA-256, the same for every release</span><span lang="fr">SHA-256 du certificat de signature, identique pour toutes les versions</span></p>
+        <code class="hash" style="margin-bottom:0">02f35c3eb7ff9c1fe4e5710c89f647d0de986d570cefe653ea919a923db07622</code>
+      </div>
+    </div>
+  </section>
+
+  <section id="use" class="block">
+    <div class="wrap">
+      <h2><span lang="en">Use it responsibly.</span><span lang="fr">Utilise-le avec discernement.</span></h2>
+      <p lang="en">RShop is only a store and a download manager. It does not launch games, and it never bypasses CAPTCHAs, anti-bot protections, DRM, paywalls or logins. It never silently downloads executables, and it validates addresses, sizes, file types, hashes and extraction paths. Only add sources whose content you are allowed to use: you are responsible for what you download.</p>
+      <p lang="fr">RShop n'est qu'un store et un gestionnaire de téléchargements. Il ne lance pas les jeux, et il ne contourne jamais les CAPTCHA, protections anti-bot, DRM, paywalls ou connexions. Il ne télécharge jamais d'exécutables en silence, et il valide les adresses, tailles, types de fichiers, empreintes et chemins d'extraction. N'ajoute que des sources dont tu as le droit d'utiliser le contenu : tu es responsable de ce que tu télécharges.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><b style="color:var(--text)">RShop</b> <span lang="en">is a personal project, tested on a Retroid Pocket 6.</span><span lang="fr">est un projet personnel, testé sur une Retroid Pocket 6.</span></p>
+    <nav aria-label="Links / Liens">
+      <a href="https://github.com/AnimatrixEX/RShop">GitHub</a>
+      <a href="https://github.com/AnimatrixEX/RShop/releases"><span lang="en">All releases</span><span lang="fr">Toutes les versions</span></a>
+      <a href="https://github.com/AnimatrixEX/RShop/issues"><span lang="en">Report a problem</span><span lang="fr">Signaler un problème</span></a>
+    </nav>
+  </div>
+</footer>
+
+<div class="padbar" aria-hidden="true">
+  <span><i class="cap">A</i><span lang="en">Select</span><span lang="fr">Valider</span></span>
+  <span><i class="cap">L1</i><i class="cap">R1</i><span lang="en">Sections</span><span lang="fr">Sections</span></span>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  var sizeMb = 198;
+
+  /* Language: saved choice, else the browser's, else English. */
+  function setLang(lang) {
+    root.lang = lang;
+    document.querySelectorAll('[data-lang]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.lang === lang)); });
+    document.querySelectorAll('img[data-alt-' + lang + ']').forEach(function (img) { img.alt = img.getAttribute('data-alt-' + lang); });
+    document.title = lang === 'fr' ? 'RShop, le store de jeux pour consoles Android portables' : 'RShop, the game store for Android handhelds';
+    renderSize();
+  }
+  var saved = store.get('rshop-lang');
+  setLang(saved || ((navigator.language || 'en').slice(0, 2) === 'fr' ? 'fr' : 'en'));
+  document.querySelectorAll('[data-lang]').forEach(function (b) {
+    b.addEventListener('click', function () { store.set('rshop-lang', b.dataset.lang); setLang(b.dataset.lang); });
+  });
+
+  /* Theme and accent chosen on this page. */
+  function applyChoice(group, value) {
+    root.setAttribute('data-' + group, value);
+    document.querySelectorAll('[data-group="' + group + '"] .chip').forEach(function (c) { c.setAttribute('aria-checked', String(c.dataset.value === value)); });
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (group === 'theme' && meta) meta.content = getComputedStyle(root).getPropertyValue('--bg').trim();
+  }
+  ['theme', 'accent'].forEach(function (group) {
+    var v = store.get('rshop-' + group);
+    if (v && document.querySelector('[data-group="' + group + '"] [data-value="' + v + '"]')) applyChoice(group, v);
+    document.querySelectorAll('[data-group="' + group + '"] .chip').forEach(function (c) {
+      c.addEventListener('click', function () { store.set('rshop-' + group, c.dataset.value); applyChoice(group, c.dataset.value); });
+    });
+  });
+
+  /* Latest release: version, size and checksum read from GitHub, the static text stays if it cannot be reached. */
+  function renderSize() {
+    document.querySelectorAll('[data-size]').forEach(function (n) { n.textContent = sizeMb + (root.lang === 'fr' ? ' Mo' : ' MB'); });
+  }
+  fetch('https://api.github.com/repos/AnimatrixEX/RShop/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (rel) {
+      var apk = (rel.assets || []).filter(function (a) { return /\.apk$/i.test(a.name); })[0];
+      if (!apk) return;
+      var version = String(rel.tag_name || '').replace(/^v/i, '');
+      document.querySelectorAll('[data-version]').forEach(function (n) { n.textContent = version; });
+      sizeMb = Math.round(apk.size / 1e6);
+      renderSize();
+      document.querySelectorAll('[data-apk]').forEach(function (a) { a.href = apk.browser_download_url; });
+      var sha = String(apk.digest || '').replace(/^sha256:/, '');
+      if (/^[0-9a-f]{64}$/i.test(sha)) document.querySelectorAll('[data-sha]').forEach(function (n) { n.textContent = sha; });
+    })
+    .catch(function () {});
+
+  /* Tabs follow the scroll; L1 and R1 step through the sections. */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tabs a'));
+  var sections = tabs.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  var current = 0;
+  function mark(i) {
+    current = i;
+    tabs.forEach(function (a, n) { if (n === i) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); });
+  }
+  mark(0);
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) mark(sections.indexOf(e.target)); });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    sections.forEach(function (s) { if (s) io.observe(s); });
+  }
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  function step(delta) {
+    var next = Math.max(0, Math.min(sections.length - 1, current + delta));
+    sections[next].scrollIntoView({ behavior: reduce.matches ? 'auto' : 'smooth', block: 'start' });
+    mark(next);
+  }
+  document.querySelectorAll('[data-step]').forEach(function (b) {
+    b.addEventListener('click', function () { step(Number(b.dataset.step)); });
+  });
+
+  /* Gamepad: D-pad or left stick moves the focus, A presses, L1/R1 change section. */
+  var running = false, held = {}, repeatAt = 0;
+  function focusable() {
+    return Array.prototype.slice.call(document.querySelectorAll('a[href], button:not([disabled])')).filter(function (el) {
+      var r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+    });
+  }
+  function move(delta) {
+    var list = focusable();
+    var i = list.indexOf(document.activeElement);
+    var next = list[(i + delta + list.length) % list.length] || list[0];
+    if (next) { next.focus({ preventScroll: true }); next.scrollIntoView({ block: 'center', behavior: reduce.matches ? 'auto' : 'smooth' }); }
+  }
+  function poll() {
+    var pad = Array.prototype.slice.call(navigator.getGamepads ? navigator.getGamepads() : []).filter(Boolean)[0];
+    if (!pad) { running = false; root.classList.remove('has-pad'); return; }
+    var now = performance.now();
+    document.querySelectorAll('[data-btn]').forEach(function (cap) {
+      var b = pad.buttons[Number(cap.dataset.btn)];
+      cap.classList.toggle('on', !!(b && b.pressed));
+    });
+    function down(i) { return pad.buttons[i] && pad.buttons[i].pressed; }
+    var dir = 0;
+    if (down(13) || down(15) || pad.axes[1] > 0.6 || pad.axes[0] > 0.6) dir = 1;
+    if (down(12) || down(14) || pad.axes[1] < -0.6 || pad.axes[0] < -0.6) dir = -1;
+    if (dir && now >= repeatAt) { move(dir); repeatAt = now + (held.dir === dir ? 170 : 380); held.dir = dir; }
+    if (!dir) { held.dir = 0; repeatAt = 0; }
+    [[0, function () { if (document.activeElement && document.activeElement !== document.body) document.activeElement.click(); }],
+     [4, function () { step(-1); }], [5, function () { step(1); }]].forEach(function (pair) {
+      var pressed = !!down(pair[0]);
+      if (pressed && !held[pair[0]]) pair[1]();
+      held[pair[0]] = pressed;
+    });
+    requestAnimationFrame(poll);
+  }
+  function start() { root.classList.add('has-pad'); if (!running) { running = true; requestAnimationFrame(poll); } }
+  addEventListener('gamepadconnected', start);
+  if (navigator.getGamepads && Array.prototype.some.call(navigator.getGamepads(), Boolean)) start();
+})();
+</script>
+</body>
+</html>

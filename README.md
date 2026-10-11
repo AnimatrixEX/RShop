@@ -1,5 +1,7 @@
 # RShop
 
+**Website and download: https://animatrixex.github.io/RShop/**
+
 **A game store for Android handhelds.** Browse a catalogue, download, install and manage games, with a console-style interface built for controllers.
 
 RShop is **only a store and a download/install manager**. It does not launch games (that stays with your frontend or emulators) and it ships **no catalogue**: you add sources whose content you have the right to download (homebrew, your own creations, freely licensed content, your own server…).
