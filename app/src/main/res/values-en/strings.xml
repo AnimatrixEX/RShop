@@ -385,6 +385,7 @@
     <string name="update_error_bad_release">The latest published version cannot be used.</string>
     <string name="update_error_metered">Mobile data detected and "Wi-Fi only" is on. Connect to Wi-Fi.</string>
     <string name="update_error_corrupt">The downloaded file is incomplete or differs from the published one. Press to try again.</string>
+    <string name="update_error_no_checksum">This release publishes no checksum (SHA-256), so it cannot be verified and the update is refused.</string>
     <string name="update_error_not_rshop">The published file is not an RShop version.</string>
     <string name="update_error_install">Android refused the installation.</string>
 
@@ -431,6 +432,7 @@
         <item quantity="other">%d lists</item>
     </plurals>
     <string name="backup_restore_note">Settings are replaced. Sources are read again; favorites whose game is not in the catalogue yet are added after the sync.</string>
+    <string name="backup_hosts">Servers contacted: %1$s</string>
     <string name="backup_restore_confirm">Restore</string>
     <string name="backup_saved_title">Backup saved</string>
     <string name="backup_saved_body">The file holds your sources, favorites, lists and settings. Installed games stay in the games folder; the SteamGridDB key and the folder access are not saved.</string>

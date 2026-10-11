@@ -73,6 +73,17 @@ class BackupTest {
     }
 
     @Test
+    fun `a backup shows every server its sources would contact`() {
+        val backup = Backup(
+            sources = listOf(source.copy(allowedDownloadHosts = listOf("*.cdn.example.net"))),
+            driveSources = listOf(com.rshop.scraper.config.DriveConfig("gdrive-0123456789", "Drive", "1AbCdEfGhIjKlMnOp", platform = "Wii")),
+            ftpSources = listOf(com.rshop.scraper.config.FtpConfig("sftp-nas-123456", "NAS", com.rshop.scraper.remote.RemoteProtocol.Sftp, "nas.local", username = "me", rootPath = "/Roms")),
+        )
+
+        assertEquals(listOf("demo.example.org", "*.cdn.example.net", "drive.google.com", "nas.local"), backup.hosts)
+    }
+
+    @Test
     fun `files that are not a usable backup are refused`() {
         for (text in listOf("not json", "[]", """{"format": 99}""")) {
             try {

@@ -5,7 +5,9 @@ import com.rshop.scraper.config.FtpConfig
 import com.rshop.scraper.config.JsonApiConfig
 import com.rshop.scraper.config.ScraperConfig
 import com.rshop.scraper.config.SourceConfig
+import com.rshop.scraper.remote.RemoteUrl
 import kotlinx.serialization.Serializable
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * Everything worth keeping when the app is reinstalled or moved to another device: the sources,
@@ -32,6 +34,18 @@ data class Backup(
     val settings: BackupSettings = BackupSettings(),
 ) {
     val allSources: List<SourceConfig> get() = sources + driveSources + jsonSources + ftpSources
+
+    /** Every server the sources would contact (catalogue and permitted download hosts), to show before a restore. */
+    val hosts: List<String>
+        get() = allSources.flatMap { source ->
+            val own = source.location.toHttpUrlOrNull()?.host ?: RemoteUrl.parse(source.location)?.host ?: source.location
+            val downloads = when (source) {
+                is ScraperConfig -> source.allowedDownloadHosts
+                is JsonApiConfig -> source.allowedDownloadHosts
+                else -> emptyList()
+            }
+            listOf(own) + downloads
+        }.distinct()
 
     companion object {
         const val FORMAT = 1
@@ -78,6 +92,8 @@ data class BackupSummary(
     val createdAt: Long,
     val appVersion: String,
     val sources: List<String>,
+    /** Servers the sources will contact (catalogue and download hosts), so a restored file cannot point anywhere unseen. */
+    val hosts: List<String>,
     val favorites: Int,
     val lists: Int,
 )

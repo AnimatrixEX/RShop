@@ -14,6 +14,7 @@ import okhttp3.Response
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.net.InetAddress
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -67,6 +68,7 @@ class HttpFileDownloader(
     private val userAgent: String,
     private val maxFileSize: Long = 128L * 1024 * 1024 * 1024,
 ) {
+    private val noRedirects = client.newBuilder().followRedirects(false).followSslRedirects(false).build()
 
     /**
      * Downloads [url] into [target], resuming from its current length when [validators] allow it.
@@ -114,6 +116,8 @@ class HttpFileDownloader(
 
         val response = try {
             execute(request)
+        } catch (e: DownloadException) {
+            throw e
         } catch (e: IOException) {
             throw DownloadException.Transient("Connection failed: ${e.message}", e)
         }
@@ -208,8 +212,30 @@ class HttpFileDownloader(
     private fun contentRangeTotal(response: Response): Long? =
         CONTENT_RANGE.find(response.header("Content-Range").orEmpty())?.groupValues?.get(3)?.toLongOrNull()
 
-    private suspend fun execute(request: Request): Response = suspendCancellableCoroutine { continuation ->
-        val call = client.newCall(request)
+    /**
+     * Follows redirects one by one instead of letting OkHttp do it: each hop is checked by
+     * [RedirectPolicy], and the browser's Cookie header is dropped as soon as the host changes (OkHttp
+     * only strips Authorization), so a mirror host never receives the cookies of the site.
+     */
+    private suspend fun execute(request: Request): Response {
+        val origin = request.url
+        var current = request
+        repeat(MAX_REDIRECTS + 1) {
+            val response = call(current)
+            if (response.code !in REDIRECT_CODES) return response
+            val target = response.header("Location")?.let { response.request.url.resolve(it) }
+            response.close()
+            if (target == null) throw DownloadException.Rejected("Redirect without a usable address")
+            RedirectPolicy.check(current.url, target, origin)
+            current = current.newBuilder().url(target).apply {
+                if (target.host != origin.host) removeHeader("Cookie")
+            }.build()
+        }
+        throw DownloadException.Rejected("Too many redirects")
+    }
+
+    private suspend fun call(request: Request): Response = suspendCancellableCoroutine { continuation ->
+        val call = noRedirects.newCall(request)
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) = continuation.resume(response) { _, _, _ -> response.close() }
@@ -220,6 +246,8 @@ class HttpFileDownloader(
     }
 
     private companion object {
+        const val MAX_REDIRECTS = 10
+        val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
         const val BUFFER_SIZE = 64 * 1024
         const val SPACE_MARGIN = 50L * 1024 * 1024
         val CONTENT_RANGE = Regex("""bytes (\d+)-(\d+)/(\d+|\*)""")
@@ -231,5 +259,36 @@ class HttpFileDownloader(
             "keyInvalid", "API_KEY_INVALID", "API_KEY_ANDROID_APP_BLOCKED", "API_KEY_SERVICE_BLOCKED", "accessNotConfigured",
             "SERVICE_DISABLED", "dailyLimitExceededUnreg", "keyExpired",
         )
+    }
+}
+
+/**
+ * Where a download may be sent by a redirect. The host check of the source applies to the first
+ * address only; a redirect to a mirror is normal, but never to a weaker or more private place.
+ */
+internal object RedirectPolicy {
+
+    /** Throws [DownloadException.Rejected] when the redirect from [from] to [to] (the download began at [origin]) is not acceptable. */
+    fun check(from: HttpUrl, to: HttpUrl, origin: HttpUrl) {
+        if (to.scheme != "https" && to.scheme != "http") throw DownloadException.Rejected("Redirect to an unsupported scheme ${to.scheme}")
+        if (from.scheme == "https" && to.scheme == "http") throw DownloadException.Rejected("Redirect from https to http refused")
+        if (isLocal(to.host) && !isLocal(origin.host)) throw DownloadException.Rejected("Redirect to a local network address refused (${to.host})")
+    }
+
+    private val IPV4 = Regex("""\d{1,3}(\.\d{1,3}){3}""")
+
+    /** Loopback, private and link-local addresses written as literals, and the names that always mean this network. No DNS lookup. */
+    fun isLocal(host: String): Boolean {
+        val name = host.lowercase().trimEnd('.')
+        if (name == "localhost" || name.endsWith(".localhost") || name.endsWith(".local") || name.endsWith(".internal")) return true
+        if (!IPV4.matches(name) && ':' !in name) return false
+        val address = try {
+            InetAddress.getByName(name)
+        } catch (e: java.net.UnknownHostException) {
+            return false
+        }
+        val bytes = address.address
+        val uniqueLocal = bytes.size == 16 && (bytes[0].toInt() and 0xfe) == 0xfc
+        return address.isAnyLocalAddress || address.isLoopbackAddress || address.isLinkLocalAddress || address.isSiteLocalAddress || uniqueLocal
     }
 }

@@ -52,6 +52,9 @@ enum class UpdateErrorKind {
     /** Size or SHA-256 differs from what the release announced. */
     Corrupt,
 
+    /** The release publishes no SHA-256 for its APK: nothing to check the download against. */
+    NoChecksum,
+
     /** The file is not an RShop APK. */
     NotRShop,
 
@@ -79,8 +82,8 @@ sealed interface UpdateState {
  * Looks for a newer RShop in the GitHub releases of the project, downloads its APK and hands it
  * to Android's installer. Nothing is checked in the background: it only runs when the user
  * asks. The installer itself verifies that the APK carries the same signature as the installed
- * app, so a file from anywhere else could not replace it; RShop also checks the SHA-256 GitHub
- * publishes for the file, and the package name, before bothering the installer.
+ * app, so a file from anywhere else could not replace it; RShop also requires and checks the SHA-256
+ * GitHub publishes for the file, and the package name, before bothering the installer.
  */
 @Singleton
 class AppUpdater @Inject constructor(
@@ -139,6 +142,11 @@ class AppUpdater @Inject constructor(
         if (_state.value is UpdateState.Downloading || _state.value is UpdateState.Verifying) return
         launch {
             try {
+                // Never install a file that cannot be checked against what was published (the signature is a second guard, not the first).
+                if (release.sha256 == null) {
+                    _state.value = UpdateState.Failed(UpdateErrorKind.NoChecksum, release = release)
+                    return@launch
+                }
                 if (!context.packageManager.canRequestPackageInstalls()) {
                     _state.value = UpdateState.Failed(UpdateErrorKind.InstallPermission, release = release)
                     return@launch
@@ -258,7 +266,7 @@ class AppUpdater @Inject constructor(
     }
 
     private suspend fun matchesHash(file: File, release: AppRelease): Boolean =
-        release.sha256 == null || IntegrityVerifier.sha256(file).equals(release.sha256, ignoreCase = true)
+        release.sha256 != null && IntegrityVerifier.sha256(file).equals(release.sha256, ignoreCase = true)
 
     private fun isMetered(): Boolean {
         val connectivity = context.getSystemService(ConnectivityManager::class.java)

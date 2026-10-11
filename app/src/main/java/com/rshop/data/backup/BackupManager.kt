@@ -77,6 +77,7 @@ class BackupManager @Inject constructor(
         createdAt = backup.createdAt,
         appVersion = backup.appVersion,
         sources = backup.allSources.map(SourceConfig::name),
+        hosts = backup.hosts,
         favorites = backup.favorites.size,
         lists = backup.lists.size,
     )

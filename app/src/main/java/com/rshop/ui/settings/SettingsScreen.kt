@@ -440,6 +440,9 @@ private fun BackupDialogs(state: BackupUiState, viewModel: SettingsViewModel) {
                         pluralStringResource(R.plurals.backup_sources, preview.sources.size, preview.sources.size) +
                             preview.sources.takeIf { it.isNotEmpty() }?.joinToString(prefix = " : ").orEmpty(),
                     )
+                    if (preview.hosts.isNotEmpty()) {
+                        Text(stringResource(R.string.backup_hosts, preview.hosts.joinToString()))
+                    }
                     Text(pluralStringResource(R.plurals.backup_favorites, preview.favorites, preview.favorites))
                     Text(pluralStringResource(R.plurals.backup_lists, preview.lists, preview.lists))
                     Text(stringResource(R.string.backup_restore_note), style = MaterialTheme.typography.bodySmall, color = RShopColors.TextSecondary)
@@ -582,6 +585,7 @@ private fun updateErrorText(state: UpdateState.Failed): String {
         UpdateErrorKind.BadRelease -> stringResource(R.string.update_error_bad_release) + detail
         UpdateErrorKind.Metered -> stringResource(R.string.update_error_metered)
         UpdateErrorKind.Corrupt -> stringResource(R.string.update_error_corrupt) + detail
+        UpdateErrorKind.NoChecksum -> stringResource(R.string.update_error_no_checksum)
         UpdateErrorKind.NotRShop -> stringResource(R.string.update_error_not_rshop)
         UpdateErrorKind.InstallPermission -> stringResource(R.string.update_permission_desc)
         UpdateErrorKind.InstallFailed -> stringResource(R.string.update_error_install) + detail

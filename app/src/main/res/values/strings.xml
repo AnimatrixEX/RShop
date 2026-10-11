@@ -395,6 +395,7 @@
     <string name="update_error_bad_release">La dernière version publiée est inutilisable.</string>
     <string name="update_error_metered">Réseau mobile détecté et « Wi-Fi uniquement » est activé. Connecte-toi en Wi-Fi.</string>
     <string name="update_error_corrupt">Le fichier téléchargé est incomplet ou différent de celui publié. Appuie pour réessayer.</string>
+    <string name="update_error_no_checksum">Cette version ne publie pas de somme de contrôle (SHA-256) : elle ne peut pas être vérifiée, la mise à jour est refusée.</string>
     <string name="update_error_not_rshop">Le fichier publié n\'est pas une version de RShop.</string>
     <string name="update_error_install">Android a refusé l\'installation.</string>
 
@@ -441,6 +442,7 @@
         <item quantity="other">%d listes</item>
     </plurals>
     <string name="backup_restore_note">Les réglages sont remplacés. Les sources sont lues à nouveau ; les favoris dont le jeu n\'est pas encore dans le catalogue sont ajoutés après la synchronisation.</string>
+    <string name="backup_hosts">Serveurs contactés : %1$s</string>
     <string name="backup_restore_confirm">Restaurer</string>
     <string name="backup_saved_title">Sauvegarde enregistrée</string>
     <string name="backup_saved_body">Le fichier contient vos sources, favoris, listes et réglages. Les jeux installés restent dans le dossier des jeux ; la clé SteamGridDB et l\'accès au dossier ne sont pas sauvegardés.</string>
