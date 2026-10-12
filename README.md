@@ -59,4 +59,3 @@ The scraper (`:scraper`, pure JVM) respects `robots.txt`, rate-limits its reques
 
 RShop is free software, released under the [GNU General Public License v3.0](LICENSE). You may use, study, modify and share it, as long as derived works stay under the same license and come with their source.
 
-Version 0.2.4, personal project, tested on a Retroid Pocket 6. The game launcher is deliberately out of scope.
