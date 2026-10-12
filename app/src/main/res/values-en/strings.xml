@@ -143,6 +143,9 @@
     <string name="download_done_failed">Download failed</string>
     <string name="download_speed">%1$s/s</string>
     <string name="download_eta">%1$s left</string>
+    <string name="duration_hours_minutes">%1$d h %2$d min</string>
+    <string name="duration_minutes_seconds">%1$d min %2$d s</string>
+    <string name="duration_seconds">%1$d s</string>
     <string name="download_bytes">%1$s of %2$s</string>
     <string name="download_installed_bytes">%1$s extracted</string>
     <string name="download_verified">SHA-256 verified</string>
@@ -179,7 +182,7 @@
     <string name="sync_active_title">Automatic sync is on</string>
     <string name="sync_active_body">The catalogue is updated at launch, then download counters are read in the background.</string>
     <string name="sync_paused_title">Sync is paused</string>
-    <string name="sync_paused_body">Nothing is updated until you resume. Each source’s Sync button still work.</string>
+    <string name="sync_paused_body">Nothing is updated until you resume. Each source’s Sync button still works.</string>
     <string name="sync_pause">Pause</string>
     <string name="sync_resume">Resume</string>
     <string name="library_scan">Detect games already installed</string>

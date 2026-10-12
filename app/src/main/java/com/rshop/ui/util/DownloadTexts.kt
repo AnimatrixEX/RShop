@@ -77,13 +77,14 @@ fun downloadProgressLine(task: DownloadTask): String {
     return parts.joinToString(" · ")
 }
 
+@Composable
 fun formatDuration(totalSeconds: Long): String {
-    val h = totalSeconds / 3600
-    val m = (totalSeconds % 3600) / 60
-    val s = totalSeconds % 60
+    val h = (totalSeconds / 3600).toInt()
+    val m = ((totalSeconds % 3600) / 60).toInt()
+    val s = (totalSeconds % 60).toInt()
     return when {
-        h > 0 -> "$h h $m min"
-        m > 0 -> "$m min $s s"
-        else -> "$s s"
+        h > 0 -> stringResource(R.string.duration_hours_minutes, h, m)
+        m > 0 -> stringResource(R.string.duration_minutes_seconds, m, s)
+        else -> stringResource(R.string.duration_seconds, s)
     }
 }

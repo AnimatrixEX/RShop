@@ -151,6 +151,9 @@
     <string name="download_done_failed">Échec du téléchargement</string>
     <string name="download_speed">%1$s/s</string>
     <string name="download_eta">reste %1$s</string>
+    <string name="duration_hours_minutes">%1$d h %2$d min</string>
+    <string name="duration_minutes_seconds">%1$d min %2$d s</string>
+    <string name="duration_seconds">%1$d s</string>
     <string name="download_bytes">%1$s / %2$s</string>
     <string name="download_installed_bytes">%1$s extraits</string>
     <string name="download_verified">SHA-256 vérifié</string>
