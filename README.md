@@ -55,4 +55,8 @@ Requires Android 13+ and an **arm64** CPU. About 200 MB, mostly GeckoView.
 
 The scraper (`:scraper`, pure JVM) respects `robots.txt`, rate-limits its requests, **never bypasses** CAPTCHAs, anti-bot protection, DRM, paywalls or logins, never silently downloads executables, and validates URLs, sizes, file types, hashes and extraction paths. Only add sources whose content you are allowed to use; you are responsible for what you download.
 
+## License
+
+RShop is free software, released under the [GNU General Public License v3.0](LICENSE). You may use, study, modify and share it, as long as derived works stay under the same license and come with their source.
+
 Version 0.2.4, personal project, tested on a Retroid Pocket 6. The game launcher is deliberately out of scope.
